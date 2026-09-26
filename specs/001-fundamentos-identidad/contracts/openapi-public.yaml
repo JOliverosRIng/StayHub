@@ -1,0 +1,341 @@
+openapi: 3.0.3
+info:
+  title: StayHub Identity Public API
+  version: 1.0.0
+  description: Public HTTPS contract exposed by the NestJS API Gateway.
+servers:
+  - url: https://localhost:8443/api/v1
+tags:
+  - name: Authentication
+  - name: Profile
+paths:
+  /auth/register:
+    post:
+      tags: [Authentication]
+      operationId: register
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Account completed and active.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /auth/login:
+    post:
+      tags: [Authentication]
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Authenticated; also sets the HttpOnly refresh cookie.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: Secure HttpOnly refresh cookie scoped to the refresh route.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      operationId: refresh
+      security: [{ refreshCookie: [] }]
+      responses:
+        '200':
+          description: Session renewed without extending its absolute expiry.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: Rotated Secure HttpOnly refresh cookie.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /auth/validate:
+    get:
+      tags: [Authentication]
+      operationId: validateAccess
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Current authenticated principal.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Principal' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /users/{userId}/profile:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Profile]
+      operationId: getOwnProfile
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Profile belonging to the authenticated identity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    patch:
+      tags: [Profile]
+      operationId: updateOwnProfile
+      security: [{ bearerAuth: [] }]
+      description: >-
+        Atomic partial update. The profile part is JSON. Omitted properties are preserved;
+        null clears phone, preferences or photo. A binary photo replaces the current photo.
+        Supplying a photo file together with profile.photo=null is invalid. A request with only
+        expectedVersion and no field/photo change is also invalid.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [profile]
+              properties:
+                profile:
+                  $ref: '#/components/schemas/ProfilePatch'
+                photo:
+                  type: string
+                  format: binary
+                  description: JPEG or PNG, maximum 5 MiB.
+            encoding:
+              profile:
+                contentType: application/json
+              photo:
+                contentType: image/jpeg, image/png
+      responses:
+        '200':
+          description: Complete updated profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /users/{userId}/profile/photo:
+    get:
+      tags: [Profile]
+      operationId: getOwnProfilePhoto
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Current profile photo.
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: stayhub_refresh
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    Role:
+      type: string
+      enum: [GUEST, OWNER, ADMIN]
+    PublicRegistrationRole:
+      type: string
+      enum: [GUEST, OWNER]
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [name, email, password, role]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, format: password, minLength: 8, maxLength: 128, writeOnly: true }
+        role: { $ref: '#/components/schemas/PublicRegistrationRole' }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, format: password, maxLength: 128, writeOnly: true }
+    UserSummary:
+      type: object
+      additionalProperties: false
+      required: [id, name, email, role]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/Role' }
+    TokenResponse:
+      type: object
+      additionalProperties: false
+      required: [accessToken, tokenType, expiresIn, user]
+      properties:
+        accessToken: { type: string }
+        tokenType: { type: string, enum: [Bearer] }
+        expiresIn: { type: integer, enum: [3600] }
+        user:
+          $ref: '#/components/schemas/Principal'
+    Principal:
+      type: object
+      additionalProperties: false
+      required: [userId, sessionId, role]
+      properties:
+        userId: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        role: { $ref: '#/components/schemas/Role' }
+    ScalarPreference:
+      oneOf:
+        - { type: string }
+        - { type: number }
+        - { type: boolean }
+    Preferences:
+      type: object
+      maxProperties: 20
+      additionalProperties: { $ref: '#/components/schemas/ScalarPreference' }
+    Profile:
+      type: object
+      additionalProperties: false
+      required: [id, name, email, role, version]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, minLength: 2, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 254 }
+        role: { $ref: '#/components/schemas/Role' }
+        phone: { type: string, nullable: true, pattern: '^\+[1-9][0-9]{7,14}$' }
+        preferences:
+          allOf: [{ $ref: '#/components/schemas/Preferences' }]
+          nullable: true
+        photoUrl: { type: string, format: uri, nullable: true }
+        version: { type: integer, minimum: 1 }
+    ProfilePatch:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 2, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 254 }
+        phone: { type: string, nullable: true, pattern: '^\+[1-9][0-9]{7,14}$' }
+        preferences:
+          allOf: [{ $ref: '#/components/schemas/Preferences' }]
+          nullable: true
+        photo:
+          type: string
+          nullable: true
+          enum: [null]
+          description: Explicit null removes the current photo; omit to preserve it.
+    FieldError:
+      type: object
+      required: [field, code]
+      properties:
+        field: { type: string }
+        code: { type: string }
+        message: { type: string }
+    Problem:
+      type: object
+      required: [type, title, status, code, traceId]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        code: { type: string }
+        traceId: { type: string }
+        errors:
+          type: array
+          items: { $ref: '#/components/schemas/FieldError' }
+  responses:
+    BadRequest:
+      description: Invalid or unknown input; no changes applied.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unauthorized:
+      description: Missing or invalid authentication; login errors remain generic.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Authenticated but not authorized for the target.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Own requested resource is absent.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: Email, version or idempotency conflict; no changes applied.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    PayloadTooLarge:
+      description: Request or photo exceeds configured size.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    UnsupportedMediaType:
+      description: Photo is not a valid JPEG or PNG.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    TooManyRequests:
+      description: Login rate limit exceeded without revealing account existence.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unavailable:
+      description: An authoritative dependency is unavailable; operation fails closed.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }

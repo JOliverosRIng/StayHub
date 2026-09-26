@@ -1,0 +1,237 @@
+openapi: 3.0.3
+info:
+  title: StayHub Users Service API
+  version: 1.0.0
+  description: Internal REST API; users-service owns identity, role and profile data.
+servers:
+  - url: http://users-service:3002
+paths:
+  /internal/v1/registrations:
+    post:
+      operationId: createPendingUser
+      security: [{ serviceAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PendingUserCommand' }
+      responses:
+        '201':
+          description: Pending user created or same command replayed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserSummary' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /internal/v1/registrations/{registrationId}/activate:
+    post:
+      operationId: activatePendingUser
+      security: [{ serviceAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/RegistrationId'
+      responses:
+        '200':
+          description: User ACTIVE; replay is idempotent.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserSummary' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /internal/v1/registrations/{registrationId}/cancel:
+    post:
+      operationId: cancelPendingUser
+      security: [{ serviceAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/RegistrationId'
+      responses:
+        '204': { description: Pending user cancelled; replay is idempotent. }
+        '409': { $ref: '#/components/responses/Problem' }
+  /internal/v1/login-identities/resolve:
+    post:
+      operationId: resolveLoginIdentity
+      security: [{ serviceAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+      responses:
+        '200':
+          description: Minimal ACTIVE identity.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [userId, role, status]
+                properties:
+                  userId: { type: string, format: uuid }
+                  role: { $ref: '#/components/schemas/Role' }
+                  status: { type: string, enum: [ACTIVE] }
+        '404': { $ref: '#/components/responses/Problem' }
+  /internal/v1/users/{userId}/profile:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      operationId: getProfile
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Sanitized profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: updateProfile
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [profile]
+              properties:
+                profile: { $ref: '#/components/schemas/ProfilePatch' }
+                photo: { type: string, format: binary }
+            encoding:
+              profile: { contentType: application/json }
+              photo: { contentType: 'image/jpeg, image/png' }
+      responses:
+        '200':
+          description: Atomic update complete.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+        '415': { $ref: '#/components/responses/Problem' }
+  /internal/v1/users/{userId}/profile/photo:
+    get:
+      operationId: getProfilePhoto
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: JPEG/PNG bytes.
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /health/live:
+    get:
+      operationId: usersLiveness
+      responses:
+        '200': { description: Process is alive. }
+  /health/ready:
+    get:
+      operationId: usersReadiness
+      responses:
+        '200': { description: Database is ready. }
+        '503': { description: Database is unavailable. }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    serviceAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Service-JWT
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RegistrationId:
+      name: registrationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    Role:
+      type: string
+      enum: [GUEST, OWNER, ADMIN]
+    PendingUserCommand:
+      type: object
+      additionalProperties: false
+      required: [registrationId, userId, name, email, role]
+      properties:
+        registrationId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        name: { type: string, minLength: 2, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 254 }
+        role: { type: string, enum: [GUEST, OWNER] }
+    UserSummary:
+      type: object
+      required: [id, name, email, role, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/Role' }
+        status: { type: string, enum: [PENDING, ACTIVE, CANCELLED] }
+    Preferences:
+      type: object
+      maxProperties: 20
+      additionalProperties:
+        oneOf: [{ type: string }, { type: number }, { type: boolean }]
+    Profile:
+      type: object
+      required: [id, name, email, role, version]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/Role' }
+        phone: { type: string, nullable: true }
+        preferences:
+          allOf: [{ $ref: '#/components/schemas/Preferences' }]
+          nullable: true
+        photoUrl: { type: string, nullable: true }
+        version: { type: integer, minimum: 1 }
+    ProfilePatch:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 2, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 254 }
+        phone: { type: string, nullable: true, pattern: '^\+[1-9][0-9]{7,14}$' }
+        preferences:
+          allOf: [{ $ref: '#/components/schemas/Preferences' }]
+          nullable: true
+        photo: { type: string, nullable: true, enum: [null] }
+    Problem:
+      type: object
+      required: [type, title, status, code, traceId]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code: { type: string }
+        traceId: { type: string }
+  responses:
+    Problem:
+      description: Safe Problem Details response.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }

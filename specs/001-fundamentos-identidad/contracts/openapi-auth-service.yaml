@@ -1,0 +1,172 @@
+openapi: 3.0.3
+info:
+  title: StayHub Auth Service API
+  version: 1.0.0
+  description: Internal REST API consumed by the gateway; port 3001 is not publicly exposed.
+servers:
+  - url: http://auth-service:3001
+paths:
+  /internal/v1/registrations:
+    post:
+      operationId: orchestrateRegistration
+      security: [{ serviceAuth: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterCommand' }
+      responses:
+        '201':
+          description: User and credential are ACTIVE.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserSummary' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/login:
+    post:
+      operationId: login
+      security: [{ serviceAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginCommand' }
+      responses:
+        '200':
+          description: New session and token pair.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InternalTokenPair' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/sessions/refresh:
+    post:
+      operationId: rotateRefreshToken
+      security: [{ serviceAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string, writeOnly: true }
+      responses:
+        '200':
+          description: Rotated pair; absolute session expiry unchanged.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InternalTokenPair' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/sessions/validate:
+    post:
+      operationId: validateSession
+      security: [{ serviceAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [sessionId, userId]
+              properties:
+                sessionId: { type: string, format: uuid }
+                userId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Session is ACTIVE.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [active]
+                properties:
+                  active: { type: boolean, enum: [true] }
+        '401': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /health/live:
+    get:
+      operationId: authLiveness
+      responses:
+        '200': { description: Process is alive. }
+  /health/ready:
+    get:
+      operationId: authReadiness
+      responses:
+        '200': { description: Required dependencies are ready. }
+        '503': { description: A required dependency is unavailable. }
+components:
+  securitySchemes:
+    serviceAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Service-JWT
+  schemas:
+    RegisterCommand:
+      type: object
+      additionalProperties: false
+      required: [name, email, password, role]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, format: password, minLength: 8, maxLength: 128, writeOnly: true }
+        role: { type: string, enum: [GUEST, OWNER] }
+    LoginCommand:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, format: password, maxLength: 128, writeOnly: true }
+    UserSummary:
+      type: object
+      required: [id, name, email, role]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [GUEST, OWNER, ADMIN] }
+    InternalTokenPair:
+      type: object
+      additionalProperties: false
+      required: [accessToken, refreshToken, expiresIn, absoluteExpiresAt, principal]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer, enum: [3600] }
+        absoluteExpiresAt: { type: string, format: date-time }
+        principal:
+          type: object
+          required: [userId, sessionId, role]
+          properties:
+            userId: { type: string, format: uuid }
+            sessionId: { type: string, format: uuid }
+            role: { type: string, enum: [GUEST, OWNER, ADMIN] }
+    Problem:
+      type: object
+      required: [type, title, status, code, traceId]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code: { type: string }
+        traceId: { type: string }
+  responses:
+    Problem:
+      description: Safe error response; secrets and account existence are never disclosed.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
