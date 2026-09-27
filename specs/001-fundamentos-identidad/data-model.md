@@ -103,6 +103,7 @@ both are ACTIVE. Same idempotency key with a different fingerprint is a conflict
 |---|---|---|
 | `id` | UUID | Primary key; JWT `sid` |
 | `userId` | UUID | External reference; indexed |
+| `role` | enum | `GUEST`, `OWNER`, `ADMIN`; copied from the ACTIVE User at login and immutable for this session |
 | `createdAt` | timestamptz | Login time |
 | `absoluteExpiresAt` | timestamptz | Exactly `createdAt + 7 days`; never extended |
 | `revokedAt` | timestamptz, nullable | Set on replay/manual invalidation |
@@ -142,7 +143,7 @@ Access JWT is not persisted as a domain entity. It projects:
 |---|---|
 | `sub` | User id returned by Users |
 | `sid` | Session id |
-| `role` | Current Users role at login/refresh |
+| `role` | Immutable Session role captured from the ACTIVE User at login |
 | `jti` | New access-token UUID |
 | `iss` | Configured StayHub auth issuer |
 | `aud` | StayHub API audience |
@@ -154,6 +155,10 @@ Email and profile fields are deliberately absent.
 ## Aggregate invariants
 
 - Only ACTIVE User + ACTIVE Credential may create a Session.
+- A PENDING User/Credential is never visible or authenticable; reconciliation must converge to
+  both ACTIVE or cancel/expire the incomplete registration.
+- Session role equals the Users role resolved at login and does not change during that session;
+  any future role-management flow must revoke affected sessions before applying a new role.
 - Every active RefreshToken belongs to one non-revoked Session; a Session has at most one
   active refresh token after a committed rotation.
 - Refresh expiry never exceeds Session absolute expiry.

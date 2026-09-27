@@ -27,6 +27,12 @@ capacidades de alojamientos, búsqueda, reservas ni administración general de u
 - Q: ¿Cómo debe distinguir el sistema entre credenciales inválidas, autenticación inválida y falta de autorización? → A: Login inválido y autenticación ausente, inválida o vencida devuelven 401; falta de permiso o acceso a otro perfil devuelve 403; nunca se aplican cambios.
 - Q: ¿Qué contrato de validación debe aplicarse al editar los campos permitidos del perfil? → A: Nombre de 2–100 caracteres; correo válido de máximo 254; teléfono E.164; foto JPEG/PNG de máximo 5 MB; hasta 20 preferencias escalares; null elimina datos opcionales y todo campo desconocido o restringido rechaza la actualización con 400.
 
+### Session 2026-09-26
+
+- Q: ¿Cómo se cierran las decisiones pendientes detectadas antes de implementar? → A: La creación o cambio de rol `ADMIN` queda como dependencia externa; los estados internos `PENDING` son válidos mientras nunca sean visibles ni autenticables; la contraseña de registro admite 8–128 caracteres sin transformación automática; y el rol queda fijado al iniciar la sesión y es la autoridad durante toda ella.
+- Q: ¿Qué límites de abuso son observables? → A: Registro admite 10 solicitudes por origen de red en 10 minutos; login admite 30 intentos por origen en 5 minutos y 5 fallos por identificador normalizado en 15 minutos. Al excederlos se responde 429 con `Retry-After`; un login correcto limpia el contador del identificador y toda ventana se recupera automáticamente al vencer.
+- Q: ¿Cómo se medirán los criterios no funcionales? → A: Rendimiento usa el perfil reproducible definido en el plan; usabilidad usa 20 participantes representativos sin experiencia previa con StayHub y evidencia agregada desidentificada; el tiempo de confirmación de perfil se mide en 20 recorridos exitosos de navegador.
+
 ### Actors
 
 - **Visitante**: persona sin sesión que puede registrarse e iniciar sesión.
@@ -191,20 +197,25 @@ cambios.
 - **FR-002**: El sistema MUST reconocer exactamente los roles de huésped, propietario y
   administrador definidos por el proyecto.
 - **FR-003**: El sistema MUST validar la presencia y formato de los datos obligatorios antes de
-  crear una cuenta.
+  crear una cuenta. La contraseña de registro MUST contener entre 8 y 128 caracteres y MUST
+  evaluarse exactamente como fue introducida, sin recorte, cambio de mayúsculas ni normalización.
 - **FR-004**: El sistema MUST recortar los espacios exteriores y comparar el correo sin
   distinguir mayúsculas de minúsculas para impedir que dos cuentas compartan correos
   equivalentes.
-- **FR-005**: El sistema MUST crear el usuario y su asignación de rol como una única operación,
-  sin dejar registros parciales si el proceso falla.
+- **FR-005**: El sistema MUST exponer el registro como una única operación: solo puede confirmar
+  éxito cuando usuario, rol y credencial estén completos y activos. Los estados internos de
+  recuperación MUST permanecer invisibles y no autenticables, y MUST finalizar como activos o
+  cancelados mediante reintento, reconciliación o expiración.
 - **FR-006**: El sistema MUST impedir que los reintentos accidentales de registro creen cuentas
   duplicadas.
 - **FR-007**: El sistema MUST permitir iniciar sesión a un usuario registrado mediante sus
   credenciales válidas.
 - **FR-008**: El sistema MUST rechazar credenciales incorrectas con estado 401 y un mensaje
   genérico que no revele cuál dato fue incorrecto ni si la cuenta existe.
-- **FR-009**: El sistema MUST asociar cada sesión autenticada con una identidad y un rol
-  vigentes.
+- **FR-009**: El sistema MUST asociar cada sesión autenticada con la identidad y el rol vigentes
+  al iniciar sesión. Ese rol MUST quedar fijado como autoridad de la sesión, conservarse en sus
+  renovaciones y utilizarse al validar acceso. Cualquier proceso futuro que cambie un rol MUST
+  revocar las sesiones afectadas antes de que el cambio sea efectivo.
 - **FR-010**: Al iniciar sesión, el sistema MUST emitir un access token válido por 1 hora y un
   refresh token con vencimiento absoluto a los 7 días desde el login. Cada renovación MUST
   invalidar el refresh token presentado y emitir un access token y un refresh token nuevos sin
@@ -276,28 +287,31 @@ cambios.
 - **BR-005**: Los cambios inválidos o no autorizados no pueden modificar parcialmente una
   cuenta o perfil.
 - **BR-006**: El registro público MUST NOT permitir solicitar el rol administrador. Su
-  asignación requiere un proceso interno autorizado; la gestión de roles de otros usuarios no
-  forma parte de esta feature.
+  aprovisionamiento y cualquier cambio de rol son una dependencia externa y no forman parte de
+  esta feature; las pruebas usan únicamente cuentas `ADMIN` preaprovisionadas o fixtures.
 - **BR-007**: Una sesión solo puede renovarse antes de cumplirse 7 días desde el login y
   mientras su refresh token vigente conserve validez; la renovación no extiende ese límite.
 - **BR-008**: Las preferencias son opcionales; nombre, correo y contraseña son obligatorios
   para el registro.
+- **BR-009**: Los límites de abuso definidos para registro y login MUST aplicarse sin revelar si
+  una cuenta existe, MUST informar el tiempo de recuperación mediante `Retry-After` y MUST
+  recuperarse automáticamente al vencer su ventana.
 
 ### Scope Boundaries
 
 Esta feature incluye registro, asignación inicial autorizada de rol, inicio y renovación de
 sesión, validación de autenticación, consulta del perfil propio y edición de los campos
-indicados. Quedan fuera de alcance la recuperación o cambio de contraseña, verificación de
-correo, autenticación multifactor, eliminación de cuentas, administración de otras cuentas,
-cambio de roles desde el perfil y cualquier capacidad relacionada con alojamientos, búsquedas,
-reservas, pagos o reseñas.
+indicados. Quedan fuera de alcance el aprovisionamiento de administradores, los cambios de rol,
+la recuperación o cambio de contraseña, verificación de correo, autenticación multifactor,
+eliminación de cuentas, administración de otras cuentas y cualquier capacidad relacionada con
+alojamientos, búsquedas, reservas, pagos o reseñas.
 
 ### Traceability
 
 | Source | Covered by | Evidence expected |
 |--------|------------|-------------------|
 | RQ-01: edición del perfil | User Stories 3-4; FR-014 a FR-024 | Un usuario autenticado actualiza solo su perfil y los datos válidos persisten. |
-| RQ-02: crear usuario y asignar rol | User Story 1; FR-001 a FR-006 | Una cuenta única se crea con datos básicos y uno de los roles permitidos. |
+| RQ-02: crear usuario y asignar rol | User Story 1; FR-001 a FR-006 | Una cuenta única se crea públicamente como huésped o propietario; ADMIN se valida con cuenta preaprovisionada y su proceso de creación queda registrado como dependencia externa. |
 | Sprint 1: registro e inicio de sesión | User Stories 1-2; FR-001 a FR-013 | Un usuario puede registrarse, iniciar sesión y acceder a una operación protegida. |
 | Sprint 1: edición del perfil autenticado | User Stories 3-4; FR-014 a FR-023 | La edición válida se confirma y todo acceso ajeno se rechaza. |
 | Sprint 1: validación de autenticación | User Stories 2 y 4; FR-009 a FR-013 | Una identidad válida continúa; una autenticación ausente o inválida es denegada. |
@@ -325,11 +339,22 @@ comportamiento funcional dentro de esta especificación.
 - **SC-007**: El 100% de los criterios funcionales de RQ-01, RQ-02 y Sprint 1 incluidos en esta
   feature tiene al menos un escenario de aceptación y un requisito funcional trazable.
 
+**Measurement protocol**: SC-001 y SC-006 se evalúan en una única prueba moderada con 20
+participantes adultos representativos, sin experiencia previa con StayHub: 10 ejecutan el flujo
+como huésped y 10 como propietario; 10 reciben un registro inválido y 10 una actualización
+inválida. Todos usan el mismo navegador, dispositivo, datos iniciales, guion e instrucciones y
+no reciben ayuda tras iniciar. Todo intento iniciado cuenta. SC-001 aprueba con al menos 19/20
+registros y primeros login completados en menos de 3 minutos; SC-006 con al menos 18/20 campos
+incorrectos identificados sin pistas. SC-005 se mide desde el envío del perfil hasta la
+confirmación visible en 20 actualizaciones válidas de navegador y aprueba con al menos 19/20 en
+menos de 5 segundos. Se conserva consentimiento, guion, resultados agregados y evidencia
+desidentificada, nunca credenciales, tokens ni datos personales.
+
 ## Assumptions
 
 - El registro público permite solicitar los roles de huésped o propietario. El rol
-  administrador se asigna únicamente mediante un proceso autorizado ajeno a la edición del
-  perfil.
+  administrador solo puede existir aquí como cuenta previamente aprovisionada o fixture; el
+  proceso que lo crea o cambia roles es una dependencia externa a esta feature.
 - El correo es el identificador funcional utilizado durante el inicio de sesión.
 - El teléfono, la foto y las preferencias pueden ser opcionales, mientras que nombre, correo y
   contraseña son obligatorios al registrar la cuenta.

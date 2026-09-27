@@ -31,6 +31,7 @@ paths:
               schema: { $ref: '#/components/schemas/UserSummary' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '503': { $ref: '#/components/responses/Unavailable' }
   /auth/login:
     post:
@@ -195,7 +196,13 @@ components:
       properties:
         name: { type: string, minLength: 2, maxLength: 100 }
         email: { type: string, format: email, maxLength: 254 }
-        password: { type: string, format: password, minLength: 8, maxLength: 128, writeOnly: true }
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          writeOnly: true
+          description: Evaluated exactly as supplied; no trimming, case folding or Unicode normalization.
         role: { $ref: '#/components/schemas/PublicRegistrationRole' }
     LoginRequest:
       type: object
@@ -330,7 +337,11 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
     TooManyRequests:
-      description: Login rate limit exceeded without revealing account existence.
+      description: Registration or login rate limit exceeded without revealing account existence.
+      headers:
+        Retry-After:
+          description: Seconds until this request may be retried.
+          schema: { type: integer, minimum: 1 }
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }

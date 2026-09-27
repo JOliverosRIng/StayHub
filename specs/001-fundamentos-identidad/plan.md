@@ -24,21 +24,26 @@ la sesión.
 
 **Primary Dependencies**: Passport (`passport-local`, `passport-jwt`), `@nestjs/jwt`,
 `@nestjs/swagger`, Prisma ORM 6.x, Argon2id, OpenTelemetry SDK, React Router, Axios, TanStack
-Query, Vite, Jest, React Testing Library, Supertest y Playwright.
+Query, Vite, Jest, React Testing Library, Supertest, Playwright y k6.
 
 **Storage**: `auth_db` y `users_db` en PostgreSQL 16; Redis 7 como caché no autoritativa de
-sesiones, con fallback a PostgreSQL; foto en `BYTEA` de `users_db`. RabbitMQ 3-management se
-incluye en Compose, pero esta feature no publica eventos porque no existe consumidor.
+sesiones, con fallback a PostgreSQL, y autoridad efímera de contadores antiabuso; foto en
+`BYTEA` de `users_db`. RabbitMQ 3-management se incluye en Compose, pero esta feature no publica
+eventos porque no existe consumidor.
 
 **Testing**: Jest/RTL para unidad, PostgreSQL real y Supertest para integración, validación de
-OpenAPI y Playwright sobre Docker Compose para E2E; cobertura mínima 70% del código afectado.
+OpenAPI, Playwright sobre Docker Compose para E2E y k6 para rendimiento; cobertura mínima 70%
+del código afectado.
 
 **Target Platform**: contenedores Linux mediante Docker Compose y navegadores modernos.
 
 **Project Type**: aplicación web distribuida en monorepo.
 
-**Performance Goals**: p95 menor de 500 ms para consulta de perfil y validación de acceso bajo
-la carga acordada; confirmación de perfil en menos de 5 s en al menos 95% de pruebas (SC-005).
+**Performance Goals**: después de 30 s de calentamiento, sostener durante 2 minutos dos flujos
+simultáneos de 25 solicitudes/s —consulta de perfil propio y validación de acceso— con selección
+uniforme entre 100 usuarios `ACTIVE`, p95 menor de 500 ms por operación y menos de 1% de errores
+inesperados. En navegador, al menos 19 de 20 actualizaciones válidas muestran confirmación en
+menos de 5 s (SC-005).
 
 **Constraints**: HTTPS en el borde; secretos fuera del repositorio; validación JWT en gateway y
 servicio; whitelist de entradas; correo normalizado único; actualizaciones locales atómicas;
@@ -61,7 +66,8 @@ Swagger y Docker Compose. Las nuevas elecciones están justificadas en
 
 ## Constitution Check
 
-*GATE inicial y posterior a Phase 1: PASS.*
+*GATE inicial y posterior a Phase 1: PASS tras registrar y reconciliar las decisiones cerradas
+el 2026-09-26.*
 
 | Gate | Diseño y evidencia | Estado |
 |---|---|---|
@@ -75,8 +81,11 @@ Swagger y Docker Compose. Las nuevas elecciones están justificadas en
 | Verificación | Unidad, integración, contrato y E2E; negativos/concurrencia; cobertura ≥70%. | PASS |
 | Docker | Compose, healthchecks, migraciones, secretos y restart explícito. | PASS |
 
-La reevaluación posterior al diseño mantiene todos los gates en `PASS`. No se comparte base,
-no se incorpora un segundo ORM y no se usa mensajería en operaciones autoritativas.
+La reevaluación posterior al diseño mantiene todos los gates en `PASS`. ADMIN queda como
+dependencia externa, `PENDING` cumple atomicidad observable, la contraseña y los límites de
+abuso están definidos, el rol autoritativo se fija por sesión y la verificación no funcional es
+reproducible. No se comparte base, no se incorpora un segundo ORM y no se usa mensajería en
+operaciones autoritativas.
 
 ## Services and Responsibilities
 
@@ -101,7 +110,7 @@ no se incorpora un segundo ORM y no se usa mensajería en operaciones autoritati
 - Posee usuario, correo normalizado/único, rol, estado, perfil, foto y versión.
 - Resuelve correo para login, participa en registro y actualiza el perfil transaccionalmente.
 - Revalida JWT y ownership. Todos los roles editan solo su propio perfil; ningún endpoint
-  público asigna `ADMIN`.
+  público asigna `ADMIN`; su aprovisionamiento y todo cambio de rol quedan fuera de esta feature.
 
 ### Frontend `web`
 
@@ -137,7 +146,11 @@ de negocio, entidades ORM ni acceso a datos.
 
 ### Registration
 
-1. Web genera `Idempotency-Key` UUID y envía nombre, correo, contraseña y rol al gateway.
+1. Gateway limita a 10 solicitudes por origen de red en una ventana móvil de 10 minutos; cuenta
+   todo intento y responde `429` con `Retry-After` desde el undécimo. Web genera
+   `Idempotency-Key` UUID y envía nombre, correo, contraseña de 8–128 caracteres sin transformarla
+   y rol al gateway. El origen es la IP del socket salvo que la conexión provenga de un proxy
+   incluido en una allowlist explícita, en cuyo caso se usa su dirección de cliente validada.
 2. Auth crea o reanuda una `Registration` durable. Misma clave+payload devuelve igual resultado;
    misma clave+payload distinto devuelve `409`.
 3. Users normaliza el correo con `trim().toLowerCase()`, aplica índice único y crea usuario y
@@ -153,28 +166,36 @@ transportan secretos por mensajes.
 
 ### Login
 
-1. Gateway aplica rate limiting sin registrar PII y remite a Auth.
+1. Gateway limita a 30 intentos por origen de red en 5 minutos. Auth limita a 5 fallos por
+   HMAC del correo normalizado en 15 minutos, exista o no la cuenta; el sexto devuelve el mismo
+   `429` genérico con `Retry-After`. Un éxito limpia solo el contador del identificador. Los
+   contadores viven en Redis sin correo en claro; si la autoridad no está disponible, se falla
+   cerrado con `503`.
 2. Auth normaliza correo y llama a Users; este devuelve solo `{userId, role, status}` si ACTIVE.
 3. Auth verifica Argon2id por `userId`. Correo inexistente, estado no activo o contraseña
    incorrecta devuelven igual `401 INVALID_CREDENTIALS`, con coste comparable.
-4. Auth crea sesión con `absoluteExpiresAt = login + 7 días`, primer refresh y access JWT de
-   3600 s. Gateway devuelve access token y coloca refresh cookie.
+4. Auth copia el rol ACTIVE resuelto a una sesión inmutable, crea `absoluteExpiresAt = login +
+   7 días`, primer refresh y access JWT de 3600 s. Gateway devuelve access token y coloca
+   refresh cookie.
 
 ### Refresh
 
 1. Gateway toma la cookie; no acepta refresh desde body/localStorage.
 2. Auth hashea/HMAC el valor, abre transacción y bloquea sesión/token.
 3. Si están activos y dentro del límite, marca token `CONSUMED`, inserta reemplazo `ACTIVE`,
-   emite JWT de una hora y rota cookie sin extender `absoluteExpiresAt`.
+   emite JWT de una hora con el rol inmutable de la sesión y rota cookie sin extender
+   `absoluteExpiresAt`.
 4. Token ausente, aleatorio, vencido o sesión revocada devuelve `401` y limpia cookie.
 5. Token consumido prueba replay: revoca la sesión/familia y sucesores, invalida caché y exige
    login. Dos refresh concurrentes producen la misma detección; el frontend los serializa.
 
 ### JWT and authorization
 
-- Claims: `sub`, `sid`, `role`, `jti`, `iss`, `aud`, `iat`, `exp`; sin PII ni secretos.
-- Passport fija RS256, issuer y audience. Gateway introspecciona `sid` para revocación inmediata;
-  Users repite firma/claims y compara `sub` con el usuario objetivo.
+- Claims: `sub`, `sid`, `role`, `jti`, `iss`, `aud`, `iat`, `exp`; sin PII ni secretos. `role` es
+  la copia autoritativa e inmutable guardada en la sesión al hacer login.
+- Passport fija RS256, issuer y audience. Gateway introspecciona `sid` y recibe `active` y `role`;
+  rechaza diferencias entre el claim y la sesión. Users repite firma/claims y compara `sub` con
+  el usuario objetivo. Un proceso futuro de cambio de rol debe revocar primero las sesiones.
 - Orden: autenticación (`401`), rol/ownership (`403`). `ADMIN` no accede a perfiles ajenos en
   esta feature.
 
@@ -258,6 +279,18 @@ exigirá outbox, esquema/versionado, routing, retry y DLQ antes de publicarse.
   login sin enumeración; JWT válido/manipulado/vencido; refresh, límite, replay/concurrencia;
   401/403; perfil propio/ajeno; atomicidad, conflicto, cambio de correo y fotos.
 - Verificar ausencia de secretos/PII en respuestas y logs; cobertura afectada ≥70%.
+
+### Acceptance, usability and performance
+
+- Playwright mide SC-005 desde el envío hasta la confirmación visible en 20 actualizaciones
+  válidas; exige al menos 19 resultados menores de 5 s.
+- Una prueba moderada con 20 participantes sin experiencia previa, divididos 10 huésped/10
+  propietario y 10 registro inválido/10 actualización inválida, conserva evidencia agregada y
+  desidentificada; exige 19/20 para SC-001 y 18/20 para SC-006 sin asistencia.
+- k6, fijado por versión/digest en CI, ejecuta HTTPS con validación TLS sobre Compose: 100
+  usuarios `ACTIVE`, 30 s de calentamiento y 2 minutos de medición con 25 solicitudes/s por cada
+  operación. Umbrales: `p(95)<500 ms` por operación y errores inesperados `<1%`; se registran
+  commit, runner, recursos, fecha, versión/digest y resultados.
 
 ## Docker and Operations
 

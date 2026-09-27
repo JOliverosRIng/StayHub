@@ -60,6 +60,39 @@ resultado funcional completo mientras el estado durable permite recuperar timeou
 **Alternatives considered**: 2PC no está soportado; DB compartida viola ownership; RabbitMQ
 eventual no da respuesta autoritativa y nunca debe transportar contraseña.
 
+## Closed product boundaries and validation
+
+**Decision**: el aprovisionamiento/cambio de `ADMIN` queda fuera de esta feature; solo se usan
+cuentas preaprovisionadas o fixtures. La atomicidad de registro es observable: ningún `PENDING`
+es visible o autenticable y toda ejecución converge a `ACTIVE` completo o `CANCELLED`. La
+contraseña de registro admite 8–128 caracteres sin recorte, cambio de mayúsculas ni normalización.
+
+**Rationale**: resuelve RQ-02 para los roles públicamente asignables sin inventar una API
+administrativa, permite recuperación durable entre bases independientes y alinea spec, modelo y
+contratos con una regla de contraseña explícita.
+
+**Alternatives considered**: incluir gestión ADMIN ampliaría el alcance; prohibir persistencia
+transitoria haría inviable la recuperación distribuida; dejar la longitud implícita mantendría
+una restricción contractual sin requisito aprobado.
+
+## Abuse limits
+
+**Decision**: registro usa 10 solicitudes/origen/10 min; login usa 30 intentos/origen/5 min más
+5 fallos/HMAC(correo normalizado)/15 min. Se cuenta registro desde la entrada y el límite por
+identificador aunque la cuenta no exista; `429` incluye `Retry-After`, un login correcto limpia
+solo el contador del identificador y las ventanas expiran automáticamente. Redis es autoridad y
+su indisponibilidad produce `503`.
+
+**Rationale**: los límites son comprobables, evitan enumeración y no almacenan correo en claro.
+La combinación origen/identificador reduce abuso distribuido sin depender de una sola señal. El
+origen usa la IP del socket y solo confía en cabeceras de cliente cuando el proxy está en una
+allowlist explícita, evitando que el solicitante falsifique la clave del contador.
+
+**Alternatives considered**: un límite indefinido no es verificable; limitar solo por correo
+permite distribución y solo por IP perjudica más a redes compartidas. Fallar abierto anula la
+protección cuando su autoridad no está disponible; el límite por IP conserva el riesgo conocido
+de afectar redes NAT compartidas y debe observarse sin relajar automáticamente el umbral.
+
 ## Gateway
 
 **Decision**: gateway NestJS como único borde HTTPS `/api/v1`; no añadir Nginx ni Kong.
@@ -81,6 +114,20 @@ NestJS respalda bearer JWT, guards y verificación de `exp`; separar authN/authZ
 
 **Alternatives considered**: HS256 compartiría capacidad de firma; validar solo en gateway
 dejaría Users sin defensa; incluir PII en JWT expone y queda obsoleta.
+
+### Authoritative session role
+
+**Decision**: Users resuelve el rol `ACTIVE` en login; Auth lo copia a `Session.role`, lo mantiene
+inmutable durante la sesión y lo devuelve en introspección. Cada JWT inicial o renovado usa esa
+copia y Gateway rechaza cualquier diferencia claim/sesión. Esta feature no cambia roles; una
+capacidad futura deberá revocar las sesiones antes o junto con el cambio.
+
+**Rationale**: elimina la ambigüedad de vigencia sin añadir una consulta cross-service en cada
+request o refresh, y hace que PostgreSQL de Auth siga siendo autoridad de la sesión.
+
+**Alternatives considered**: confiar solo en el claim permite manipulación/obsolescencia; leer
+Users en cada request aumenta acoplamiento y disponibilidad; mutar el rol de una sesión activa
+haría que tokens emitidos discreparan de su autoridad.
 
 Fuente: [NestJS Authentication](https://docs.nestjs.com/security/authentication).
 
@@ -163,6 +210,23 @@ logs JSON con `traceId`; cobertura afectada mínima 70%.
 
 **Alternatives considered**: solo unit tests o DB en memoria no prueban concurrencia,
 migraciones, contratos ni composición.
+
+## Acceptance measurement
+
+**Decision**: k6 ejecuta dos flujos HTTPS simultáneos de 25 solicitudes/s durante 2 minutos tras
+30 s de calentamiento, seleccionando uniformemente 100 usuarios `ACTIVE`; cada operación exige
+`p(95)<500 ms` y errores inesperados `<1%`. CI fija versión/digest y registra entorno/resultados.
+SC-001/SC-006 usan 20 participantes representativos sin experiencia previa, con el protocolo y
+umbrales definidos en la spec; SC-005 usa 20 recorridos Playwright exitosos de navegador.
+
+**Rationale**: convierte “carga acordada” y porcentajes de aceptación en pruebas repetibles con
+denominador, duración, dataset y evidencia explícitos. k6 soporta escenarios, umbrales y pruebas
+escritas en TypeScript/JavaScript, mientras Playwright mide la confirmación visible real.
+
+**Alternatives considered**: medir solo latencia API no valida SC-005; una muestra o carga sin
+tamaño, duración y reglas de conteo no permite decidir si el criterio fue cumplido.
+
+Fuente: [Grafana k6: escribir y ejecutar una prueba](https://grafana.com/docs/k6/latest/get-started/write-your-first-test/).
 
 ## Centralized logging
 

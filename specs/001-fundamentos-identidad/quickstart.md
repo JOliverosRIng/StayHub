@@ -60,6 +60,7 @@ management may be exposed only under the development profile.
 npm run test:integration
 npm run test:contract
 npm run test:e2e
+npm run test:performance
 ```
 
 The suites must use PostgreSQL 16, not an in-memory substitute, for uniqueness, transaction,
@@ -72,8 +73,9 @@ each run; do not paste real credentials into logs or issue trackers.
 
 ### 1. Register
 
-Call `POST /auth/register` with a UUID `Idempotency-Key` and valid `name`, `email`, `password`
-and role `GUEST` or `OWNER` as defined in
+Call `POST /auth/register` with a UUID `Idempotency-Key`, valid `name` and `email`, a password of
+8–128 characters supplied without trimming/case/Unicode transformation, and role `GUEST` or
+`OWNER` as defined in
 [the public contract](./contracts/openapi-public.yaml).
 
 Verify:
@@ -83,6 +85,8 @@ Verify:
 - Reusing the key with different data returns `409`.
 - `ADMIN`, unknown fields or invalid data return `400` and no ACTIVE account.
 - Concurrent equivalent emails (case/outer-space variants) produce one `201` and one `409`.
+- Eleven requests from one trusted client origin inside a rolling 10-minute window cause the
+  eleventh and subsequent requests to return generic `429` with an accurate `Retry-After`.
 
 ### 2. Login
 
@@ -93,15 +97,19 @@ Verify:
 - `200`, bearer access token, `expiresIn: 3600` and Secure HttpOnly refresh cookie.
 - Wrong password and unknown email return indistinguishable `401` Problem Details.
 - Old email stops working immediately after an email change; new email works.
-- Repeated failures eventually return `429` without confirming account existence.
+- More than 30 attempts from one trusted client origin in 5 minutes, or the sixth failed attempt
+  for one normalized identifier in 15 minutes, returns generic `429` with `Retry-After` without
+  confirming account existence. A successful login clears only the identifier counter.
 
 ### 3. Validate protected access
 
 Call `GET /auth/validate` with the bearer access token and then without it or with a modified
 token.
 
-Verify valid request is `200`; missing, modified or expired token is `401`. Use a second account
-to call `GET /users/{firstUserId}/profile`; it must return `403` and leave data untouched.
+Verify valid request is `200` with the role captured when the session was created; missing,
+modified or expired token is `401`, and a token role differing from session introspection is
+`401`. Refresh must preserve the same session role. Use a second account to call
+`GET /users/{firstUserId}/profile`; it must return `403` and leave data untouched.
 
 ### 4. Update profile atomically
 
@@ -140,6 +148,26 @@ Verify:
   hash, email, photo bytes or unnecessary PII is present.
 - Query centralized Loki logs by `traceId` and confirm the complete Gateway→Auth/Users path is
   available without secrets or raw personal data.
+
+## Acceptance evidence
+
+For SC-001 and SC-006, schedule one moderated study with 20 consenting adult participants from
+the target audience who have no prior StayHub experience. Assign 10 to the guest flow and 10 to
+the owner flow; give 10 an invalid registration and 10 an invalid profile update. Use the same
+browser, device class, seed data, script and instructions, and give no help after timing starts.
+Count every started attempt. Record only consent, script, aggregated results and de-identified
+evidence: SC-001 requires at least 19/20 complete registrations plus first logins under 3 minutes;
+SC-006 requires at least 18/20 correctly identified invalid fields without hints.
+
+For SC-005, Playwright runs 20 valid profile updates and measures from submit until the visible
+React confirmation; at least 19/20 must finish under 5 seconds.
+
+For the API benchmark, seed 100 `ACTIVE` users with independent sessions/tokens, then execute the
+pinned k6 image through `npm run test:performance` against Compose HTTPS without disabling TLS
+validation. Warm up for 30 seconds, then run simultaneous constant-arrival scenarios for 2
+minutes: 25 requests/s to own-profile GET and 25 requests/s to access validation, selecting users
+uniformly. CI fails unless each operation has `p(95)<500 ms` and unexpected errors stay below 1%.
+Record commit, runner/resources, date, k6 version/digest and the unaltered result summary.
 
 ## Swagger/OpenAPI checks
 
