@@ -1,0 +1,71 @@
+name: stayhub
+
+services:
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: stayhub_auth
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks: [auth-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stayhub_auth -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  auth-redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${AUTH_REDIS_PASSWORD}"]
+    networks: [auth-internal]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${AUTH_REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  auth-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/auth/Dockerfile
+      target: build
+    command: ["npm", "run", "prisma:migrate:deploy", "--workspace", "@stayhub/auth-service"]
+    env_file: ${AUTH_ENV_FILE:-.env}
+    networks: [auth-internal]
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    restart: "no"
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: infra/docker/auth/Dockerfile
+    env_file: ${AUTH_ENV_FILE:-.env}
+    networks: [auth-internal, services]
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      auth-redis:
+        condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: always
+
+networks:
+  auth-internal:
+    internal: true
+  services:
+    internal: true
+
+volumes:
+  auth-db-data:

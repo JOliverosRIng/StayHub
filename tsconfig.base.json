@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@auth/domain/*": ["apps/auth-service/src/domain/*"],
+      "@auth/application/*": ["apps/auth-service/src/application/*"],
+      "@auth/infrastructure/*": ["apps/auth-service/src/infrastructure/*"],
+      "@auth/interfaces/*": ["apps/auth-service/src/interfaces/*"],
+      "@auth/modules/*": ["apps/auth-service/src/modules/*"]
+    }
+  }
+}
+

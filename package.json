@@ -1,0 +1,25 @@
+{
+  "name": "stayhub",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/auth-service"
+  ],
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "scripts": {
+    "build": "npm run build --workspace @stayhub/auth-service",
+    "lint": "npm run lint --workspace @stayhub/auth-service",
+    "typecheck": "npm run typecheck --workspace @stayhub/auth-service",
+    "test": "npm run test --workspace @stayhub/auth-service",
+    "test:unit": "npm run test:unit --workspace @stayhub/auth-service",
+    "test:integration": "npm run test:integration --workspace @stayhub/auth-service",
+    "test:contract": "npm run test:contract --workspace @stayhub/auth-service",
+    "test:security": "npm run test:security --workspace @stayhub/auth-service",
+    "openapi:check": "node scripts/check-auth-openapi-syntax.mjs",
+    "prisma:generate": "npm run prisma:generate --workspace @stayhub/auth-service",
+    "prisma:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/auth-service",
+    "prisma:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/auth-service"
+  }
+}

@@ -1,0 +1,54 @@
+name: Auth Service CI
+
+on:
+  pull_request:
+    paths:
+      - 'apps/auth-service/**'
+      - 'infra/docker/auth/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'docker-compose.yml'
+      - 'specs/001-fundamentos-identidad/contracts/openapi-auth-service.yaml'
+  push:
+    branches: [main]
+
+jobs:
+  auth-quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: auth_test
+          POSTGRES_USER: auth_test
+          POSTGRES_PASSWORD: auth_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U auth_test -d auth_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_AUTH_DATABASE_URL: postgresql://auth_test:auth_test@localhost:5432/auth_test?schema=public
+      TEST_AUTH_REDIS_URL: redis://localhost:6379/15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:generate
+      - run: npm run prisma:migrate:deploy
+        env:
+          AUTH_DATABASE_URL: ${{ env.TEST_AUTH_DATABASE_URL }}
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test -- --coverage
+      - run: npm run openapi:check
+      - run: npm run build
+      - run: docker build --target runtime -f infra/docker/auth/Dockerfile .
