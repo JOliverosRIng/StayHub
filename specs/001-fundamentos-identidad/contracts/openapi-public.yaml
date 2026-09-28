@@ -126,7 +126,7 @@ paths:
                 photo:
                   type: string
                   format: binary
-                  description: JPEG or PNG, maximum 5 MiB.
+                  description: JPEG or PNG, maximum 5,000,000 bytes (5 MB decimal).
             encoding:
               profile:
                 contentType: application/json

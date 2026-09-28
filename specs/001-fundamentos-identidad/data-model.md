@@ -43,9 +43,9 @@ Constraints:
 | Field | Type | Rules |
 |---|---|---|
 | `userId` | UUID | PK and FK to User within `users_db`; one-to-zero/one |
-| `content` | bytea | Required; maximum 5 MiB |
+| `content` | bytea | Required; maximum 5,000,000 bytes (5 MB decimal) |
 | `mediaType` | enum | `image/jpeg` or `image/png` after magic-byte inspection |
-| `byteSize` | integer | 1..5,242,880 |
+| `byteSize` | integer | 1..5,000,000 |
 | `sha256` | char(64) | Digest for ETag/integrity, not client filename |
 | `updatedAt` | timestamptz | Server assigned |
 
