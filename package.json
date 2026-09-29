@@ -1,0 +1,28 @@
+{
+  "name": "stayhub",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/users-service"
+  ],
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "scripts": {
+    "build:users": "npm run build --workspace @stayhub/users-service",
+    "lint:users": "npm run lint --workspace @stayhub/users-service",
+    "typecheck:users": "npm run typecheck --workspace @stayhub/users-service",
+    "test:users": "npm run test --workspace @stayhub/users-service",
+    "test:users:unit": "npm run test:unit --workspace @stayhub/users-service",
+    "test:users:integration": "npm run test:integration --workspace @stayhub/users-service",
+    "test:users:contract": "npm run test:contract --workspace @stayhub/users-service",
+    "test:users:security": "npm run test:security --workspace @stayhub/users-service",
+    "prisma:users:generate": "npm run prisma:generate --workspace @stayhub/users-service",
+    "prisma:users:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/users-service",
+    "prisma:users:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/users-service",
+    "build": "npm run build:users",
+    "lint": "npm run lint:users",
+    "typecheck": "npm run typecheck:users",
+    "test": "npm run test:users"
+  }
+}
