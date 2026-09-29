@@ -42,6 +42,29 @@ Todas las rutas son relativas a `apps/users-service/test/`.
 | 077 | BLOQUEADA | Fixtures sintéticos y pruebas directas Users | G1 coordina E2E HTTPS; G3 entrega Auth operativo. No hay evidencia de flujo completo |
 | 078 | PARCIAL | Evidencia local comunicada del checkpoint | Ejecución final, Compose, CI remota, revisión independiente y resultados coordinados G1/G3 |
 
+## Revisión contractual y CI (ejecutada en esta continuación)
+
+Comparación semántica de `66d539c` con `fb18495`: se conservan las nueve
+operaciones, seguridad bearer/service JWT, enums y campos obligatorios de
+requests/respuestas exitosas. Se conservan las adiciones 401/403 en operaciones
+internas, 400/404 donde corresponden y 503 de indisponibilidad. Problem Details
+exige ahora también `detail`, `instance` y `errors`, conforme a USR-012.
+El cambio de referencias a esquemas inline no elimina restricciones.
+No fue necesario revertir ni modificar el contrato. El validador
+`node scripts/validate-users-openapi.mjs` terminó con exit 0: contrato válido,
+paths/schemas/security coincidentes con Swagger generado.
+
+El límite conservado es **5.000.000 bytes**. La expresión «5 MiB» encontrada en
+documentación equivale a 5.242.880 bytes y es imprecisa; no cambia la regla ni se
+modifican documentos fuera del alcance autorizado.
+
+CI contiene instalación locked, Prisma generate/deploy, typecheck, lint,
+cobertura unitaria, cobertura combinada, build, drift OpenAPI y Docker build.
+USR-009/076 automatizan estos controles. La constitución exige 70% **unitario**;
+el backlog habla de cobertura afectada. La cifra combinada del usuario no prueba
+por sí sola el umbral unitario: CI conserva ambos controles y ningún umbral se
+reduce. La revisión del YAML no acredita una ejecución remota de Actions.
+
 ## Validación final de esta continuación
 
 Pendiente: se registrarán aquí los resultados realmente ejecutados una sola vez

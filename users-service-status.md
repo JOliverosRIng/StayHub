@@ -113,6 +113,14 @@ Compose conserva su verificación de arranque pendiente.
 | USR-069 | PARCIAL | Orden auth/autorización/contrato: `security/jwt-hardening.spec.ts`; `integration/profile-ownership.spec.ts`; `interfaces/openapi/profile.openapi.ts` | Falta revisión semántica/drift del paso 2. |
 | USR-070 | COMPLETADA | Checkpoint US4: `mapeo exacto US4 en validation-report.md`; `23 suites/142 pruebas comunicadas` | Rutas verificadas; suite/archivo citado; resultados del usuario, no reejecutados. |
 
+## Bloque contractual y CI revisado
+
+Validador OpenAPI ejecutado: exit 0. Comparación semántica 66d539c→fb18495 sin
+pérdida de paths, seguridad ni restricciones; se conservan 401/403 y los cambios
+de Problem Details. Sin cambios/reversiones al contrato. Límite: 5.000.000 bytes,
+no 5 MiB. CI conserva gates unitario y combinado de 70%; ejecución remota pendiente.
+Detalles en validation-report.md. La marcación única se consolidará tras Compose.
+
 ## Hallazgo: aliases de errores sin uso
 
 `application/errors/users-errors.ts` reexporta DomainError como UsersError;
