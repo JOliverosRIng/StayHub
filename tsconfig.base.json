@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@users/domain/*": ["apps/users-service/src/domain/*"],
+      "@users/application/*": ["apps/users-service/src/application/*"],
+      "@users/infrastructure/*": ["apps/users-service/src/infrastructure/*"],
+      "@users/interfaces/*": ["apps/users-service/src/interfaces/*"],
+      "@users/modules/*": ["apps/users-service/src/modules/*"]
+    }
+  }
+}
