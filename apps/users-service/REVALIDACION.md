@@ -44,6 +44,31 @@ directamente sus assertions. El orden TDD histórico no es verificable.
 
 ## Punto retomable
 
+## C. US1 registro
+
+| tarea | criterio | estado | evidencia archivo:línea | test/comando | commit |
+|---|---|---|---|---|---|
+| USR-022 | HTTP registro y DTO cerrado | CUMPLE | test/contract/registration.contract.spec.ts:9-26 afirma proyección y 201/200/204/400/404/409 | baseline, 7 casos | bloque C |
+| USR-023 | Valores y estados | CUMPLE | test/unit/registration-policy.spec.ts:4-17 compara límites, normalización, roles/transiciones | baseline | bloque C |
+| USR-024 | Unicidad concurrente real | CUMPLE | test/integration/registration-concurrency.spec.ts:6-13; user.repository.ts:13-21; create_users/migration.sql:17-18 | baseline; Promise.all HTTP + count=1 | bloque C |
+| USR-025 | Replay/transiciones/visibilidad | CUMPLE | test/integration/registration-state.spec.ts:6-12; registration.contract.spec.ts:9-22; login-identity.spec.ts:6-9 | baseline; carrera activate/cancel a desafiar en H6 | bloque C |
+| USR-026 | Firma service JWT | CORREGIDA | test/security/service-auth.spec.ts:20 añade clave no confiable; infrastructure/security/service-jwt.verifier.ts:8 | 7/7; mutación de firma dio 401 esperado/500 recibido; restaurado 7/7 y git diff vacío | a5b87cf |
+| USR-027 | Modelo identidad sin credenciales | CUMPLE | prisma/schema.prisma:18-31 | baseline usa modelo real | bloque C |
+| USR-028 | Constraints SQL locales | CUMPLE | prisma/migrations/202609280001_create_users/migration.sql:1-18 | migrations-health:13-22; registration-concurrency | bloque C |
+| USR-029 | Validadores | CUMPLE | src/domain/users/values.ts:4-23 | registration-policy | bloque C |
+| USR-030 | Máquina de estados/replay | CUMPLE | src/domain/users/user.entity.ts:4-6; registration.policy.ts:2-3 | registration-policy, registration-state | bloque C |
+| USR-031 | Persistencia idempotente/local | CUMPLE | src/infrastructure/persistence/prisma/user.repository.ts:12-33; FOR UPDATE:28 | registration-concurrency/state | bloque C |
+| USR-032 | Use cases sin password | CUMPLE | src/application/registration/create-pending-user.use-case.ts:5-6; activate:5; cancel:5 | registration.contract | bloque C |
+| USR-033 | DTO cerrado | CUMPLE | src/interfaces/http/internal/registration.dto.ts:3-11; validation.pipe.ts:5; create-pending-user.use-case.ts:6 | registration.contract:24-26 | bloque C |
+| USR-034 | Rutas/scopes delegados | CUMPLE | src/interfaces/http/internal/registration.controller.ts:10-18; modules/registration-state.module.ts:9-14 | registration.contract/service-auth | bloque C |
+| USR-035 | Mapping seguro | CUMPLE | src/interfaces/http/internal/registration-error.mapper.ts:2 alias; problem.mapper.ts:4-10; problem.filter.ts:10-13 | contract 400/404/409 + secret-leakage | bloque C |
+| USR-036 | Swagger equivalente | NO VERIFICABLE | src/interfaces/openapi/registration.openapi.ts:4-11 leídos | comparación completa G pendiente | bloque C |
+| USR-037 | Checkpoint RQ-02/FR-001–006 | CUMPLE | assertions registro arriba ejecutadas en baseline; no saga externa | 24/148 baseline y service-auth dirigida | bloque C |
+
+Los aliases de USR-035/058 satisfacen las tareas: estas exigen comportamiento y
+ubicación, no duplicación de implementación. El filtro global aplica el mapper
+canónico; separar la lógica duplicaría política contra constitución VI.
+
 USR-026: CORREGIDA (cobertura): service-auth.spec.ts:20 añade firma RSA no confiable
 con claims correctos; 7/7 casos verdes. Producción ya rechaza. Se guarda el cambio
 legítimo antes de mutar el verificador; falta demostrar detección de firma omitida.
