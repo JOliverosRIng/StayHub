@@ -1,0 +1,14 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+/* Colores de marca: úsalos como bg-primary, text-primary, hover:bg-primary-hover, etc. */
+@theme inline {
+  --color-primary: #e31c5f;
+  --color-primary-hover: #c7184e;
+  --color-primary-light: #fce7ef;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}

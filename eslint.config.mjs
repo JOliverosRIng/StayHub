@@ -1,4 +1,6 @@
 import eslint from '@eslint/js';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -16,6 +18,25 @@ export default tseslint.config(
       },
     },
     rules: {
+      '@typescript-eslint/explicit-function-return-type': 'error',
+      '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
+  {
+    files: ['apps/web/**/*.{ts,tsx}'],
+    plugins: {
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh,
+    },
+    languageOptions: {
+      parserOptions: {
+        project: ['./apps/web/tsconfig.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/explicit-function-return-type': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
     },
