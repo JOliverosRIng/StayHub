@@ -44,6 +44,42 @@ directamente sus assertions. El orden TDD histórico no es verificable.
 
 ## Punto retomable
 
+## G. Contrato y K. Compose
+
+OpenAPI Users leído completo y confrontado con controladores y Swagger:
+
+| Operación | Controlador | Request/respuesta/errores |
+|---|---|---|
+| GET /health/live | health.controller.ts:7-8 | sin auth, 200 |
+| GET /health/ready | health.controller.ts:9-10 | sin auth, 200/503 |
+| POST /internal/v1/registrations | registration.controller.ts:10-14 | DTO cerrado, serviceAuth, 201/400/401/403/409/503 |
+| POST /internal/v1/registrations/{registrationId}/activate | registration.controller.ts:15-16 | UUID, serviceAuth, 200/400/401/403/404/409/503 |
+| POST /internal/v1/registrations/{registrationId}/cancel | registration.controller.ts:17-18 | UUID, serviceAuth, 204/400/401/403/404/409/503 |
+| POST /internal/v1/login-identities/resolve | login-identity.controller.ts:8-12 | email254, shape mínimo, serviceAuth, 200/400/401/403/404/503 |
+| GET /internal/v1/users/{userId}/profile | profile.controller.ts:13-17 | bearer, owner, JSON, 200/401/403/404/503 |
+| PATCH /internal/v1/users/{userId}/profile | profile.controller.ts:18-19 | multipart/profile JSON/foto, 200/400/401/403/404/409/413/415/503 |
+| GET /internal/v1/users/{userId}/profile/photo | profile.controller.ts:20-24 | bearer owner, binario ETag, 200/401/403/404/503 |
+
+`npm run build:users` y `node scripts/validate-users-openapi.mjs`: exit 0.
+Paths/schemas/security/servers sin drift; contrato sin cambios. USR-036/044/059/069
+pasan a CUMPLE con esta evidencia. USR-038 y USR-045 pasan a CORREGIDA (tests);
+mutaciones email254 y problem-status fallan, restaurados 2/2 y 6/6 respectivamente.
+
+Compose: primer intento, secretos existentes fuera del repo; up --build exitoso.
+users-db healthy. users-migrate exit 0 sin migraciones pendientes (volumen existente),
+fin 2026-09-29T14:40:48.778478902Z; users-service inició después,
+14:40:48.922232788Z, healthy, usuario node, ports 3002/tcp:null.
+Fetch interno /health/ready: 200 {status:ready}. No conflicto con 55432.
+`docker compose ... down` eliminó solo estos tres contenedores/red; docker ps
+confirmó stayhub-users-g2-tests activo en 127.0.0.1:55432 al terminar.
+USR-007/008/021 pasan a CUMPLE con lectura y ejecución real; no cierra USR-075 externa.
+
+## H. Mutaciones finales
+
+Cada runner exige git status limpio (excepto este registro), guarda bytes originales,
+ejecuta una suite, restaura en finally, ejecuta git diff y compara bytes exactos.
+Logs ignorados .artifacts/mutation-N.log. Ninguna mutación se commitea.
+
 USR-045: cuatro errores contractuales añadidos; 6/6 verdes. Primer fallo fue
 expectativa incorrecta nueva PHOTO_TOO_LARGE vs HTTP_413 del límite multer;
 se corrigió al código real permitido por OpenAPI (code:string), sin cambiar
