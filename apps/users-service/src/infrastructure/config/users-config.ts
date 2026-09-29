@@ -1,7 +1,9 @@
+import { MAX_PROFILE_PHOTO_BYTES } from '../../domain/shared/limits';
+
 export const USERS_CONFIG = Symbol('USERS_CONFIG');
 
 export const USERS_SERVICE_PORT = 3002;
-export const MAX_PHOTO_BYTES = 5_000_000;
+export const MAX_PHOTO_BYTES = MAX_PROFILE_PHOTO_BYTES;
 
 export interface UserJwtConfig {
   readonly publicKeys: Readonly<Record<string, string>>;

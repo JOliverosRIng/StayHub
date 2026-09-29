@@ -1,0 +1,1 @@
+export const MAX_PROFILE_PHOTO_BYTES = 5_000_000;
