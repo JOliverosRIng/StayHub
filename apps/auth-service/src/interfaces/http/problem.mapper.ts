@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 
-import { ApplicationError, DependencyUnavailableError, IdempotencyConflictError, InvalidCredentialsError, LoginRateLimitError, RefreshTokenInvalidError, SessionInvalidError } from '@auth/application/errors/auth-errors';
+import { ApplicationError, DependencyUnavailableError, IdempotencyConflictError, InvalidCredentialsError, LoginRateLimitError, RefreshTokenInvalidError, RegistrationCancelledError, RegistrationConflictError, SessionInvalidError } from '@auth/application/errors/auth-errors';
 import { DomainError } from '@auth/domain/shared/domain-error';
 
 export interface ProblemDetails {
@@ -42,6 +42,7 @@ export function mapProblem(
 function applicationStatus(error: ApplicationError): number {
   if (error instanceof InvalidCredentialsError || error instanceof SessionInvalidError || error instanceof RefreshTokenInvalidError) return 401;
   if (error instanceof IdempotencyConflictError) return 409;
+  if (error instanceof RegistrationConflictError || error instanceof RegistrationCancelledError) return 409;
   if (error instanceof LoginRateLimitError) return 429;
   if (error instanceof DependencyUnavailableError) return 503;
   return 400;

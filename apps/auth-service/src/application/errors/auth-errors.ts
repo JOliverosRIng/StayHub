@@ -21,6 +21,18 @@ export class IdempotencyConflictError extends ApplicationError {
   }
 }
 
+export class RegistrationConflictError extends ApplicationError {
+  public constructor() {
+    super('REGISTRATION_CONFLICT', 'Registration conflicts with an existing identity', 'The request conflicts with a previous request');
+  }
+}
+
+export class RegistrationCancelledError extends ApplicationError {
+  public constructor() {
+    super('REGISTRATION_CANCELLED', 'Registration was cancelled and cannot be resumed', 'The request conflicts with a previous request');
+  }
+}
+
 export class SessionInvalidError extends ApplicationError {
   public constructor() {
     super('SESSION_INVALID', 'Session is not active', 'Authentication is required');

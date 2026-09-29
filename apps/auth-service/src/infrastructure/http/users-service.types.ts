@@ -27,3 +27,19 @@ export class UsersServiceHttpError extends Error {
   }
 }
 
+export interface UsersServiceUserSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly email: string;
+  readonly role: string;
+  readonly status: string;
+}
+
+export interface UsersServicePendingUserBody {
+  readonly registrationId: string;
+  readonly userId: string;
+  readonly name: string;
+  readonly email: string;
+  readonly role: string;
+}
+

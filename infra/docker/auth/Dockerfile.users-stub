@@ -1,0 +1,6 @@
+FROM node:20-bookworm-slim
+WORKDIR /app
+COPY scripts/users-stub.mjs ./users-stub.mjs
+ENV USERS_STUB_PORT=4000
+EXPOSE 4000
+CMD ["node", "users-stub.mjs"]

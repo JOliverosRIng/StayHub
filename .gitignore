@@ -13,3 +13,10 @@ Thumbs.db
 .idea/
 apps/*/prisma/*.db
 
+.agents/
+.github/
+.specify/
+
+agents/
+guia/
+guia-v2/

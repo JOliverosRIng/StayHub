@@ -17,7 +17,10 @@
     "test:integration": "npm run test:integration --workspace @stayhub/auth-service",
     "test:contract": "npm run test:contract --workspace @stayhub/auth-service",
     "test:security": "npm run test:security --workspace @stayhub/auth-service",
-    "openapi:check": "node scripts/check-auth-openapi-syntax.mjs",
+    "test:cross-service": "npm run test:cross-service --workspace @stayhub/auth-service",
+    "openapi:check": "node scripts/check-auth-openapi-syntax.mjs && npm run test:contract --workspace @stayhub/auth-service -- --runTestsByPath test/contract/openapi-drift.spec.ts",
+    "dev:swagger": "node scripts/dev-auth-swagger.mjs",
+    "dev:swagger:docker": "node scripts/dev-auth-swagger.mjs --service-container",
     "prisma:generate": "npm run prisma:generate --workspace @stayhub/auth-service",
     "prisma:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/auth-service",
     "prisma:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/auth-service"

@@ -1,6 +1,6 @@
 import type { Credential } from '@auth/domain/credentials/credential';
 import type { Registration } from '@auth/domain/registrations/registration';
-import type { Session } from '@auth/domain/sessions/session';
+import type { Session, SessionRevokeReason } from '@auth/domain/sessions/session';
 import type { RefreshToken } from '@auth/domain/tokens/refresh-token';
 
 export const CREDENTIAL_REPOSITORY = Symbol('CREDENTIAL_REPOSITORY');
@@ -23,7 +23,12 @@ export interface SessionRepository {
   findById(id: string): Promise<Session | null>;
   save(session: Session): Promise<void>;
   withLocked<T>(id: string, work: (session: Session | null) => Promise<T>): Promise<T>;
-  revoke(id: string, revokedAt: Date, expectedVersion: number): Promise<boolean>;
+  revoke(
+    id: string,
+    revokedAt: Date,
+    expectedVersion: number,
+    reason: SessionRevokeReason,
+  ): Promise<boolean>;
 }
 
 export interface RefreshTokenRepository {

@@ -2,8 +2,15 @@ import { Inject, Injectable } from '@nestjs/common';
 import { decodeProtectedHeader, importPKCS8, importSPKI, jwtVerify, SignJWT } from 'jose';
 
 import { CLOCK, type Clock } from '@auth/application/ports/clock.port';
-import type { AccessTokenClaims, TokenSigner } from '@auth/application/ports/token-signer.port';
+import type {
+  AccessTokenClaims,
+  TokenSigner,
+  VerifiedAccessTokenClaims,
+} from '@auth/application/ports/token-signer.port';
 import { AUTH_CONFIG, type AuthConfig } from '@auth/infrastructure/config/auth-config';
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ROLES = ['GUEST', 'OWNER', 'ADMIN'] as const;
 
 @Injectable()
 export class Rs256TokenService implements TokenSigner {
@@ -26,10 +33,13 @@ export class Rs256TokenService implements TokenSigner {
       .sign(privateKey);
   }
 
-  public async verifyAccessToken(token: string): Promise<AccessTokenClaims> {
+  public async verifyAccessToken(token: string): Promise<VerifiedAccessTokenClaims> {
     const header = decodeProtectedHeader(token);
     if (header.alg !== 'RS256' || typeof header.kid !== 'string') {
       throw new Error('Access token algorithm or kid is invalid');
+    }
+    if (!Object.prototype.hasOwnProperty.call(this.config.accessJwt.publicKeys, header.kid)) {
+      throw new Error('Access token kid is not allowed');
     }
     const pem = this.config.accessJwt.publicKeys[header.kid];
     if (pem === undefined) {
@@ -43,16 +53,27 @@ export class Rs256TokenService implements TokenSigner {
       currentDate: this.clock.now(),
       requiredClaims: ['sub', 'sid', 'role', 'jti', 'iat', 'exp'],
     });
-    const { sub, sid, role, jti } = result.payload;
+    const { sub, sid, role, jti, iat, exp } = result.payload;
     if (
       typeof sub !== 'string' ||
+      !UUID_PATTERN.test(sub) ||
       typeof sid !== 'string' ||
+      !UUID_PATTERN.test(sid) ||
       typeof jti !== 'string' ||
-      !['GUEST', 'OWNER', 'ADMIN'].includes(String(role))
+      !UUID_PATTERN.test(jti) ||
+      !ROLES.includes(role as (typeof ROLES)[number])
     ) {
       throw new Error('Access token claims are invalid');
     }
-    return { sub, sid, jti, role: role as AccessTokenClaims['role'] };
+    if (typeof iat !== 'number' || typeof exp !== 'number') {
+      throw new Error('Access token timestamps are invalid');
+    }
+    if (exp - iat !== this.config.accessTokenTtlSeconds) {
+      throw new Error('Access token lifetime is invalid');
+    }
+    if (iat > Math.floor(this.clock.now().getTime() / 1000)) {
+      throw new Error('Access token issued in the future');
+    }
+    return { sub, sid, jti, role: role as AccessTokenClaims['role'], iat, exp };
   }
 }
-

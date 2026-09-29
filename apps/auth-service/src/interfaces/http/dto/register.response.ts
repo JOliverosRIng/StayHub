@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiSchema } from '@nestjs/swagger';
 
+@ApiSchema({ name: 'UserSummary' })
 export class RegisterResponse {
   @ApiProperty({ format: 'uuid' })
   public readonly id!: string;
@@ -10,7 +11,7 @@ export class RegisterResponse {
   @ApiProperty({ format: 'email' })
   public readonly email!: string;
 
-  @ApiProperty({ enum: ['GUEST', 'OWNER'] })
+  @ApiProperty({ enum: ['GUEST', 'OWNER', 'ADMIN'] })
   public readonly role!: 'GUEST' | 'OWNER';
 }
 

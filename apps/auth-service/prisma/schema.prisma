@@ -35,6 +35,13 @@ enum RefreshTokenStatus {
   REVOKED
 }
 
+enum SessionRevokeReason {
+  REFRESH_REUSE
+  EXPIRED
+  SECURITY
+  USER_INACTIVE
+}
+
 model Credential {
   userId       String           @id @db.Uuid
   passwordHash String
@@ -51,21 +58,26 @@ model Registration {
   attemptCount       Int               @default(0)
   lastErrorCode      String?           @db.VarChar(100)
   expiresAt          DateTime          @db.Timestamptz(6)
+  processingOwner    String?           @db.Uuid
+  leaseUntil         DateTime?         @db.Timestamptz(6)
+  nextAttemptAt      DateTime          @default(now()) @db.Timestamptz(6)
   createdAt          DateTime          @default(now()) @db.Timestamptz(6)
   updatedAt          DateTime          @updatedAt @db.Timestamptz(6)
 
   @@index([state, expiresAt])
   @@index([state, attemptCount, updatedAt])
+  @@index([state, nextAttemptAt, leaseUntil])
 }
 
 model Session {
-  id                String         @id @db.Uuid
-  userId            String         @db.Uuid
+  id                String               @id @db.Uuid
+  userId            String               @db.Uuid
   role              UserRole
-  absoluteExpiresAt DateTime       @db.Timestamptz(6)
-  revokedAt         DateTime?      @db.Timestamptz(6)
-  createdAt         DateTime       @default(now()) @db.Timestamptz(6)
-  version           Int            @default(1)
+  absoluteExpiresAt DateTime             @db.Timestamptz(6)
+  revokedAt         DateTime?            @db.Timestamptz(6)
+  revokeReason      SessionRevokeReason?
+  createdAt         DateTime             @default(now()) @db.Timestamptz(6)
+  version           Int                  @default(1)
   refreshTokens     RefreshToken[]
 
   @@index([userId])

@@ -1,6 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiSchema } from '@nestjs/swagger';
 import { IsUUID } from 'class-validator';
 
+@ApiSchema({ name: 'ValidateSessionCommand' })
 export class ValidateSessionRequest {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
@@ -11,6 +12,7 @@ export class ValidateSessionRequest {
   public readonly userId!: string;
 }
 
+@ApiSchema({ name: 'SessionValidation' })
 export class ValidateSessionResponse {
   @ApiProperty({ enum: [true] })
   public readonly active!: true;

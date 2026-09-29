@@ -1,8 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "declaration": true
+    "declaration": true,
+    "rootDir": "src",
+    "outDir": "../../dist/apps/auth-service"
   },
-  "exclude": ["test", "**/*.spec.ts", "jest.config.ts"]
+  "exclude": ["test", "**/*.spec.ts", "jest.config.ts", "jest.cross-service.config.ts"]
 }
 

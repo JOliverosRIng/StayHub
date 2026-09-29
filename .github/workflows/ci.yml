@@ -5,6 +5,7 @@ on:
     paths:
       - 'apps/auth-service/**'
       - 'infra/docker/auth/**'
+      - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
       - 'docker-compose.yml'
@@ -52,3 +53,4 @@ jobs:
       - run: npm run openapi:check
       - run: npm run build
       - run: docker build --target runtime -f infra/docker/auth/Dockerfile .
+      - run: npm run test:cross-service --workspace @stayhub/auth-service -- --runTestsByPath test/integration/auth-compose.spec.ts

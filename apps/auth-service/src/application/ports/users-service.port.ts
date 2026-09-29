@@ -10,8 +10,10 @@ export interface PendingUserCommand {
   readonly role: Exclude<UserRole, 'ADMIN'>;
 }
 
-export interface UserIdentitySummary {
+export interface RegistrationIdentity {
   readonly userId: string;
+  readonly name: string;
+  readonly email: string;
   readonly role: UserRole;
   readonly status: 'PENDING' | 'ACTIVE' | 'CANCELLED';
 }
@@ -23,10 +25,18 @@ export interface LoginIdentity {
 }
 
 export interface UsersServicePort {
-  createPendingUser(command: PendingUserCommand, traceId: string): Promise<UserIdentitySummary>;
-  getRegistration(registrationId: string, traceId: string): Promise<UserIdentitySummary | null>;
-  activateRegistration(registrationId: string, traceId: string): Promise<UserIdentitySummary>;
+  createPendingUser(command: PendingUserCommand, traceId: string): Promise<RegistrationIdentity>;
+  getRegistration(
+    registrationId: string,
+    traceId: string,
+  ): Promise<RegistrationIdentity | null>;
+  activateRegistration(
+    registrationId: string,
+    traceId: string,
+  ): Promise<RegistrationIdentity>;
   cancelRegistration(registrationId: string, traceId: string): Promise<void>;
-  resolveLoginIdentity(normalizedEmail: string, traceId: string): Promise<LoginIdentity | null>;
+  resolveLoginIdentity(
+    normalizedEmail: string,
+    traceId: string,
+  ): Promise<LoginIdentity | null>;
 }
-

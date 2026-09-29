@@ -7,8 +7,13 @@ export interface AccessTokenClaims {
   readonly jti: string;
 }
 
+export interface VerifiedAccessTokenClaims extends AccessTokenClaims {
+  readonly iat: number;
+  readonly exp: number;
+}
+
 export interface TokenSigner {
   signAccessToken(claims: AccessTokenClaims): Promise<string>;
-  verifyAccessToken(token: string): Promise<AccessTokenClaims>;
+  verifyAccessToken(token: string): Promise<VerifiedAccessTokenClaims>;
 }
 

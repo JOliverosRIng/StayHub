@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type { Credential as PrismaCredential } from '@prisma/client';
+import { Prisma, type Credential as PrismaCredential } from '@prisma/client';
 
 import type { CredentialRepository } from '@auth/application/ports/repositories.port';
 import { Credential } from '@auth/domain/credentials/credential';
 import { PrismaService } from './prisma.service';
+
+type CredentialClient = Pick<PrismaService, 'credential'> | Prisma.TransactionClient;
 
 @Injectable()
 export class PrismaCredentialRepository implements CredentialRepository {
@@ -15,17 +17,31 @@ export class PrismaCredentialRepository implements CredentialRepository {
   }
 
   public async save(credential: Credential): Promise<void> {
-    const data = credential.snapshot();
-    await this.prisma.credential.upsert({
-      where: { userId: data.userId },
-      create: data,
-      update: {
-        passwordHash: data.passwordHash,
-        status: data.status,
-        updatedAt: data.updatedAt,
-      },
-    });
+    await persist(this.prisma, credential);
   }
+}
+
+export function createCredentialRepository(client: CredentialClient): CredentialRepository {
+  return {
+    findByUserId: async (userId: string): Promise<Credential | null> => {
+      const row = await client.credential.findUnique({ where: { userId } });
+      return row === null ? null : toDomain(row);
+    },
+    save: (credential: Credential): Promise<void> => persist(client, credential),
+  };
+}
+
+async function persist(client: CredentialClient, credential: Credential): Promise<void> {
+  const data = credential.snapshot();
+  await client.credential.upsert({
+    where: { userId: data.userId },
+    create: data,
+    update: {
+      passwordHash: data.passwordHash,
+      status: data.status,
+      updatedAt: data.updatedAt,
+    },
+  });
 }
 
 function toDomain(row: PrismaCredential): Credential {
@@ -37,4 +53,3 @@ function toDomain(row: PrismaCredential): Credential {
     updatedAt: row.updatedAt,
   });
 }
-

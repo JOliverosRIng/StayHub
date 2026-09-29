@@ -2,12 +2,19 @@ import { DomainValidationError } from '@auth/domain/shared/domain-error';
 
 export type SessionRole = 'GUEST' | 'OWNER' | 'ADMIN';
 
+export type SessionRevokeReason =
+  | 'REFRESH_REUSE'
+  | 'EXPIRED'
+  | 'SECURITY'
+  | 'USER_INACTIVE';
+
 export interface SessionProperties {
   readonly id: string;
   readonly userId: string;
   readonly role: SessionRole;
   readonly absoluteExpiresAt: Date;
   readonly revokedAt: Date | null;
+  readonly revokeReason: SessionRevokeReason | null;
   readonly createdAt: Date;
   readonly version: number;
 }
@@ -31,6 +38,7 @@ export class Session {
       role,
       absoluteExpiresAt: new Date(now.getTime() + absoluteTtlSeconds * 1000),
       revokedAt: null,
+      revokeReason: null,
       createdAt: now,
       version: 1,
     });
@@ -44,13 +52,21 @@ export class Session {
     return this.properties.revokedAt === null && now < this.properties.absoluteExpiresAt;
   }
 
-  public revoke(now: Date): void {
+  public revoke(now: Date, reason: SessionRevokeReason = 'SECURITY'): void {
     if (this.properties.revokedAt !== null) return;
-    this.properties = { ...this.properties, revokedAt: now, version: this.properties.version + 1 };
+    this.properties = {
+      ...this.properties,
+      revokedAt: now,
+      revokeReason: reason,
+      version: this.properties.version + 1,
+    };
+  }
+
+  public incrementVersion(): void {
+    this.properties = { ...this.properties, version: this.properties.version + 1 };
   }
 
   public snapshot(): SessionProperties {
     return { ...this.properties };
   }
 }
-

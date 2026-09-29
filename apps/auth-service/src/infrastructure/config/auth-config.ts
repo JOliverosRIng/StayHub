@@ -47,6 +47,7 @@ export interface AuthConfig {
   readonly sessionAbsoluteTtlSeconds: 604800;
   readonly refreshTokenHmacSecret: string;
   readonly registrationFingerprintSecret: string;
+  readonly loginIdentifierHmacSecret: string;
   readonly reconciler: {
     readonly intervalSeconds: number;
     readonly ttlSeconds: number;
@@ -55,6 +56,7 @@ export interface AuthConfig {
   };
   readonly otlpEndpoint: string;
   readonly otelServiceName: string;
+  readonly swaggerServerUrl?: string;
 }
 
 type Environment = NodeJS.ProcessEnv;
@@ -64,6 +66,7 @@ export function loadAuthConfig(environment: Environment = process.env): AuthConf
   if (!['development', 'test', 'production'].includes(nodeEnvironment)) {
     throw new Error('NODE_ENV must be development, test, or production');
   }
+  const swaggerServerUrl = optionalString(environment, 'AUTH_SWAGGER_SERVER_URL');
 
   return {
     environment: nodeEnvironment as AuthConfig['environment'],
@@ -72,7 +75,7 @@ export function loadAuthConfig(environment: Environment = process.env): AuthConf
     redisUrl: url(environment, 'AUTH_REDIS_URL', ['redis:', 'rediss:']),
     argon2: {
       memoryCost: integer(environment, 'AUTH_ARGON2_MEMORY_COST', 8192, 1_048_576),
-      timeCost: integer(environment, 'AUTH_ARGON2_TIME_COST', 1, 20),
+      timeCost: integer(environment, 'AUTH_ARGON2_TIME_COST', 2, 20),
       parallelism: integer(environment, 'AUTH_ARGON2_PARALLELISM', 1, 16),
     },
     accessJwt: {
@@ -116,14 +119,25 @@ export function loadAuthConfig(environment: Environment = process.env): AuthConf
       environment,
       'AUTH_REGISTRATION_FINGERPRINT_SECRET',
     ),
+    loginIdentifierHmacSecret: secret(
+      environment,
+      'AUTH_LOGIN_IDENTIFIER_HMAC_SECRET',
+    ),
     reconciler: {
-      intervalSeconds: integer(environment, 'AUTH_RECONCILER_INTERVAL_SECONDS', 1, 3600),
-      ttlSeconds: integer(environment, 'AUTH_RECONCILER_TTL_SECONDS', 60, 86_400),
-      batchSize: integer(environment, 'AUTH_RECONCILER_BATCH_SIZE', 1, 1000),
-      maxAttempts: integer(environment, 'AUTH_RECONCILER_MAX_ATTEMPTS', 1, 100),
+      intervalSeconds: defaultedInteger(
+        environment,
+        'AUTH_RECONCILER_INTERVAL_SECONDS',
+        30,
+        1,
+        3600,
+      ),
+      ttlSeconds: defaultedInteger(environment, 'AUTH_RECONCILER_TTL_SECONDS', 900, 60, 86_400),
+      batchSize: defaultedInteger(environment, 'AUTH_RECONCILER_BATCH_SIZE', 50, 1, 1000),
+      maxAttempts: defaultedInteger(environment, 'AUTH_RECONCILER_MAX_ATTEMPTS', 5, 1, 100),
     },
     otlpEndpoint: url(environment, 'OTEL_EXPORTER_OTLP_ENDPOINT', ['http:', 'https:']),
     otelServiceName: required(environment, 'OTEL_SERVICE_NAME'),
+    ...(swaggerServerUrl === undefined ? {} : { swaggerServerUrl }),
   };
 }
 
@@ -139,6 +153,12 @@ function optional(environment: Environment, name: string, fallback: string): str
   return environment[name]?.trim() || fallback;
 }
 
+function optionalString(environment: Environment, name: string): string | undefined {
+  const value = environment[name];
+  if (value === undefined || value.trim() === '') return undefined;
+  return value;
+}
+
 function integer(
   environment: Environment,
   name: string,
@@ -146,6 +166,22 @@ function integer(
   maximum: number,
 ): number {
   const raw = required(environment, name);
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    throw new Error(`${name} must be an integer between ${minimum} and ${maximum}`);
+  }
+  return value;
+}
+
+function defaultedInteger(
+  environment: Environment,
+  name: string,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
+  const raw = environment[name];
+  if (raw === undefined || raw.trim() === '') return fallback;
   const value = Number(raw);
   if (!Number.isInteger(value) || value < minimum || value > maximum) {
     throw new Error(`${name} must be an integer between ${minimum} and ${maximum}`);

@@ -5,17 +5,24 @@ import type { RefreshTokenRepository } from '@auth/application/ports/repositorie
 import { RefreshToken } from '@auth/domain/tokens/refresh-token';
 import { PrismaService } from './prisma.service';
 
+type RawExecutor = {
+  $queryRaw<T = unknown>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T>;
+};
+
+type RefreshClient = (Pick<PrismaService, 'refreshToken'> | Prisma.TransactionClient) &
+  RawExecutor;
+
 @Injectable()
 export class PrismaRefreshTokenRepository implements RefreshTokenRepository {
   public constructor(private readonly prisma: PrismaService) {}
 
   public async findByHash(tokenHash: string): Promise<RefreshToken | null> {
     const row = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
-    return row === null ? null : toDomain(row);
+    return row === null ? null : toRefreshTokenDomain(row);
   }
 
   public async save(token: RefreshToken): Promise<void> {
-    await persist(this.prisma, token);
+    await persistRefreshToken(this.prisma, token);
   }
 
   public withLocked<T>(
@@ -26,9 +33,9 @@ export class PrismaRefreshTokenRepository implements RefreshTokenRepository {
       async (transaction) => {
         await transaction.$queryRaw`SELECT "id" FROM "RefreshToken" WHERE "tokenHash" = ${tokenHash} FOR UPDATE`;
         const row = await transaction.refreshToken.findUnique({ where: { tokenHash } });
-        const token = row === null ? null : toDomain(row);
+        const token = row === null ? null : toRefreshTokenDomain(row);
         const result = await work(token);
-        if (token !== null) await persist(transaction, token);
+        if (token !== null) await persistRefreshToken(transaction, token);
         return result;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -44,9 +51,38 @@ export class PrismaRefreshTokenRepository implements RefreshTokenRepository {
   }
 }
 
-type RefreshClient = Pick<PrismaService, 'refreshToken'> | Prisma.TransactionClient;
+export function createRefreshTokenRepository(client: RefreshClient): RefreshTokenRepository {
+  return {
+    findByHash: async (tokenHash: string): Promise<RefreshToken | null> => {
+      const row = await client.refreshToken.findUnique({ where: { tokenHash } });
+      return row === null ? null : toRefreshTokenDomain(row);
+    },
+    save: (token: RefreshToken): Promise<void> => persistRefreshToken(client, token),
+    withLocked: async <T>(
+      tokenHash: string,
+      work: (token: RefreshToken | null) => Promise<T>,
+    ): Promise<T> => {
+      await client.$queryRaw`SELECT "id" FROM "RefreshToken" WHERE "tokenHash" = ${tokenHash} FOR UPDATE`;
+      const row = await client.refreshToken.findUnique({ where: { tokenHash } });
+      const token = row === null ? null : toRefreshTokenDomain(row);
+      const result = await work(token);
+      if (token !== null) await persistRefreshToken(client, token);
+      return result;
+    },
+    revokeActiveForSession: async (sessionId: string): Promise<number> => {
+      const result = await client.refreshToken.updateMany({
+        where: { sessionId, status: 'ACTIVE' },
+        data: { status: 'REVOKED' },
+      });
+      return result.count;
+    },
+  };
+}
 
-async function persist(client: RefreshClient, token: RefreshToken): Promise<void> {
+export async function persistRefreshToken(
+  client: RefreshClient,
+  token: RefreshToken,
+): Promise<void> {
   const data = token.snapshot();
   await client.refreshToken.upsert({
     where: { id: data.id },
@@ -59,7 +95,7 @@ async function persist(client: RefreshClient, token: RefreshToken): Promise<void
   });
 }
 
-function toDomain(row: PrismaRefreshToken): RefreshToken {
+export function toRefreshTokenDomain(row: PrismaRefreshToken): RefreshToken {
   return RefreshToken.rehydrate({
     id: row.id,
     sessionId: row.sessionId,
@@ -71,4 +107,3 @@ function toDomain(row: PrismaRefreshToken): RefreshToken {
     replacedByTokenId: row.replacedByTokenId,
   });
 }
-
