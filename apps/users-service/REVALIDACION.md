@@ -44,6 +44,18 @@ directamente sus assertions. El orden TDD histórico no es verificable.
 
 ## Punto retomable
 
+## D. US2 lookup
+
+| tarea | criterio | estado | evidencia archivo:línea | test/comando | commit |
+|---|---|---|---|---|---|
+| USR-038 | Shape mínimo/DTO | NO CUMPLE | test/contract/login-identity.contract.spec.ts:6-11 compara shape y password; falta límite 254 explícito | baseline verde no acredita ese límite; reforzar antes cierre | bloque D |
+| USR-039 | Normalización/exclusión | CUMPLE | test/unit/login-identity-policy.spec.ts:3-11; use-case:7-9 no devuelve PII | baseline | bloque D |
+| USR-040 | Email vigente/estados | CUMPLE | test/integration/login-identity.spec.ts:6-14; consulta por emailNormalized | baseline | bloque D |
+| USR-041 | Proyección Prisma | CUMPLE | src/infrastructure/persistence/prisma/login-identity.repository.ts:7-9 select id/role/status y ACTIVE | login-identity integration | bloque D |
+| USR-042 | Ausente/no activo indistinguible | CUMPLE | src/application/login/resolve-login-identity.use-case.ts:7-9; repository:8 devuelve null para ambos | login-identity integration/unit; H10 pendiente | bloque D |
+| USR-043 | Endpoint y scope | CUMPLE | src/interfaces/http/internal/login-identity.controller.ts:8-12; dto:2; service-auth.guard.ts:19 | login-identity.contract | bloque D |
+| USR-044 | Swagger/consumidor externo | NO VERIFICABLE | src/interfaces/openapi/login-identity.openapi.ts:5-6 | G pendiente; no existe Auth operativo en workspace | bloque D |
+
 ## C. US1 registro
 
 | tarea | criterio | estado | evidencia archivo:línea | test/comando | commit |
