@@ -19,4 +19,20 @@ describe('USR-045 profile provider contract', () => {
     await request(h.server).get(path).set('Authorization', `Bearer ${userToken('a0000000-0000-4000-8000-000000000001')}`).expect(403);
     await request(h.server).get(`${path}/photo`).set('Authorization', `Bearer ${userToken(id)}`).expect(404);
   });
+  it.each([
+    [{ expectedVersion: 1, role: 'ADMIN' }, undefined, 400, 'VALIDATION_ERROR'],
+    [{ expectedVersion: 2, name: 'Stale Name' }, undefined, 409, 'VERSION_CONFLICT'],
+    [{ expectedVersion: 1 }, Buffer.alloc(5_000_001), 413, 'HTTP_413'],
+    [{ expectedVersion: 1 }, Buffer.from('not PNG'), 415, 'PHOTO_MEDIA_TYPE'],
+  ] as const)('returns safe Problem Details for patch %p', async (body, photo, status, code) => {
+    const id = await activeFixture(h);
+    const before = await h.db.user.findUniqueOrThrow({ where: { id } });
+    const call = request(h.server).patch(`/internal/v1/users/${id}/profile`)
+      .set('Authorization', `Bearer ${userToken(id)}`).field('profile', JSON.stringify(body));
+    if (photo) call.attach('photo', photo, { filename: 'ignored.png', contentType: 'image/png' });
+    const response = await call.expect(status).expect('Content-Type', /application\/problem\+json/);
+    expect(response.body as unknown).toMatchObject({ status, code, type: 'about:blank', errors: expect.any(Array) });
+    expect(Object.keys(response.body as object).sort()).toEqual(['type', 'title', 'status', 'detail', 'instance', 'code', 'traceId', 'errors'].sort());
+    expect(await h.db.user.findUniqueOrThrow({ where: { id } })).toEqual(before);
+  });
 });

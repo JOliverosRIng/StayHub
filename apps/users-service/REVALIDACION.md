@@ -44,6 +44,12 @@ directamente sus assertions. El orden TDD histórico no es verificable.
 
 ## Punto retomable
 
+USR-045: cuatro errores contractuales añadidos; 6/6 verdes. Primer fallo fue
+expectativa incorrecta nueva PHOTO_TOO_LARGE vs HTTP_413 del límite multer;
+se corrigió al código real permitido por OpenAPI (code:string), sin cambiar
+assertions previas. No cuenta como rojo de producción. Pendiente mutación mapper.
+USR-038: mutación 254→255 detectada (400 esperado/404 recibido); restaurado 2/2.
+
 ## E. US3 perfil
 
 | tarea | criterio | estado | evidencia archivo:línea | test/comando | commit |
