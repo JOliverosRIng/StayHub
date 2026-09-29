@@ -3,6 +3,15 @@ import { UsersLogger, type SafeLog } from '../../src/infrastructure/logging/user
 import { mapProblem } from '../../src/interfaces/http/problem.mapper';
 import { DomainError } from '../../src/domain/shared/domain-error';
 describe('USR-076 no PII/secrets in diagnostics', () => {
+  it('logs only a bounded Prisma code for profile failures, never raw errors', () => {
+    const lines: SafeLog[] = []; const logger = new UsersLogger((line) => lines.push(line));
+    logger.profileUpdateFailure('P2028');
+    logger.profileUpdateFailure(new Error('person@example.test Bearer secret-token'));
+    logger.profileUpdateFailure('P2028 person@example.test');
+    expect(lines).toEqual(['P2028', 'UNKNOWN', 'UNKNOWN'].map((errorCode) => ({
+      event: 'dependency_unavailable', level: 'error', service: 'users-service', operation: 'profile.update', errorCode,
+    })));
+  });
   it('drops arbitrary framework payloads, even deeply nested secrets', () => {
     const lines: SafeLog[] = []; const logger = new UsersLogger((line) => lines.push(line));
     // LoggerService receives arbitrary framework data, but serializes only safe event metadata.

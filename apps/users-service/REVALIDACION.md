@@ -244,3 +244,31 @@ Resultado consolidado: 64 CUMPLE y 6 CORREGIDA entre USR-001–070;
 H1–H12 detectadas y restauradas; H6/H7/H11 sobrevivieron inicialmente.
 PostgreSQL stayhub-users-g2-tests permanece activo en 127.0.0.1:55432.
 Sin push, reset ni rebase. No existen hooks de extensión (.specify/extensions.yml ausente).
+
+## Corrección posterior: timeout de foto (2026-09-29)
+
+El cierre J anterior permanece como evidencia histórica; no probaba una escritura
+que durase más de cinco segundos. El diagnóstico aportado por otro entorno sobre
+66134ce mostró P2028 a los 6314/6503 ms con IPv4. Se autoriza posteriormente
+la corrección acotada de ese timeout, sin cambiar timeouts de Jest ni versiones.
+
+Se añadió en profile-photo.spec.ts:11 una prueba con PostgreSQL real y trigger
+temporal de pg_sleep(6), aislado en el schema de la suite y eliminado en finally.
+Antes de corregir: 1/7 falla por 200 esperado, 503 recibido; las otras seis pasan.
+Después: la escritura conserva exactamente los 5.000.000 bytes y confirma
+perfil y versión juntos. profile.repository.ts:39 establece timeout:15_000.
+El diagnóstico usa UsersLogger.profileUpdateFailure: solo operación fija y código
+Prisma de forma Pdddd, o UNKNOWN; nunca serializa message, meta, stack o payload.
+La nota README que daba IPv4 como solución suficiente se corrigió.
+
+Validación posterior, 2026-09-29, USERS_TEST_DATABASE_URL en 127.0.0.1:55432:
+- npm run lint: exit 0.
+- npm run typecheck: exit 0.
+- node ../../node_modules/jest/bin/jest.js --runInBand --runTestsByPath
+  test/integration/profile-photo.spec.ts test/integration/profile-update.spec.ts
+  test/security/secret-leakage.spec.ts test/contract/profile.contract.spec.ts:
+  exit 0, 4/4 suites, 19/19 pruebas, 19.694 s.
+
+No se repitió la suite completa ni se regeneró cobertura en esta corrección.
+Falta repetir en la máquina que reportó el incidente; la prueba local demuestra
+el caso >5 s, no garantiza éxito si la operación excede también 15 s.

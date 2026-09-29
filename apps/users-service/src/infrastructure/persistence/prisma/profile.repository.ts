@@ -3,11 +3,13 @@ import { Prisma } from '../generated/prisma';
 import { PrismaService } from './prisma.service';
 import type { ProfileRepository, Profile, ProfilePatch, Photo, Preferences } from '@users/application/ports/profile.repository';
 import { DomainError } from '@users/domain/shared/domain-error';
+import { UsersLogger } from '@users/infrastructure/logging/users-logger';
 const selection = { id: true, name: true, email: true, role: true, phone: true, preferences: true, version: true, photo: { select: { userId: true } } } satisfies Prisma.UserSelect;
 type Row = Prisma.UserGetPayload<{ select: typeof selection }>;
 function projection(row: Row): Profile { return { id: row.id, name: row.name, email: row.email, role: row.role, phone: row.phone, preferences: row.preferences as Preferences | null, version: row.version, photoUrl: row.photo ? `/internal/v1/users/${row.id}/profile/photo` : null }; }
 @Injectable()
 export class PrismaProfileRepository implements ProfileRepository {
+  private readonly logger = new UsersLogger();
   constructor(private readonly prisma: PrismaService) {}
   async find(id: string): Promise<Profile | null> {
     const row = await this.prisma.user.findFirst({ where: { id, status: 'ACTIVE' }, select: selection });
@@ -34,10 +36,11 @@ export class PrismaProfileRepository implements ProfileRepository {
         if (photo) { const record = { ...photo, content: Buffer.from(photo.content) }; await tx.profilePhoto.upsert({ where: { userId: id }, create: { userId: id, ...record }, update: record }); }
         else if (patch.photo === null) await tx.profilePhoto.deleteMany({ where: { userId: id } });
         return projection(await tx.user.findUniqueOrThrow({ where: { id }, select: selection }));
-      });
+      }, { timeout: 15_000 }); // Allow valid 5 MB writes on slower PostgreSQL hosts; keep a bounded transaction.
     } catch (error) {
       if (error instanceof DomainError) throw error;
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw new DomainError('EMAIL_CONFLICT');
+      this.logger.profileUpdateFailure(error instanceof Prisma.PrismaClientKnownRequestError ? error.code : undefined);
       throw new DomainError('UNAVAILABLE');
     }
   }
