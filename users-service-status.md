@@ -121,6 +121,24 @@ de Problem Details. Sin cambios/reversiones al contrato. Límite: 5.000.000 byte
 no 5 MiB. CI conserva gates unitario y combinado de 70%; ejecución remota pendiente.
 Detalles en validation-report.md. La marcación única se consolidará tras Compose.
 
+## Bloque de entrega provider
+
+Se añadieron `test/fixtures/consumer-handoff.fixture.ts`, instrucciones de entrega
+`test/fixtures/CONSUMER-HANDOFF.md` y `test/contract/users-provider.contract.spec.ts`.
+La prueba conecta registro/replay/activación/cambio de correo/lookup y cancelación
+directamente en Users. Sus dos casos pasaron en ejecución dirigida tras corregir
+el envío multipart de la prueba nueva; no demuestra
+Auth ni Gateway reales. USR-071–074/077 conservan sus dependencias externas.
+
+## Bloque Compose verificado
+
+Primer arranque exitoso del proyecto aislado `stayhub-users-g2-validation` con
+secretos temporales externos al repositorio. Prisma generate y build exitosos;
+dos migraciones aplicadas, job exit 0 antes del inicio del servicio, readiness 200,
+servicio healthy como `node`, red interna y puerto 3002 sin publicar. Quedan
+pendientes únicamente la integración conjunta de G1/G3 y demás cierres externos.
+El build informó vulnerabilidades de dependencias; detalle en validation-report.md.
+
 ## Hallazgo: aliases de errores sin uso
 
 `application/errors/users-errors.ts` reexporta DomainError como UsersError;

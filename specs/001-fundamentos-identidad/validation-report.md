@@ -36,9 +36,9 @@ Todas las rutas son relativas a `apps/users-service/test/`.
 | 071 | BLOQUEADA | Endpoints y pruebas de registro provider de US1 | G3: cliente/orquestador real, service JWT compatible, timeout/retry y registro coordinado |
 | 072 | BLOQUEADA | Lookup ACTIVE y pruebas de identidad | G3: consumidor lookup y login genérico real con correo vigente |
 | 073 | BLOQUEADA | Perfil, foto, bearer, ownership y pruebas directas Users | G1: routing, introspección con G3, stripping, forwarding, timeouts y streaming reales |
-| 074 | PARCIAL | Contrato Users y validador de drift existentes | G1/G3: expectativas consumidor aprobadas y ejecución conjunta provider/consumer |
-| 075 | PARCIAL | Compose de Users, base y job de migración | Verificar arranque real de estos tres servicios; G1 debe integrar red/readiness conjunta y completar 071–073 |
-| 076 | PARCIAL | Validador OpenAPI, prueba de secretos y CI existentes | Revisar etapas; cierre conjunto condicionado por USR-074 |
+| 074 | PARCIAL | Contrato y drift válidos; nueva suite `contract/users-provider.contract.spec.ts` y fixtures de entrega | G1/G3: expectativas consumidor aprobadas y ejecución conjunta provider/consumer |
+| 075 | PARCIAL | Compose real verificado: migración exit 0 antes del servicio healthy, red interna y sin puertos publicados | G1 debe integrar red/readiness conjunta y completar 071–073 |
+| 076 | PARCIAL | Validador OpenAPI, prueba de secretos y etapas CI revisados | Cierre conjunto condicionado por USR-074; CI remota no ejecutada |
 | 077 | BLOQUEADA | Fixtures sintéticos y pruebas directas Users | G1 coordina E2E HTTPS; G3 entrega Auth operativo. No hay evidencia de flujo completo |
 | 078 | PARCIAL | Evidencia local comunicada del checkpoint | Ejecución final, Compose, CI remota, revisión independiente y resultados coordinados G1/G3 |
 
@@ -65,7 +65,69 @@ el backlog habla de cobertura afectada. La cifra combinada del usuario no prueba
 por sí sola el umbral unitario: CI conserva ambos controles y ningún umbral se
 reduce. La revisión del YAML no acredita una ejecución remota de Actions.
 
+## Compose real de G2
+
+Proyecto aislado `stayhub-users-g2-validation`, secretos efímeros en el directorio
+temporal del sistema **fuera del repositorio**. Primer intento exitoso, sin
+reintentos. El build necesario para `compose up --build` ejecutó Prisma generate
+6.19.0 y build TypeScript con éxito. No se recreó el PostgreSQL de pruebas existente.
+
+- `users-db`: healthy, volumen propio y `5432/tcp: null` (sin publicación).
+- `users-migrate`: exit 0; aplicó `202609280001_create_users` y
+  `202609280002_add_profile_photo`; finalizó 2026-09-29 09:29:44.076930393 UTC.
+- `users-service`: inició 09:29:44.377821607 UTC, después de la migración;
+  healthy, usuario `node`, `3002/tcp: null`.
+- Petición real dentro del contenedor a `/health/ready`: 200 `{"status":"ready"}`.
+- Red `stayhub-users-g2-validation_internal`: `internal=true`.
+
+Los contenedores de validación se mantienen disponibles. Los secretos temporales
+deben conservarse mientras se utilice este proyecto. No hay collector real en
+esta ejecución aislada: esto no acredita entrega OTLP ni integración G1/G3.
+Durante `npm prune` el build informó 22 vulnerabilidades (1 baja, 13 moderadas,
+8 altas). No se ejecutó una auditoría de alcanzabilidad ni se actualizaron las
+versiones fijadas por Spec Kit; queda registrado para revisión de dependencias.
+
 ## Validación final de esta continuación
 
-Pendiente: se registrarán aquí los resultados realmente ejecutados una sola vez
-al concluir los cambios, separándolos de las cifras comunicadas por el usuario.
+| Comando / control | Resultado real |
+|---|---|
+| `npm run typecheck:users` | Exit 0, una ejecución final |
+| ESLint de los dos archivos TypeScript añadidos | Exit 0; lint completo anterior atribuido al usuario, no repetido |
+| `npm run test:coverage --workspace @stayhub/users-service` | Una ejecución: 23 suites verdes, 1 fallida; 143 pruebas verdes, 1 fallida (24 suites/144 pruebas) |
+| Corrección y ejecución dirigida de `users-provider.contract.spec.ts` | Exit 0: 1 suite, 2 pruebas verdes |
+| Cobertura de la ejecución completa | 96,15% sentencias, 89,95% ramas, 95,23% funciones, 98,05% líneas; gate combinado 70% satisfecho |
+| OpenAPI final | Exit 0; una ejecución final, además de la comprobación contractual inicial |
+| Prisma generate / build | Exitosos dentro del build Compose requerido para el arranque |
+| Migraciones reales | Las dos aplicadas mediante migrate deploy; exit 0 |
+| Compose | Primer intento exitoso, Users healthy y readiness 200 |
+| GitHub Actions remoto | No ejecutado; etapas revisadas, sin push |
+
+Las 23 suites originales pasaron: 9 unitarias, 8 integration, 3 contract y
+3 security. La única falla fue de la prueba provider **nueva**, que enviaba JSON
+directo al PATCH multipart y recibía correctamente 415. Se corrigió la prueba
+para usar el campo `profile`, sin tocar producción ni debilitar el contrato.
+Se reejecutó solo esa suite: sus dos casos pasaron. No se repitió la suite
+completa ni se presenta el primer comando como exitoso. La cobertura anterior
+corresponde a esa ejecución completa, no a una segunda medición posterior.
+
+## Alcance y auditoría de esta continuación
+
+Se respetó la instrucción de revisión acotada: backlog Users, evidencia por
+rutas, contrato Users (baseline/checkpoint), umbral de constitución, CI,
+Docker/Compose, fixtures y adaptadores necesarios para la prueba nueva. No se
+releyeron spec/plan/data-model completos ni suites existentes; se conservó su
+auditoría previa. Arquitectura preservada: domain/application independientes,
+puertos y adaptadores Prisma/HTTP, modules Nest, base exclusiva users_db.
+
+Cambios nuevos: `.env.example`, README Windows, este reporte, estado raíz,
+backlog Users y tres archivos de entrega provider. No cambian endpoints, DTO,
+guards, repositorios, casos de uso, migraciones, Docker/Compose, CI ni telemetría
+del checkpoint. El mapeo efectivo de errores permanece en `problem.filter.ts`
+y `problem.mapper.ts`; los tres aliases sin consumidores se conservaron.
+
+No se acredita retrospectivamente el orden red/green de pruebas preexistentes.
+La nueva suite verifica funcionalidad existente y no requirió implementación
+productiva. No se modificaron tasks.md, research.md, quickstart, checklists ni
+contratos G1/G3. No existe `.specify/extensions.yml`: no hay hooks posteriores
+que despachar. La tabla completa USR-001–078 está en `users-service-status.md`
+en la raíz del repositorio.
