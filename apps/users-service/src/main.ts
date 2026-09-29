@@ -3,13 +3,14 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module';
-
-const USERS_SERVICE_PORT = 3002;
+import { USERS_CONFIG, loadUsersConfig, type UsersConfig } from './infrastructure/config/users-config';
 
 async function bootstrap(): Promise<void> {
+  loadUsersConfig();
   const app = await NestFactory.create(AppModule);
+  const config = app.get<UsersConfig>(USERS_CONFIG);
   app.enableShutdownHooks();
-  await app.listen(USERS_SERVICE_PORT, '0.0.0.0');
+  await app.listen(config.port, '0.0.0.0');
 }
 
 void bootstrap().catch((error: unknown) => {
