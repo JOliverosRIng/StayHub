@@ -76,6 +76,13 @@ USR-007/008/021 pasan a CUMPLE con lectura y ejecución real; no cierra USR-075 
 
 ## H. Mutaciones finales
 
+H1–5 detectadas: límite foto (PHOTO_TOO_LARGE incorrecto), ownership 403→200,
+ADMIN 403→200, kid 401→404, exp ausente 401→404. Todas restauradas, diff vacío.
+H6 SOBREVIVIÓ inicialmente: registration-state 1/1 aun sin FOR UPDATE.
+Se añade carrera determinista con bloqueo PostgreSQL real: una activación retiene
+fila, cancelación espera (pg_stat_activity), luego debe releer ACTIVE y rechazar.
+No se usan mocks de persistencia ni se aumentan timeouts.
+
 Cada runner exige git status limpio (excepto este registro), guarda bytes originales,
 ejecuta una suite, restaura en finally, ejecuta git diff y compara bytes exactos.
 Logs ignorados .artifacts/mutation-N.log. Ninguna mutación se commitea.
