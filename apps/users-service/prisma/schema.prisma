@@ -1,0 +1,12 @@
+// users_db only. Schema changes ship exclusively as migrations applied with
+// `prisma migrate deploy`; `prisma db push` is forbidden in every environment.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../node_modules/.prisma/users-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("USERS_DATABASE_URL")
+}
