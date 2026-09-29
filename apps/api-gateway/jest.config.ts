@@ -28,7 +28,7 @@ export const projects = [
 
 const config: Config = {
   projects: projects.map(project),
-  collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],
+  collectCoverageFrom: ['src/**/*.ts'],
   coverageThreshold: {
     global: { branches: 70, functions: 70, lines: 70, statements: 70 },
   },
