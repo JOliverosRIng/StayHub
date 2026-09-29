@@ -1,4 +1,9 @@
-FROM node:20-bookworm-slim AS dependencies
+FROM node:20-bookworm-slim AS base
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
+
+FROM base AS dependencies
 WORKDIR /workspace
 COPY package.json package-lock.json nest-cli.json tsconfig.base.json ./
 COPY apps/users-service/package.json apps/users-service/package.json
@@ -15,7 +20,7 @@ COPY apps/users-service/prisma apps/users-service/prisma
 USER node
 CMD ["npm", "run", "prisma:migrate:deploy", "--workspace", "@stayhub/users-service"]
 
-FROM node:20-bookworm-slim AS runtime
+FROM base AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 RUN groupadd --system stayhub && useradd --system --gid stayhub stayhub
