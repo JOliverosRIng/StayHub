@@ -12,3 +12,7 @@ Thumbs.db
 .vscode/
 .idea/
 apps/*/prisma/*.db
+apps/*/generated/
+apps/*/src/infrastructure/persistence/generated/
+secrets/
+.artifacts/

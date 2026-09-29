@@ -5,7 +5,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
-    ignores: ['node_modules/', 'dist/', 'build/', 'coverage/', '*.min.js'],
+    ignores: ['node_modules/', '**/generated/**', 'dist/', 'build/', 'coverage/', '*.min.js'],
   },
   {
     files: ['apps/users-service/**/*.ts'],

@@ -1,0 +1,43 @@
+name: Users G2
+on:
+  push:
+    branches: ['feat/users-perfil-authz']
+  pull_request:
+jobs:
+  users:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-bookworm
+        env:
+          POSTGRES_DB: users_db
+          POSTGRES_USER: users
+          POSTGRES_PASSWORD: users_test_only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U users -d users_db"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      USERS_DATABASE_URL: postgresql://users:users_test_only@localhost:5432/users_db
+      USERS_TEST_DATABASE_URL: postgresql://users:users_test_only@localhost:5432/users_db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:users:generate
+      - run: npm run prisma:users:migrate:deploy
+      - run: npm run typecheck:users
+      - run: npm run lint:users
+      - run: npm run test:unit --workspace @stayhub/users-service -- --coverage --coverageDirectory=../../coverage/users-unit
+      - run: npm run test:coverage --workspace @stayhub/users-service
+      - run: npm run build:users
+      - run: node scripts/validate-users-openapi.mjs
+      - run: docker build -f infra/docker/users/Dockerfile -t stayhub-users:ci .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: users-coverage
+          path: coverage/users
