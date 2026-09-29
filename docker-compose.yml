@@ -1,0 +1,74 @@
+name: stayhub
+
+services:
+  users-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: users_db
+      POSTGRES_USER: stayhub_users
+      POSTGRES_PASSWORD: ${USERS_DB_PASSWORD:?USERS_DB_PASSWORD is required}
+    volumes:
+      - users-db-data:/var/lib/postgresql/data
+    networks: [users-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stayhub_users -d users_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  users-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/users/Dockerfile
+      target: migrate
+    environment:
+      USERS_DATABASE_URL: ${USERS_DATABASE_URL:?USERS_DATABASE_URL is required}
+    networks: [users-internal]
+    depends_on:
+      users-db:
+        condition: service_healthy
+    restart: "no"
+
+  users-service:
+    build:
+      context: .
+      dockerfile: infra/docker/users/Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      USERS_PORT: ${USERS_PORT:-3002}
+      USERS_DATABASE_URL: ${USERS_DATABASE_URL:?USERS_DATABASE_URL is required}
+      USERS_JWT_PUBLIC_KEYS_JSON: ${USERS_JWT_PUBLIC_KEYS_JSON:?USERS_JWT_PUBLIC_KEYS_JSON is required}
+      USERS_JWT_ISSUER: ${USERS_JWT_ISSUER:?USERS_JWT_ISSUER is required}
+      USERS_JWT_AUDIENCE: ${USERS_JWT_AUDIENCE:?USERS_JWT_AUDIENCE is required}
+      USERS_SERVICE_AUTH_PUBLIC_KEYS_JSON: ${USERS_SERVICE_AUTH_PUBLIC_KEYS_JSON:?USERS_SERVICE_AUTH_PUBLIC_KEYS_JSON is required}
+      USERS_SERVICE_AUTH_ISSUER: ${USERS_SERVICE_AUTH_ISSUER:?USERS_SERVICE_AUTH_ISSUER is required}
+      USERS_SERVICE_AUTH_AUDIENCE: ${USERS_SERVICE_AUTH_AUDIENCE:?USERS_SERVICE_AUTH_AUDIENCE is required}
+      USERS_SERVICE_AUTH_REGISTRATION_SCOPE: ${USERS_SERVICE_AUTH_REGISTRATION_SCOPE:?USERS_SERVICE_AUTH_REGISTRATION_SCOPE is required}
+      USERS_SERVICE_AUTH_LOOKUP_SCOPE: ${USERS_SERVICE_AUTH_LOOKUP_SCOPE:?USERS_SERVICE_AUTH_LOOKUP_SCOPE is required}
+      USERS_MAX_PHOTO_BYTES: ${USERS_MAX_PHOTO_BYTES:-5000000}
+      USERS_OTLP_ENDPOINT: ${USERS_OTLP_ENDPOINT:?USERS_OTLP_ENDPOINT is required}
+      USERS_OTEL_SERVICE_NAME: ${USERS_OTEL_SERVICE_NAME:-stayhub-users-service}
+    networks: [users-internal, services]
+    depends_on:
+      users-db:
+        condition: service_healthy
+      users-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 10
+    restart: always
+
+networks:
+  users-internal:
+    internal: true
+  services:
+    internal: true
+
+volumes:
+  users-db-data:
