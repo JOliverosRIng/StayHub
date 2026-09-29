@@ -44,6 +44,10 @@ directamente sus assertions. El orden TDD histórico no es verificable.
 
 ## Punto retomable
 
+USR-038: test contractual 254 aceptado/255 rechazado con cero lookup añadido;
+ejecución dirigida 2/2 verde. Guardado antes de mutación 254→255 para validar
+sensibilidad sin cambios legítimos pendientes. Producción sin cambios.
+
 ## D. US2 lookup
 
 | tarea | criterio | estado | evidencia archivo:línea | test/comando | commit |
