@@ -1,5 +1,28 @@
 # Estado de users-service — Grupo 2
 
+## Revisión acotada JWT y dependencias — 2026-09-29
+
+Punto 1 (USR-015/061/065): la premisa de validación ausente no se reprodujo.
+`jwt.strategy.ts:16` ya delega en `verifyJwt`; el verificador exige kid coincidente
+y exp/iat enteros presentes. La configuración ya exige USERS_JWT_KID, documentado
+en .env.example/README, y el helper ya firma con kid/iat. La búsqueda inicial
+en jwt-hardening encontró kid incorrecto; se añadieron cuatro casos explícitos
+(kid incorrecto/ausente, exp ausente, iat ausente), todos con 401 y cero llamadas
+al repositorio. Pasaron antes de modificar producción: no hay fase roja por
+conducta ausente ni se duplican controles existentes para aparentar una corrección.
+
+Comando ejecutado: `npm test --workspace @stayhub/users-service -- --runTestsByPath
+test/security/jwt-hardening.spec.ts test/integration/profile-ownership.spec.ts
+test/contract/profile.contract.spec.ts test/unit/profile-authorization.spec.ts`.
+Resultado: **4 suites, 24 pruebas verdes**, con USERS_TEST_DATABASE_URL apuntando
+a PostgreSQL de pruebas en 127.0.0.1:55432/users_db. Sin Docker ni suite completa.
+
+Punto 2 (USR-035/058): los archivos indicados en `in path`,
+`interfaces/http/internal/registration-error.mapper.ts` y
+`interfaces/http/profiles/profile-error.mapper.ts`, son aliases de
+`interfaces/http/problem.mapper.ts`. El mapeo efectivo lo aplica
+`interfaces/http/problem.filter.ts`. Se mantienen las [X]; no cambia código.
+
 Rama: `feat/users-perfil-authz`. Checkpoint WIP conservado: `fb18495`.
 
 ## Verificado por el usuario, no reejecutado
