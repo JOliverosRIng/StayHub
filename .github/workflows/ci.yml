@@ -1,14 +1,20 @@
-name: Auth Service CI
+name: StayHub CI
 
 on:
   pull_request:
     paths:
+      - 'apps/api-gateway/**'
       - 'apps/auth-service/**'
+      - 'infra/docker/gateway/**'
       - 'infra/docker/auth/**'
       - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
+      - 'tsconfig.base.json'
+      - 'nest-cli.json'
+      - 'eslint.config.mjs'
       - 'docker-compose.yml'
+      - 'specs/001-fundamentos-identidad/contracts/openapi-public.yaml'
       - 'specs/001-fundamentos-identidad/contracts/openapi-auth-service.yaml'
   push:
     branches: [main]
@@ -47,10 +53,26 @@ jobs:
       - run: npm run prisma:migrate:deploy
         env:
           AUTH_DATABASE_URL: ${{ env.TEST_AUTH_DATABASE_URL }}
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run test -- --coverage
+      - run: npm run lint:auth
+      - run: npm run typecheck:auth
+      - run: npm run test:auth:coverage
       - run: npm run openapi:check
-      - run: npm run build
+      - run: npm run build:auth
       - run: docker build --target runtime -f infra/docker/auth/Dockerfile .
-      - run: npm run test:cross-service --workspace @stayhub/auth-service -- --runTestsByPath test/integration/auth-compose.spec.ts
+      - run: npm run test:auth:cross-service -- --runTestsByPath test/integration/auth-compose.spec.ts
+
+  gateway-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:gateway
+      - run: npm run typecheck:gateway
+      - run: npm run test:gateway:coverage
+      - run: npm run openapi:check:gateway
+      - run: npm run build:gateway
+      - run: docker build --target runtime -f infra/docker/gateway/Dockerfile .

@@ -219,16 +219,27 @@ components:
           allOf: [{ $ref: '#/components/schemas/Preferences' }]
           nullable: true
         photo: { type: string, nullable: true, enum: [null] }
+    FieldError:
+      type: object
+      required: [field, code]
+      properties:
+        field: { type: string }
+        code: { type: string }
+        message: { type: string }
     Problem:
       type: object
-      required: [type, title, status, code, traceId]
+      required: [type, title, status, detail, instance, code, traceId]
       properties:
-        type: { type: string }
+        type: { type: string, format: uri-reference }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }
+        instance: { type: string }
         code: { type: string }
         traceId: { type: string }
+        errors:
+          type: array
+          items: { $ref: '#/components/schemas/FieldError' }
   responses:
     Problem:
       description: Safe Problem Details response.

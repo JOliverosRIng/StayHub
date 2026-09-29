@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../../dist/apps/api-gateway",
+    "rootDir": "../..",
+    "types": ["node", "jest"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "jest.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

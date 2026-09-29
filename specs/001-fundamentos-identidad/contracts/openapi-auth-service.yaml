@@ -190,11 +190,18 @@ components:
             userId: { type: string, format: uuid }
             sessionId: { type: string, format: uuid }
             role: { type: string, enum: [GUEST, OWNER, ADMIN] }
+    FieldError:
+      type: object
+      required: [field, code]
+      properties:
+        field: { type: string }
+        code: { type: string }
+        message: { type: string }
     Problem:
       type: object
       required: [type, title, status, detail, instance, code, traceId]
       properties:
-        type: { type: string }
+        type: { type: string, format: uri-reference }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }
@@ -203,7 +210,7 @@ components:
         traceId: { type: string }
         errors:
           type: array
-          items: { type: string }
+          items: { $ref: '#/components/schemas/FieldError' }
   responses:
     TooManyRequests:
       description: Identifier failure limit exceeded without revealing account existence.

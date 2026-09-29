@@ -8,10 +8,10 @@ export default tseslint.config(
     ignores: ['node_modules/', 'dist/', 'build/', 'coverage/', '*.min.js'],
   },
   {
-    files: ['apps/auth-service/**/*.ts'],
+    files: ['apps/auth-service/**/*.ts', 'apps/api-gateway/**/*.ts'],
     languageOptions: {
       parserOptions: {
-        project: './apps/auth-service/tsconfig.json',
+        project: ['./apps/auth-service/tsconfig.json', './apps/api-gateway/tsconfig.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },

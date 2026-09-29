@@ -2,9 +2,11 @@ node_modules/
 dist/
 build/
 coverage/
+.artifacts/
 *.log
 .env*
 !.env.example
+secrets/
 .DS_Store
 Thumbs.db
 *.tmp
@@ -14,7 +16,6 @@ Thumbs.db
 apps/*/prisma/*.db
 
 .agents/
-.github/
 .specify/
 
 agents/
