@@ -44,6 +44,42 @@ directamente sus assertions. El orden TDD histórico no es verificable.
 
 ## Punto retomable
 
+## E. US3 perfil
+
+| tarea | criterio | estado | evidencia archivo:línea | test/comando | commit |
+|---|---|---|---|---|---|
+| USR-045 | Contrato perfil/foto/error | NO CUMPLE | test/contract/profile.contract.spec.ts:7-20 cubre 200/401/403/404; 400/409/413/415 cubiertos en integración pero faltan aquí | baseline; reforzar contrato | bloque E |
+| USR-046 | Patch/null/límites | CUMPLE | test/unit/profile-validation.spec.ts:3-12 asserts exactos y rechazos; registration-policy:8-10 límites nombre/email compartidos | baseline | bloque E |
+| USR-047 | Atomicidad/concurrencia | CUMPLE | test/integration/profile-update.spec.ts:7-24 verifica Promise.all, versión y rollback email | baseline; H11 debe desafiar código versión | bloque E |
+| USR-048 | Foto/fronteras/null | CUMPLE | test/integration/profile-photo.spec.ts:7-21: 5000000 acepta, 5000001 413, MIME 415, rollback, null | baseline; photo.contract verifica ETag/binario | bloque E |
+| USR-049 | Modelo foto | CUMPLE | prisma/schema.prisma:34-41; User.version:27 | profile-photo, migrations-health | bloque E |
+| USR-050 | CHECK/FK local | CUMPLE | prisma/migrations/202609280002_add_profile_photo/migration.sql:2-6; User PK y email índice existentes | baseline; H7 debe desafiar tamaño SQL | bloque E |
+| USR-051 | Validadores dominio | CUMPLE | src/domain/profiles/profile.policy.ts:4-27; values.ts:5-15 | profile-validation | bloque E |
+| USR-052 | Magic/size/hash | CUMPLE | src/domain/photos/photo.policy.ts:2-7; infrastructure/files/profile-photo.service.ts:4-5; controller:23-24 | photo-policy/profile-photo/profile.contract | bloque E |
+| USR-053 | Transacción perfil/foto | CUMPLE | src/infrastructure/persistence/prisma/profile.repository.ts:23-41 updateMany+version, tx foto y P2002 | profile-update/photo | bloque E |
+| USR-054 | Use cases saneados | CUMPLE | src/application/profiles/get-own-profile.use-case.ts:6; get-own-profile-photo:6; update-own-profile:6; repository projection:8 | profile.contract | bloque E |
+| USR-055 | DTO cerrado | CUMPLE | src/interfaces/http/profiles/update-profile.dto.ts:4 delega policy:7-9 | profile-validation/restricted-fields | bloque E |
+| USR-056 | Multipart cerrado | CUMPLE | src/interfaces/http/profiles/profile-multipart.interceptor.ts:10-29 | http-adapters:62-78 y profile-photo | bloque E |
+| USR-057 | Endpoints bearer/binario | CUMPLE | src/interfaces/http/profiles/profile.controller.ts:13-24; modules/profiles.module.ts:10-15 | profile.contract/ownership | bloque E |
+| USR-058 | Mapping HTTP seguro | CUMPLE | src/interfaces/http/profiles/profile-error.mapper.ts:1 alias; problem.mapper.ts:4-10; filter:10 | profile-update/photo; H11 pendiente | bloque E |
+| USR-059 | Swagger multipart | NO VERIFICABLE | src/interfaces/openapi/profile.openapi.ts:5-17 inspeccionado | G pendiente | bloque E |
+| USR-060 | Checkpoint RQ-01 | CUMPLE | assertions perfil referidas arriba; baseline real FR-014–019/023 | baseline, no Gateway real | bloque E |
+
+## F. US4 autorización
+
+| tarea | criterio | estado | evidencia archivo:línea | test/comando | commit |
+|---|---|---|---|---|---|
+| USR-061 | JWT antes persistencia | CUMPLE | test/security/jwt-hardening.spec.ts:18-39: firma/alg/issuer/aud/exp/claims y cero findFirst | baseline | bloque F |
+| USR-062 | Ownership puro/precedencia | CUMPLE | test/unit/profile-authorization.spec.ts:3-4; http-adapters:80-81 y roles:21-25 complementan guard real | baseline | bloque F |
+| USR-063 | Mismo 403 ajeno | CUMPLE | test/integration/profile-ownership.spec.ts:7-15 tres roles y target existente/ausente, malformed antes lookup | baseline | bloque F |
+| USR-064 | Mass assignment rollback | CUMPLE | test/integration/profile-restricted-fields.spec.ts:7-10 comparación DB completa | baseline | bloque F |
+| USR-065 | JWT estricto | CUMPLE | src/interfaces/http/auth/jwt.strategy.ts:13-18 y verifier:7-9 | jwt-hardening; H4/5 pendiente | bloque F |
+| USR-066 | Ownership previo | CUMPLE | src/interfaces/http/guards/profile-ownership.guard.ts:9-10; domain/profiles/ownership.policy.ts:2 | ownership; H2/3/12 pendiente | bloque F |
+| USR-067 | Roles metadata sin endpoint real | CUMPLE | src/interfaces/http/guards/roles.guard.ts:10-14; decorator:3; test/unit/roles.spec.ts:12-25 | baseline | bloque F |
+| USR-068 | Campos restringidos | CUMPLE | src/interfaces/http/profiles/update-profile.dto.ts:4; interceptor:18-28; policy:7-9 | restricted-fields | bloque F |
+| USR-069 | Swagger y precedencia | NO VERIFICABLE | controller:13,18; profile.openapi.ts:14,16 | ownership verde; G pendiente | bloque F |
+| USR-070 | FR-020–024/SC-004 | CUMPLE | JWT/ownership/roles/mass assignment assertions leídas y ejecutadas | baseline | bloque F |
+
 USR-038: test contractual 254 aceptado/255 rechazado con cero lookup añadido;
 ejecución dirigida 2/2 verde. Guardado antes de mutación 254→255 para validar
 sensibilidad sin cambios legítimos pendientes. Producción sin cambios.
