@@ -1,5 +1,47 @@
 # Estado de users-service — Grupo 2
 
+## Verificación completa con PostgreSQL disponible — 2026-09-29
+
+Rama `feat/users-perfil-authz`, revisión verificada `d085449`. Sin cambios a
+código, tests, contratos, timeouts ni versiones; sin push.
+
+`docker ps` mostró el PostgreSQL de pruebas detenido. README/.env.example y el
+harness requieren PostgreSQL 16 externo en users_db: el harness crea esquemas
+aislados y aplica migraciones, no inicia Docker. Se reutilizó el contenedor
+existente con `docker start stayhub-users-g2-tests`; `docker exec
+stayhub-users-g2-tests pg_isready -U users -d users_db` confirmó «accepting
+connections». Puerto publicado: `127.0.0.1:55432->5432/tcp`. Se deja encendido.
+
+Comandos ejecutados desde `apps/users-service`, con USERS_TEST_DATABASE_URL
+apuntando a 127.0.0.1:55432/users_db:
+
+| Verificación | Comando | Resultado |
+|---|---|---|
+| Suite completa, una ejecución | `npm test -- --coverage` | Exit 0; 24/24 suites, 148/148 pruebas; 32,862 s |
+| Solo unitarias, una ejecución equivalente a CI | `npm run test:unit -- --coverage --coverageDirectory=../../coverage/users-unit` | Exit 0; 9/9 suites, 82/82 pruebas; 6,618 s |
+| Lint completo, verificación anterior del mismo código (no repetido) | `npm run lint` | Exit 0, 2026-09-29 |
+| Typecheck, verificación anterior del mismo código (no repetido) | `npm run typecheck` | Exit 0, 2026-09-29 |
+
+| Cobertura | Sentencias | Ramas | Funciones | Líneas |
+|---|---|---|---|---|
+| Combinada | 96,29% (676/702) | 90,37% (216/239) | 95,23% (120/126) | 98,05% (504/514) |
+| Solo unitaria | 85,75% (602/702) | 74,47% (178/239) | 78,57% (99/126) | 87,74% (451/514) |
+
+Fuentes reales: `coverage/users/coverage-summary.json`, modificación
+**2026-09-29T09:57:01.0940473Z**, y
+`coverage/users-unit/coverage-summary.json`, modificación
+**2026-09-29T09:57:25.4850404Z**. Las cuatro métricas de ambas ejecuciones superan
+70%. `.github/workflows/ci.yml:34` ejecuta unitarias con cobertura separada;
+hereda `coverageThreshold.global` de `apps/users-service/jest.config.ts:17`:
+70% para sentencias, ramas, funciones y líneas. No se ejecutó CI remota.
+
+Logs locales ignorados: `.artifacts/users-live-db-coverage.log`,
+`.artifacts/users-live-db-unit-coverage.log`,
+`.artifacts/users-verification-lint.log` y
+`.artifacts/users-verification-typecheck.log`. La ejecución anterior sin base
+falló por conexión y no se presenta como exitosa; estas son mediciones nuevas
+con PostgreSQL disponible. No existe `.specify/extensions.yml`.
+
 ## Revisión acotada JWT y dependencias — 2026-09-29
 
 Punto 1 (USR-015/061/065): la premisa de validación ausente no se reprodujo.
