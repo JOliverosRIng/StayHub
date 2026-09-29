@@ -9,7 +9,7 @@
     "build": "nest build users-service",
     "start": "node dist/apps/users-service/main.js",
     "start:dev": "nest start users-service --watch",
-    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "lint": "eslint --no-error-on-unmatched-pattern \"src/**/*.ts\" \"test/**/*.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "jest --runInBand --passWithNoTests",
     "test:unit": "jest --selectProjects unit --runInBand --passWithNoTests",
