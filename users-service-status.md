@@ -263,4 +263,20 @@ mostró en línea 2 `FileFieldsInterceptor` importado de `@nestjs/platform-expre
 No importa multer directamente; lo utiliza mediante ese adaptador, cuya cadena
 transitiva aparece en el audit. No se alteraron MIME, límites ni timeouts.
 
-Pendiente en este checkpoint: typecheck y suites unit/contract después del audit.
+### Punto 4: validación posterior y cierre — 2026-09-29
+
+- `npm run typecheck:users`: exit 0.
+- `npm test --workspace @stayhub/users-service -- --selectProjects unit contract`:
+  exit 0, **13 suites / 94 pruebas verdes**. Se usó USERS_TEST_DATABASE_URL
+  con host 127.0.0.1, puerto 55432 y base users_db.
+- `node node_modules/eslint/bin/eslint.js
+  apps/users-service/test/security/jwt-hardening.spec.ts`: exit 0, ejecutado
+  antes del commit JWT.
+- `git diff --check`: sin errores.
+
+No hubo fallos de typecheck ni de suites después del audit: no procede revert.
+`9e987d4` contiene la regresión JWT y la aclaración de aliases; `fb2d5a9`
+registra separadamente el audit sin modificaciones de dependencias.
+No se ejecutaron Docker, suite completa ni push; tampoco se cambiaron timeouts,
+versiones, tasks.md, marcas del backlog ni artefactos G1/G3. No existe
+`.specify/extensions.yml`: no hay hooks before/after_implement que ejecutar.
