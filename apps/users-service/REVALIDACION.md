@@ -207,4 +207,40 @@ que no instancia Auth/Gateway. Sus dos escenarios son evidencia provider-side.
 
 ## J. Cierre
 
-Pendiente únicamente la corrida final autorizada y registrar sus cifras reales.
+Antes de ejecutar el cierre, git status --short y git diff devolvieron salida
+vacía sobre 05922f9. La comparación contra 7d09ec6 contiene únicamente este
+documento y seis archivos de tests Users: no fuentes productivas, contratos,
+dependencias, timeouts, secretos ni archivos temporales incorporados a Git.
+Los logs y runners de evidencia permanecen ignorados en .artifacts; no son entregables.
+
+Corrida final única, 2026-09-29, desde apps/users-service, con
+USERS_TEST_DATABASE_URL apuntando a 127.0.0.1:55432/users_db:
+
+| comando | resultado real |
+|---|---|
+| npm run lint | exit 0 |
+| npm run typecheck | exit 0 |
+| npm test -- --coverage | exit 0; 24/24 suites, 156/156 pruebas, 41.917 s; cuatro proyectos |
+
+Fuente de cobertura: coverage/users/coverage-summary.json (raíz del repo).
+LastWriteTimeUtc: **2026-09-29T19:42:05.6830413Z**.
+
+| métrica | línea base | cierre |
+|---|---|---|
+| suites | 24/24 | 24/24 |
+| pruebas | 148/148 | 156/156 |
+| sentencias | 96,29% (676/702) | 96,29% (676/702) |
+| ramas | 90,37% (216/239) | 90,37% (216/239) |
+| funciones | 95,23% (120/126) | 95,23% (120/126) |
+| líneas | 98,05% (504/514) | 98,05% (504/514) |
+
+Cobertura global combinada ≥70% en las cuatro métricas. Ocho casos nuevos
+refuerzan assertions sin aumentar la cobertura estructural; H11 añade una
+aserción a un caso existente. No se ejecutó otra suite unitaria separada en este
+cierre ni se presenta la cobertura combinada como cobertura exclusivamente unitaria.
+
+Resultado consolidado: 64 CUMPLE y 6 CORREGIDA entre USR-001–070;
+6 BLOQUEADA y 2 NO VERIFICABLE entre USR-071–078.
+H1–H12 detectadas y restauradas; H6/H7/H11 sobrevivieron inicialmente.
+PostgreSQL stayhub-users-g2-tests permanece activo en 127.0.0.1:55432.
+Sin push, reset ni rebase. No existen hooks de extensión (.specify/extensions.yml ausente).
