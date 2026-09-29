@@ -194,3 +194,73 @@ Se conservan los archivos; no se añaden pruebas artificiales para cubrir reexpo
 No se añadieron suites vacías ni se simularon Auth/Gateway. Las tareas externas
 permanecen sin marcar. Las cifras históricas del checkpoint se mantienen
 atribuidas al usuario y separadas de los comandos ejecutados aquí.
+
+### Punto 3: npm audit fix sin --force — 2026-09-29
+
+Ejecutado `npm audit fix` desde `apps/users-service`: exit 1, «up to date,
+audited 812 packages». No modificó package.json ni package-lock.json; no se
+aplicó ninguna actualización. El código 1 corresponde a vulnerabilidades
+restantes, no a un fallo de las pruebas. Se registra la ejecución en un commit
+separado de la regresión JWT; no hay cambio de dependencias que revertir.
+
+`npm audit --json` posterior: exit 1; **38 paquetes reportados: 6 low,
+20 moderate, 12 high, 0 critical** (incluye herramientas de desarrollo y cadenas
+transitivas; no equivale a 38 fallos explotables en producción). La tabla recoge
+las propuestas del auditor, no recomendaciones verificadas de migración.
+
+| Paquete restante | Severidad npm | Versión propuesta / cambio indicado por npm |
+|---|---|---|
+| @angular-devkit/core | moderate | @nestjs/cli@12.0.8 (isSemVerMajor=true) |
+| @angular-devkit/schematics | moderate | npm indica fixAvailable=true, sin versión concreta; no aplicado por audit fix |
+| @angular-devkit/schematics-cli | moderate | npm indica fixAvailable=true, sin versión concreta; no aplicado por audit fix |
+| @eslint/plugin-kit | low | eslint@9.39.5 (isSemVerMajor=false) |
+| @nestjs/cli | high | @nestjs/cli@12.0.8 (isSemVerMajor=true) |
+| @nestjs/common | moderate | @nestjs/common@12.1.1 (isSemVerMajor=true) |
+| @nestjs/core | moderate | @nestjs/core@12.1.1 (isSemVerMajor=true) |
+| @nestjs/platform-express | high | @nestjs/platform-express@12.1.1 (isSemVerMajor=true) |
+| @nestjs/schematics | moderate | @nestjs/schematics@11.1.0 (isSemVerMajor=true) |
+| @nestjs/swagger | moderate | @nestjs/swagger@12.0.2 (isSemVerMajor=true) |
+| @nestjs/testing | moderate | @nestjs/testing@12.1.1 (isSemVerMajor=true) |
+| @opentelemetry/core | moderate | @opentelemetry/resources@2.11.0 (isSemVerMajor=true) |
+| @opentelemetry/exporter-logs-otlp-http | moderate | @opentelemetry/exporter-logs-otlp-http@0.222.0 (isSemVerMajor=true) |
+| @opentelemetry/otlp-exporter-base | moderate | npm indica fixAvailable=true, sin versión concreta; no aplicado por audit fix |
+| @opentelemetry/otlp-transformer | moderate | npm indica fixAvailable=true, sin versión concreta; no aplicado por audit fix |
+| @opentelemetry/resources | moderate | @opentelemetry/resources@2.11.0 (isSemVerMajor=true) |
+| @opentelemetry/sdk-logs | moderate | @opentelemetry/sdk-logs@0.222.0 (isSemVerMajor=true) |
+| @opentelemetry/sdk-metrics | moderate | npm indica fixAvailable=true, sin versión concreta; no aplicado por audit fix |
+| @opentelemetry/sdk-trace-base | moderate | npm indica fixAvailable=true, sin versión concreta; no aplicado por audit fix |
+| @prisma/config | high | prisma@6.12.0 (isSemVerMajor=true) |
+| ajv | moderate | @nestjs/cli@12.0.8 (isSemVerMajor=true) |
+| body-parser | low | @nestjs/platform-express@12.1.1 (isSemVerMajor=true) |
+| deepmerge-ts | high | prisma@6.12.0 (isSemVerMajor=true) |
+| effect | high | prisma@6.12.0 (isSemVerMajor=true) |
+| eslint | low | eslint@9.39.5 (isSemVerMajor=false) |
+| external-editor | low | @nestjs/cli@12.0.8 (isSemVerMajor=true) |
+| file-type | moderate | @nestjs/common@12.1.1 (isSemVerMajor=true) |
+| glob | high | @nestjs/cli@12.0.8 (isSemVerMajor=true) |
+| inquirer | low | @nestjs/cli@12.0.8 (isSemVerMajor=true) |
+| js-yaml | high | @nestjs/swagger@12.0.2 (isSemVerMajor=true) |
+| lodash | high | @nestjs/swagger@12.0.2 (isSemVerMajor=true) |
+| multer | high | @nestjs/platform-express@12.1.1 (isSemVerMajor=true) |
+| picomatch | high | @nestjs/cli@12.0.8 (isSemVerMajor=true) |
+| prisma | high | prisma@6.12.0 (isSemVerMajor=true) |
+| qs | moderate | npm indica fixAvailable=true, sin versión concreta; no aplicado por audit fix |
+| tmp | high | @nestjs/cli@12.0.8 (isSemVerMajor=true) |
+| webpack | low | @nestjs/cli@12.0.8 (isSemVerMajor=true) |
+| yaml | moderate | yaml@2.9.1 (isSemVerMajor=false) |
+
+No todos los fixes exigen una versión mayor: eslint 9.39.5 y yaml 2.9.1 están
+fuera del pin exacto pero conservan su major. OpenTelemetry 0.222.0 conserva
+major 0 aunque npm lo clasifica como ruptura. Para Prisma npm propone 6.12.0
+frente al 6.19.0 instalado y lo etiqueta isSemVerMajor=true: es una propuesta
+de downgrade inconsistente con esa etiqueta, no una major nueva confirmada.
+Los true sin versión concreta no permiten afirmar qué major exigirían.
+No se hicieron cambios manuales de versiones ni se utilizó --force.
+
+`rg -n 'multer|platform-express'
+apps/users-service/src/interfaces/http/profiles/profile-multipart.interceptor.ts`
+mostró en línea 2 `FileFieldsInterceptor` importado de `@nestjs/platform-express`.
+No importa multer directamente; lo utiliza mediante ese adaptador, cuya cadena
+transitiva aparece en el audit. No se alteraron MIME, límites ni timeouts.
+
+Pendiente en este checkpoint: typecheck y suites unit/contract después del audit.
