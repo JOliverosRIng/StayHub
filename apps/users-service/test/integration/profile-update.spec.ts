@@ -7,6 +7,7 @@ describe('USR-047 optimistic atomic profile update', () => {
   it('one concurrent version wins; stale request changes nothing', async () => {
     const id = await activeFixture(h); const call = (name: string): request.Test => request(h.server).patch(`/internal/v1/users/${id}/profile`).set('Authorization', `Bearer ${userToken(id)}`).field('profile', JSON.stringify({ expectedVersion: 1, name }));
     const results = await Promise.all([call('First Name'), call('Second Name')]); expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(results.find((r) => r.status === 409)?.body as unknown).toMatchObject({ code: 'VERSION_CONFLICT' });
     expect((await h.db.user.findUniqueOrThrow({ where: { id } })).version).toBe(2);
   });
   it('duplicate email rolls back other fields and version', async () => {
