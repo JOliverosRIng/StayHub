@@ -25,4 +25,14 @@ describe('USR-018/020/028/050 migrations and database integrity', () => {
     const query = jest.spyOn(h.db, '$queryRaw').mockRejectedValue(new Error('connection closed'));
     try { await request(h.server).get('/health/ready').expect(503); } finally { query.mockRestore(); }
   });
+  it('enforces the exact photo size in PostgreSQL even when bypassing HTTP', async () => {
+    const id = await activeFixture(h);
+    const content = Buffer.alloc(5_000_000); png.copy(content);
+    await h.db.profilePhoto.create({ data: { userId: id, content, mediaType: 'image/png', byteSize: content.length, sha256: 'a'.repeat(64) } });
+    const oversized = Buffer.concat([content, Buffer.from([0])]);
+    await expect(h.db.profilePhoto.update({ where: { userId: id }, data: { content: oversized, byteSize: oversized.length } })).rejects.toThrow();
+    const stored = await h.db.profilePhoto.findUniqueOrThrow({ where: { userId: id } });
+    expect(stored.byteSize).toBe(5_000_000);
+    expect(Buffer.from(stored.content).equals(content)).toBe(true);
+  });
 });

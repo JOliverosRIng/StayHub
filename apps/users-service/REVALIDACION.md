@@ -76,6 +76,12 @@ USR-007/008/021 pasan a CUMPLE con lectura y ejecución real; no cierra USR-075 
 
 ## H. Mutaciones finales
 
+H6 reforzada: sin lock falla STATE_CONFLICT esperado/ACCEPTED recibido;
+restaurado 2/2. USR-025 pasa a CORREGIDA (9f6729f).
+H7 SOBREVIVIÓ inicialmente (3/3). Se añade escritura PostgreSQL directa con
+5.000.000 aceptado y 5.000.001 rechazado, verificando bytes anteriores intactos;
+el test evita que los límites HTTP oculten una migración sin CHECK.
+
 H1–5 detectadas: límite foto (PHOTO_TOO_LARGE incorrecto), ownership 403→200,
 ADMIN 403→200, kid 401→404, exp ausente 401→404. Todas restauradas, diff vacío.
 H6 SOBREVIVIÓ inicialmente: registration-state 1/1 aun sin FOR UPDATE.
