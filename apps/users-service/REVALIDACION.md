@@ -44,6 +44,10 @@ directamente sus assertions. El orden TDD histórico no es verificable.
 
 ## Punto retomable
 
+USR-026: CORREGIDA (cobertura): service-auth.spec.ts:20 añade firma RSA no confiable
+con claims correctos; 7/7 casos verdes. Producción ya rechaza. Se guarda el cambio
+legítimo antes de mutar el verificador; falta demostrar detección de firma omitida.
+
 Inspección B terminada. US1 en revisión: leídos tests registro, dominio, repositorio,
 controladores y migración inicial. Pendiente: use cases registration, reforzar
 cobertura de firma service JWT y carrera activate/cancel; continuar C y D, E, F,
