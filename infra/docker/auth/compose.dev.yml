@@ -9,6 +9,7 @@ services:
   auth-service:
     ports:
       - "127.0.0.1:${AUTH_DEV_PORT:-3001}:3001"
+    networks: [auth-internal, services, dev-public]
     depends_on:
       auth-db:
         condition: service_healthy
@@ -18,3 +19,6 @@ services:
         condition: service_completed_successfully
       users-stub:
         condition: service_started
+
+networks:
+  dev-public:

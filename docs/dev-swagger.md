@@ -28,6 +28,7 @@ Son dos cosas distintas y **no** se ejecutan juntas cada vez:
 
 ```sh
 npm ci                      # una sola vez (o al cambiar dependencias)
+npm run env:auth:dev        # genera .env local válido para Compose manual
 npm run dev:swagger         # Auth nativo; solo DB/Redis en contenedor
 npm run dev:swagger:docker  # Auth + migrate + DB/Redis + stub de Users en contenedores
 ```
@@ -146,11 +147,12 @@ Mapeo mental:
 | 401 en `validate` | `sessionId`/`userId` invertidos, sesión revocada (replay) o reiniciaste el stack. |
 | 503 | DB, Redis o el stub de Users no están arriba. |
 | Los usuarios "desaparecen" | El stub de Users es **en memoria**: se pierden al reiniciar. |
+| El contenedor está healthy pero `localhost:3001` no responde | Comprueba que se incluyó `compose.dev.yml`; este override conecta Auth a `dev-public` para publicar el puerto sin exponer DB/Redis. |
 
 ## Limpieza
 
 - `Ctrl+C` detiene todo. En modo contenedor baja y limpia el proyecto `stayhub-auth-dev`
-  (contenedores, red, volumen e imágenes de prueba).
+  (contenedores, redes y volumen). Las imágenes construidas se conservan como caché para el siguiente arranque.
 - En modo nativo, añade `--down-deps` si también quieres bajar PostgreSQL/Redis.
 
 ## Entorno de desarrollo en contenedores
@@ -160,12 +162,14 @@ El modo `--service-container` compone:
 - `docker-compose.yml` (base) + `infra/docker/auth/compose.dev.yml` (override de desarrollo),
 - proyecto Compose `stayhub-auth-dev`,
 - publica `127.0.0.1:${AUTH_DEV_PORT:-3001}:3001`,
+- conecta solo `auth-service` a la red no interna `dev-public`; DB y Redis permanecen aislados,
 - `NODE_ENV=development` y un env temporal con claves/secretos efímeros,
 - servicio `users-stub` construido desde `infra/docker/auth/Dockerfile.users-stub`.
 
-Equivalente manual (necesita un env con claves y secretos válidos):
+Equivalente manual (primero genera un env local con claves y secretos válidos):
 
 ```sh
-podman-compose -f docker-compose.yml -f infra/docker/auth/compose.dev.yml -p stayhub-auth-dev up -d --build
+npm run env:auth:dev
+docker compose --env-file .env -f docker-compose.yml -f infra/docker/auth/compose.dev.yml -p stayhub-auth-dev up -d --build
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3001/docs   # 200
 ```

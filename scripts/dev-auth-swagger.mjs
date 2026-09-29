@@ -177,14 +177,22 @@ function portInUse(port) {
 
 async function waitReady(port, timeoutMs = 120_000) {
   const deadline = Date.now() + timeoutMs;
+  let lastResult = 'sin respuesta';
   for (;;) {
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/health/ready`);
-      if (response.ok) return;
-    } catch {
-      // service not up yet
+      const response = await fetch(`http://127.0.0.1:${port}/health/ready`, {
+        signal: AbortSignal.timeout(2_000),
+      });
+      const ready = response.ok;
+      lastResult = `HTTP ${response.status}`;
+      await response.arrayBuffer();
+      if (ready) return;
+    } catch (error) {
+      lastResult = error instanceof Error ? error.message : String(error);
     }
-    if (Date.now() > deadline) throw new Error(`auth-service did not become ready on port ${port}`);
+    if (Date.now() > deadline) {
+      throw new Error(`auth-service did not become ready on port ${port}; ultimo resultado: ${lastResult}`);
+    }
     await sleep(500);
   }
 }
@@ -326,10 +334,15 @@ async function runContainer() {
     throw new Error('No se pudo levantar el stack de contenedores');
   }
 
+  // Los contenedores no son procesos hijos y las Promises pendientes no mantienen
+  // vivo el event loop de Node. Crear el handle antes del primer await evita que el
+  // script termine durante readiness o durante el firmado asíncrono del JWT.
+  const keepAliveTimer = setInterval(() => undefined, 60_000);
   let shuttingDown = false;
   const shutdown = (code = 0) => {
     if (shuttingDown) return;
     shuttingDown = true;
+    clearInterval(keepAliveTimer);
     console.log('\n[dev-auth] bajando el stack de contenedores...');
     compose([...composeArgs, 'down', '-v', '--remove-orphans'], { cwd: ROOT, env: composeEnv });
     rmSync(directory, { recursive: true, force: true });
@@ -339,18 +352,24 @@ async function runContainer() {
   process.on('SIGTERM', () => shutdown(0));
 
   try {
+    console.log(`[dev-auth] esperando readiness en http://127.0.0.1:${options.port}/health/ready...`);
     await waitReady(options.port);
   } catch (error) {
-    console.error('[dev-auth] diagnostico: logs de auth-migrate y auth-service');
-    compose(['-p', DEV_PROJECT, 'logs', '--no-color', 'auth-migrate'], { cwd: ROOT, env: composeEnv });
+    console.error('[dev-auth] diagnostico: estado y logs de auth-migrate/auth-service');
+    compose([...composeArgs, 'ps', '--all'], { cwd: ROOT, env: composeEnv });
+    compose(
+      [...composeArgs, 'logs', '--no-color', '--tail', '200', 'auth-migrate', 'auth-service'],
+      { cwd: ROOT, env: composeEnv },
+    );
     shutdown(1);
     throw error;
   }
 
+  console.log('[dev-auth] auth-service listo; generando Service JWT...');
   const token = await issueInboundServiceToken(config, inbound);
   printHelpers(options.port, token, true);
 
-  // Mantener el proceso vivo hasta Ctrl+C (los contenedores no son hijos del proceso).
+  // El temporizador mantiene el proceso activo hasta Ctrl+C; shutdown lo libera.
   await new Promise(() => undefined);
 }
 
