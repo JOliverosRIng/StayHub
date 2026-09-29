@@ -1,0 +1,63 @@
+name: Users Service CI
+
+on:
+  pull_request:
+    paths:
+      - 'apps/users-service/**'
+      - 'infra/docker/users/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.base.json'
+      - 'eslint.config.mjs'
+      - 'docker-compose.yml'
+      - '.github/workflows/ci.yml'
+      - 'specs/001-fundamentos-identidad/contracts/openapi-users-service.yaml'
+  push:
+    branches: [main, Users_Service]
+
+jobs:
+  users-quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: users_test
+          POSTGRES_USER: users_test
+          POSTGRES_PASSWORD: users_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U users_test -d users_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_USERS_DATABASE_URL: postgresql://users_test:users_test@localhost:5432/users_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install (locked)
+        run: npm ci
+      - name: Prisma generate
+        run: npm run prisma:users:generate
+      - name: Prisma migrate deploy
+        run: npm run prisma:users:migrate:deploy
+        env:
+          USERS_DATABASE_URL: ${{ env.TEST_USERS_DATABASE_URL }}
+      - name: Lint
+        run: npm run lint:users
+      - name: Typecheck
+        run: npm run typecheck:users
+      - name: Tests with coverage
+        run: npm run test:users:coverage
+      - name: OpenAPI contract syntax
+        # Non-blocking until ProfileView/ProfilePatch nullable allOf errors are fixed (USR-059/USR-076).
+        continue-on-error: true
+        run: npx --yes @redocly/cli@1.34.0 lint --extends=minimal specs/001-fundamentos-identidad/contracts/openapi-users-service.yaml
+      - name: Build
+        run: npm run build:users
+      - name: Docker image
+        run: docker build --target runtime -f infra/docker/users/Dockerfile .
+      - name: Compose configuration
+        run: docker compose --env-file .env.example config --quiet

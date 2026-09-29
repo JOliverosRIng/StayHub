@@ -17,6 +17,7 @@
     "test:users:integration": "npm run test:integration --workspace @stayhub/users-service",
     "test:users:contract": "npm run test:contract --workspace @stayhub/users-service",
     "test:users:security": "npm run test:security --workspace @stayhub/users-service",
+    "test:users:coverage": "npm run test:coverage --workspace @stayhub/users-service",
     "prisma:users:generate": "npm run prisma:generate --workspace @stayhub/users-service",
     "prisma:users:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/users-service",
     "prisma:users:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/users-service",
