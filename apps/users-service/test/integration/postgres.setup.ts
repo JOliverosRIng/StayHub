@@ -30,7 +30,12 @@ export async function postgresHarness(): Promise<Harness> {
   if (!version[0]?.server_version.startsWith('16.')) { await admin.$disconnect(); throw new Error('PostgreSQL 16 required'); }
   await admin.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
   try {
-    execFileSync(process.execPath, [resolve('../../node_modules/prisma/build/index.js'), 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'], { cwd: resolve('.'), env: { ...process.env, USERS_DATABASE_URL: url.toString() }, stdio: 'pipe' });
+    execFileSync(process.execPath, [resolve('../../node_modules/prisma/build/index.js'), 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'], {
+      cwd: resolve('.'),
+      env: { ...process.env, USERS_DATABASE_URL: url.toString() },
+      stdio: ['ignore', 'inherit', 'inherit'],
+      timeout: 60_000,
+    });
     const module = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(USERS_CONFIG).useValue(testConfig(url.toString())).compile();
     const app = module.createNestApplication({ logger: false });
     configureHttp(app, new UsersLogger(() => undefined));
