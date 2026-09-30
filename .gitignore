@@ -18,3 +18,4 @@ apps/*/generated/
 apps/*/src/infrastructure/persistence/generated/
 secrets/
 .artifacts/
+AGENT.md
