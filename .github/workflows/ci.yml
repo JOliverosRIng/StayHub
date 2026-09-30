@@ -3,14 +3,23 @@ name: Services CI
 on:
   pull_request:
     paths:
+      - 'apps/api-gateway/**'
       - 'apps/auth-service/**'
+<<<<<<< HEAD
+      - 'infra/docker/gateway/**'
+=======
       - 'apps/users-service/**'
+>>>>>>> origin
       - 'infra/docker/auth/**'
       - 'infra/docker/users/**'
       - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
+      - 'tsconfig.base.json'
+      - 'nest-cli.json'
+      - 'eslint.config.mjs'
       - 'docker-compose.yml'
+      - 'specs/001-fundamentos-identidad/contracts/openapi-public.yaml'
       - 'specs/001-fundamentos-identidad/contracts/openapi-auth-service.yaml'
       - 'specs/001-fundamentos-identidad/contracts/openapi-users-service.yaml'
   push:
@@ -52,12 +61,30 @@ jobs:
           AUTH_DATABASE_URL: ${{ env.TEST_AUTH_DATABASE_URL }}
       - run: npm run lint:auth
       - run: npm run typecheck:auth
+<<<<<<< HEAD
+      - run: npm run test:auth:coverage
+      - run: npm run openapi:check
+=======
       - run: npm run test:auth -- --coverage
       - run: npm run openapi:auth:check
+>>>>>>> origin
       - run: npm run build:auth
       - run: docker build --target runtime -f infra/docker/auth/Dockerfile .
       - run: npm run test:auth:cross-service -- --runTestsByPath test/integration/auth-compose.spec.ts
 
+<<<<<<< HEAD
+  gateway-quality:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      GATEWAY_TEST_REDIS_URL: redis://localhost:6379/14
+=======
   users-quality:
     runs-on: ubuntu-latest
     services:
@@ -74,10 +101,22 @@ jobs:
     env:
       USERS_DATABASE_URL: ******localhost:5432/users_db
       USERS_TEST_DATABASE_URL: ******localhost:5432/users_db
+>>>>>>> origin
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
+<<<<<<< HEAD
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:gateway
+      - run: npm run typecheck:gateway
+      - run: npm run test:gateway:coverage
+      - run: npm run openapi:check:gateway
+      - run: npm run build:gateway
+      - run: docker build --target runtime -f infra/docker/gateway/Dockerfile .
+=======
           node-version: '20'
           cache: npm
       - run: npm ci
@@ -95,3 +134,4 @@ jobs:
         with:
           name: users-coverage
           path: coverage/users
+>>>>>>> origin

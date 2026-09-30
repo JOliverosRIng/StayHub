@@ -2,9 +2,11 @@ node_modules/
 dist/
 build/
 coverage/
+.artifacts/
 *.log
 .env*
 !.env.example
+secrets/
 .DS_Store
 Thumbs.db
 *.tmp
@@ -16,3 +18,4 @@ apps/*/generated/
 apps/*/src/infrastructure/persistence/generated/
 secrets/
 .artifacts/
+AGENT.md

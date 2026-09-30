@@ -1,6 +1,29 @@
 name: stayhub
 
+secrets:
+  gateway_tls_cert:
+    file: ${GATEWAY_TLS_CERT_SOURCE:-./.artifacts/gateway/tls_cert.pem}
+  gateway_tls_key:
+    file: ${GATEWAY_TLS_KEY_SOURCE:-./.artifacts/gateway/tls_key.pem}
+  gateway_redis_password:
+    file: ${GATEWAY_REDIS_PASSWORD_SOURCE:-./.artifacts/gateway/redis_password.txt}
+  gateway_service_private_key:
+    file: ${GATEWAY_SERVICE_PRIVATE_KEY_SOURCE:-./.artifacts/gateway/service_private_key.pem}
+
 services:
+  gateway-redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${GATEWAY_REDIS_PASSWORD}"]
+    secrets:
+      - gateway_redis_password
+    networks: [stayhub-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$(cat /run/secrets/gateway_redis_password)\" ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   auth-db:
     image: postgres:16-alpine
     environment:
@@ -9,7 +32,7 @@ services:
       POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
     volumes:
       - auth-db-data:/var/lib/postgresql/data
-    networks: [auth-internal]
+    networks: [stayhub-internal]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U stayhub_auth -d auth_db"]
       interval: 5s
@@ -20,7 +43,7 @@ services:
   auth-redis:
     image: redis:7-alpine
     command: ["redis-server", "--requirepass", "${AUTH_REDIS_PASSWORD}"]
-    networks: [auth-internal]
+    networks: [stayhub-internal]
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${AUTH_REDIS_PASSWORD}", "ping"]
       interval: 5s
@@ -35,7 +58,7 @@ services:
       target: build
     command: ["npm", "run", "prisma:migrate:deploy", "--workspace", "@stayhub/auth-service"]
     env_file: ${AUTH_ENV_FILE:-.env}
-    networks: [auth-internal]
+    networks: [stayhub-internal]
     depends_on:
       auth-db:
         condition: service_healthy
@@ -46,7 +69,7 @@ services:
       context: .
       dockerfile: infra/docker/auth/Dockerfile
     env_file: ${AUTH_ENV_FILE:-.env}
-    networks: [auth-internal, services]
+    networks: [stayhub-internal]
     depends_on:
       auth-db:
         condition: service_healthy
@@ -123,7 +146,7 @@ services:
       users-migrate: { condition: service_completed_successfully }
 
 networks:
-  auth-internal:
+  stayhub-internal:
     internal: true
   users-internal:
     internal: true

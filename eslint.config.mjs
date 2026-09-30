@@ -1,4 +1,6 @@
 import eslint from '@eslint/js';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -8,10 +10,10 @@ export default tseslint.config(
     ignores: ['node_modules/', '**/generated/**', 'dist/', 'build/', 'coverage/', '*.min.js'],
   },
   {
-    files: ['apps/auth-service/**/*.ts'],
+    files: ['apps/auth-service/**/*.ts', 'apps/api-gateway/**/*.ts'],
     languageOptions: {
       parserOptions: {
-        project: './apps/auth-service/tsconfig.json',
+        project: ['./apps/auth-service/tsconfig.json', './apps/api-gateway/tsconfig.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },

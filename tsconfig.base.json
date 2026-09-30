@@ -16,6 +16,10 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
+      "@gateway/application/*": ["apps/api-gateway/src/application/*"],
+      "@gateway/infrastructure/*": ["apps/api-gateway/src/infrastructure/*"],
+      "@gateway/interfaces/*": ["apps/api-gateway/src/interfaces/*"],
+      "@gateway/modules/*": ["apps/api-gateway/src/modules/*"],
       "@auth/domain/*": ["apps/auth-service/src/domain/*"],
       "@auth/application/*": ["apps/auth-service/src/application/*"],
       "@auth/infrastructure/*": ["apps/auth-service/src/infrastructure/*"],
