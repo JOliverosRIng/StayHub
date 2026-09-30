@@ -1,0 +1,61 @@
+# Dependencias nativas de desarrollo para la integración Auth <-> Users.
+#
+# Levanta PostgreSQL de Auth, PostgreSQL de Users y Redis de Auth en contenedores
+# desechables pero con volúmenes persistentes. Lo usa `npm run dev:swagger`
+# (modo nativo) a través de `scripts/dev-auth-swagger.mjs`.
+#
+# - Los puertos publicados son configurables y distintos de los del harness de
+#   pruebas (55432/56379) para no reutilizar ni detener bases de pruebas.
+# - Los volúmenes conservan usuarios y secretos entre reinicios. No se usa `-v`.
+name: stayhub-auth-users-dev
+
+services:
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: stayhub_auth
+      POSTGRES_PASSWORD: ${DEV_AUTH_DB_PASSWORD:?required}
+    ports:
+      - "127.0.0.1:${DEV_AUTH_DB_PORT:-55433}:5432"
+    volumes:
+      - auth-dev-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stayhub_auth -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: "no"
+
+  users-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: users_db
+      POSTGRES_USER: users
+      POSTGRES_PASSWORD: ${DEV_USERS_DB_PASSWORD:?required}
+    ports:
+      - "127.0.0.1:${DEV_USERS_DB_PORT:-55434}:5432"
+    volumes:
+      - users-dev-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U users -d users_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: "no"
+
+  auth-redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${DEV_AUTH_REDIS_PASSWORD:?required}"]
+    ports:
+      - "127.0.0.1:${DEV_REDIS_PORT:-56380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${DEV_AUTH_REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: "no"
+
+volumes:
+  auth-dev-db-data:
+  users-dev-db-data:

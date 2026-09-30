@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/infrastructure/persistence/generated/prisma"
+}
+
+enum Role {
+  GUEST
+  OWNER
+  ADMIN
+}
+
+enum RegistrationStatus {
+  PENDING
+  ACTIVE
+  CANCELLED
+}
+
+model User {
+  id              String             @id @db.Uuid
+  name            String             @db.VarChar(100)
+  email           String             @db.VarChar(254)
+  emailNormalized String             @unique @db.VarChar(254)
+  role            Role
+  status          RegistrationStatus @default(PENDING)
+  phone           String?            @db.VarChar(16)
+  preferences     Json?              @db.JsonB
+  version         Int                @default(1)
+  registrationId  String             @unique @db.Uuid
+  createdAt       DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @db.Timestamptz(6)
+  photo           ProfilePhoto?
+}
+
+model ProfilePhoto {
+  userId    String   @id @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   Bytes
+  mediaType String   @db.VarChar(10)
+  byteSize  Int
+  sha256    String   @db.Char(64)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("USERS_DATABASE_URL")
+}

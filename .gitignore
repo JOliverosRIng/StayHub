@@ -14,10 +14,7 @@ Thumbs.db
 .vscode/
 .idea/
 apps/*/prisma/*.db
-
-.agents/
-.specify/
-
-agents/
-guia/
-guia-v2/
+apps/*/generated/
+apps/*/src/infrastructure/persistence/generated/
+secrets/
+.artifacts/

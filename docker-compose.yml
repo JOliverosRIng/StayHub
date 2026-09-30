@@ -84,36 +84,85 @@ services:
       retries: 10
     restart: always
 
-  api-gateway:
+  users-db:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: users_db
+      POSTGRES_USER: users
+      POSTGRES_PASSWORD_FILE: /run/secrets/users_db_password
+    secrets: [users_db_password]
+    volumes: [users_data:/var/lib/postgresql/data]
+    networks: [users-internal]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U users -d users_db']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  users-migrate:
     build:
       context: .
-      dockerfile: infra/docker/gateway/Dockerfile
-    env_file: ${GATEWAY_ENV_FILE:-.env}
-    secrets:
-      - gateway_tls_cert
-      - gateway_tls_key
-      - gateway_redis_password
-      - gateway_service_private_key
-    networks: [stayhub-edge, stayhub-internal]
-    ports:
-      - "8080:8080"
+      dockerfile: infra/docker/users/Dockerfile
+      target: migration
+    environment:
+      USERS_DATABASE_URL_FILE: /run/secrets/users_database_url
+    secrets: [users_database_url]
+    networks: [users-internal]
+    restart: 'no'
     depends_on:
-      gateway-redis:
-        condition: service_healthy
-      auth-service:
-        condition: service_healthy
+      users-db: { condition: service_healthy }
+
+  users-service:
+    build:
+      context: .
+      dockerfile: infra/docker/users/Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: production
+      USERS_PORT: '3002'
+      USERS_DATABASE_URL_FILE: /run/secrets/users_database_url
+      USERS_JWT_ISSUER: ${USERS_JWT_ISSUER:?required}
+      USERS_JWT_AUDIENCE: ${USERS_JWT_AUDIENCE:?required}
+      USERS_JWT_KID: ${USERS_JWT_KID:?required}
+      USERS_JWT_PUBLIC_KEY_FILE: /run/secrets/users_access_public
+      USERS_SERVICE_JWT_ISSUER: ${USERS_SERVICE_JWT_ISSUER:?required}
+      USERS_SERVICE_JWT_AUDIENCE: ${USERS_SERVICE_JWT_AUDIENCE:?required}
+      USERS_SERVICE_JWT_KID: ${USERS_SERVICE_JWT_KID:?required}
+      USERS_SERVICE_JWT_PUBLIC_KEY_FILE: /run/secrets/users_service_public
+      USERS_REGISTRATION_SCOPE: ${USERS_REGISTRATION_SCOPE:-users:registration}
+      USERS_LOOKUP_SCOPE: ${USERS_LOOKUP_SCOPE:-users:login-identity}
+      USERS_MAX_PHOTO_BYTES: '5000000'
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:?required}
+    secrets: [users_database_url, users_access_public, users_service_public]
+    networks: [users-internal, services]
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "process.env.NODE_TLS_REJECT_UNAUTHORIZED='0';fetch('https://127.0.0.1:8080/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-      interval: 10s
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
       timeout: 5s
       retries: 10
-    restart: always
+    depends_on:
+      users-migrate: { condition: service_completed_successfully }
 
 networks:
   stayhub-internal:
     internal: true
-  stayhub-edge:
+  users-internal:
+    internal: true
+  services:
     internal: true
 
 volumes:
   auth-db-data:
+  users_data:
+
+secrets:
+  users_db_password:
+    file: ${USERS_DB_PASSWORD_FILE:?required}
+  users_database_url:
+    file: ${USERS_DATABASE_URL_FILE:?required}
+  users_access_public:
+    file: ${USERS_JWT_PUBLIC_KEY_FILE:?required}
+  users_service_public:
+    file: ${USERS_SERVICE_JWT_PUBLIC_KEY_FILE:?required}
