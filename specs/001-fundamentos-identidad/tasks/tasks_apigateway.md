@@ -103,7 +103,7 @@ contexto autorizado y aplica exactamente 5.000.000 bytes.
 
 ## Phase 7: Integración y cierre
 
-- [ ] GW-055 [P] Validar drift del Swagger público, todas las operaciones, límite decimal único de fotografía y ausencia de secretos (Component: Public contract drift; Trace: Constitution V/VII; Depends on: GW-030, GW-042, GW-049, GW-054) in `scripts/validate-public-openapi.mjs` and `apps/api-gateway/test/contract/openapi-drift.spec.ts`
+- [x] GW-055 [P] Validar drift del Swagger público, todas las operaciones, límite decimal único de fotografía y ausencia de secretos (Component: Public contract drift; Trace: Constitution V/VII; Depends on: GW-030, GW-042, GW-049, GW-054) in `scripts/validate-public-openapi.mjs` and `apps/api-gateway/test/contract/openapi-drift.spec.ts`
 - [ ] GW-056 [P] Ejecutar contrato consumer Gateway→Auth para registro/login/refresh/validate (Component: Gateway-Auth contract; Trace: RQ-02, FR-001–FR-013; Depends on: GW-030, GW-042; External dependency: G3 entrega provider) in `apps/api-gateway/test/contract/auth.consumer.spec.ts`
 - [ ] GW-057 [P] Ejecutar contrato consumer Gateway→Users para perfil/foto, multipart 5.000.000 y streaming (Component: Gateway-Users contract; Trace: RQ-01, FR-011–FR-024; Depends on: GW-049, GW-054; External dependency: G2 entrega provider) in `apps/api-gateway/test/contract/users.consumer.spec.ts`
 - [ ] GW-058 Verificar integración real Gateway↔Auth con cookie, 401/429/503 y rol de sesión (Component: Gateway-Auth integration; Trace: RQ-02, FR-001–FR-013; Depends on: GW-056; External dependency: G3 operativo) in `apps/api-gateway/test/integration/gateway-auth.spec.ts`
