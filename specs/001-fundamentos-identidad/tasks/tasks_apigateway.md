@@ -53,7 +53,7 @@ No incluye lógica de negocio, persistencia de dominio, cliente web ni broker as
 **Independent Test**: Con stub Auth, `POST /api/v1/auth/register` valida forma, idempotencia y
 límite por origen, y conserva 201/400/409/429/503.
 
-- [ ] GW-023 [P] [US1] Escribir primero contrato de registro con `Idempotency-Key` UUID, contraseña exacta 8–128, roles `GUEST|OWNER`, DTO cerrado y 201/400/409/429/503 (Component: Register contract; Trace: RQ-02, FR-001–FR-006; Depends on: GW-004, GW-021) in `apps/api-gateway/test/contract/register.contract.spec.ts`
+- [x] GW-023 [P] [US1] Escribir primero contrato de registro con `Idempotency-Key` UUID, contraseña exacta 8–128, roles `GUEST|OWNER`, DTO cerrado y 201/400/409/429/503 (Component: Register contract; Trace: RQ-02, FR-001–FR-006; Depends on: GW-004, GW-021) in `apps/api-gateway/test/contract/register.contract.spec.ts`
 - [ ] GW-024 [P] [US1] Escribir primero pruebas del límite rodante 10 solicitudes/origen/10 minutos, undécima 429 y `Retry-After` exacto (Component: Register rate limit; Trace: FR-001–FR-006; Depends on: GW-004, GW-013–GW-014) in `apps/api-gateway/test/unit/registration-rate-limit.spec.ts`
 - [ ] GW-025 [P] [US1] Escribir primero integración de service JWT, timeout, circuit breaker, reintento idempotente y mapeo Auth (Component: Auth registration integration; Trace: RQ-02, FR-005–FR-006; Depends on: GW-018–GW-019) in `apps/api-gateway/test/integration/auth-registration-client.spec.ts`
 - [ ] GW-026 [P] [US1] Implementar DTO público cerrado sin normalizar contraseña ni aceptar `ADMIN` (Component: Register DTO; Trace: FR-001–FR-003; Depends on: GW-011, GW-023) in `apps/api-gateway/src/modules/auth/dto/register.dto.ts`
