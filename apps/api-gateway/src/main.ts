@@ -7,6 +7,7 @@ import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module';
 import { loadGatewayConfig, type GatewayConfig } from './infrastructure/config/gateway-config';
+import { HEALTH_PREFIX_EXCLUDE } from './modules/health/health.controller';
 
 export interface GatewayHttpsOptions {
   readonly cert: Buffer;
@@ -30,7 +31,7 @@ export async function createGatewayApp(
     bufferLogs: true,
     httpsOptions: httpsOptionsFrom(config),
   });
-  app.setGlobalPrefix(config.apiPrefix);
+  app.setGlobalPrefix(config.apiPrefix, { exclude: [...HEALTH_PREFIX_EXCLUDE] });
   return app;
 }
 
