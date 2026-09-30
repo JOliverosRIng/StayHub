@@ -272,3 +272,43 @@ Validación posterior, 2026-09-29, USERS_TEST_DATABASE_URL en 127.0.0.1:55432:
 No se repitió la suite completa ni se regeneró cobertura en esta corrección.
 Falta repetir en la máquina que reportó el incidente; la prueba local demuestra
 el caso >5 s, no garantiza éxito si la operación excede también 15 s.
+
+## Integración Auth↔Users (2026-09-30)
+
+Esta sección se añade a la evidencia histórica anterior, que se conserva sin cambios. El estado
+de la sección I en 2026-09-29 decía que `apps/auth-service` no existía en el workspace. Ese hecho ya
+no es cierto: Auth existe y se integró con Users real sin Gateway. Resumen completo:
+`agents/integracion/resultado.md`.
+
+Cambios en Users:
+- `GET /internal/v1/registrations/{registrationId}` (`GetRegistration`, `findByRegistrationId`),
+  con scope `users:registration`, `UserSummary` actual y respuestas 400/401/403/404/503.
+- OpenAPI regenerado, sin drift.
+- Swagger configurable con `USERS_SWAGGER_SERVER_URL`.
+- Dockerfile de Users corregido: el runtime no encontraba `@nestjs/swagger`.
+- Healthcheck explícito de `users-service` en `docker-compose.yml` (podman ignora el `HEALTHCHECK`
+  OCI).
+
+Verificación final (Node 22.22.2, podman 5.8.7, PostgreSQL 16 desechable):
+- `npm run test:users`: 24 suites, 169 tests.
+- Cobertura: 96,27 % sentencias, 90,8 % ramas, 95,48 % funciones y 97,93 % líneas. Archivos
+  modificados: 100 %, salvo `user.repository.ts` (97/100/100/96).
+- `lint`, `typecheck`, `build` y `validate-users-openapi.mjs`: exit 0.
+- `npm run test:auth-users`: 9 suites, 38 tests, INT-01–17.
+
+Estado de USR-071–078 respecto a la sección I:
+
+| tarea | bloqueo antiguo | estado tras la integración |
+|---|---|---|
+| USR-071 | G3 cliente/orquestador real | Resuelto el bloqueo G3: saga, idempotencia, concurrencia, retry y PENDING no autenticable verificados con Auth real. Abierta: el timeout literal no se ejecutó contra Users real |
+| USR-072 | G3 consumidor lookup | Resuelta: lookup mínimo ACTIVE, exclusión de no activos, correo vigente tras el cambio de perfil y fallo seguro (marcada en tasks) |
+| USR-073 | G1 rutas/introspección | Sigue BLOQUEADA por Gateway. Solo se acreditó el perfil directo con el JWT de un login real de Auth |
+| USR-074 | Expectativas consumer G1/G3 | Parcial: los consumidores de Auth validan las respuestas reales contra el OpenAPI. Faltan las expectativas de G1 y la aprobación contractual |
+| USR-075 | G1 red/readiness | Parcial: `dev:swagger:docker` arranca Users real con migración previa, healthcheck y volumen, sin publicar puertos en el Compose base. Falta la coordinación de G1 |
+| USR-076 | CI remota | NO VERIFICABLE: la CI remota no se ejecutó |
+| USR-077 | E2E HTTPS de G1 | Sigue BLOQUEADA: el recorrido directo pasa, pero no hay HTTPS de borde |
+| USR-078 | CI remota y revisión independiente | NO VERIFICABLE: sin CI remota ni revisión humana |
+
+Fuera de alcance y sin cambios: introspección de sesión en Users. Users no rechaza el JWT de una
+sesión revocada; ese control corresponde al Gateway.
+

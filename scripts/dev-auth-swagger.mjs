@@ -1,28 +1,46 @@
 #!/usr/bin/env node
-// Prueba Auth con Swagger en dos modos:
-//   nativo (por defecto): Postgres/Redis en contenedor + auth-service con `node dist`.
-//   --service-container:  auth-service, migraciones, Postgres/Redis y stub de Users en contenedores.
-// En ambos casos imprime la URL de Swagger y un service JWT listo para "Authorize".
+// Prueba Auth y Users con Swagger en dos modos:
+//   nativo (por defecto): PostgreSQL de Auth y Users + Redis en contenedores;
+//                         auth-service y users-service reales como procesos `node dist`.
+//   --service-container:  auth-service, users-service, migraciones, PostgreSQL y Redis
+//                         reales en contenedores (sin stub de Users).
+// En ambos modos el recorrido es real de extremo a extremo (registro -> login -> perfil)
+// usando la configuración persistente generada por `npm run env:auth:dev`.
 import { spawn, spawnSync } from 'node:child_process';
-import { generateKeyPairSync, randomBytes } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+} from 'node:fs';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { importPKCS8, SignJWT } from 'jose';
 
-import { startUsersStub } from './users-stub.mjs';
+import {
+  ensureDevEnvironment,
+  parseEnv,
+  SECRET_FILES,
+  INBOUND_AUDIENCE,
+  INBOUND_ISSUER,
+  INBOUND_KID,
+  INBOUND_SCOPE,
+} from './lib/dev-env.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const COMPOSE_TEST_FILE = 'infra/docker/auth/compose.test.yml';
 const COMPOSE_BASE_FILE = 'docker-compose.yml';
 const COMPOSE_DEV_FILE = 'infra/docker/auth/compose.dev.yml';
-const USERS_STUB_DOCKERFILE = 'infra/docker/auth/Dockerfile.users-stub';
-const TEST_PROJECT = 'stayhub-auth-test';
+const COMPOSE_DEPS_FILE = 'infra/docker/dev/compose.deps.yml';
 const DEV_PROJECT = 'stayhub-auth-dev';
-const DEPS_PORTS = [55432, 56379];
-const DIST_ENTRY = 'dist/apps/auth-service/main.js';
+const DEPS_PROJECT = 'stayhub-auth-users-dev';
+const AUTH_DIST_ENTRY = 'dist/apps/auth-service/main.js';
+const USERS_DIST_ENTRY = 'dist/apps/users-service/main.js';
+const USERS_PORT = 3002;
+const DEFAULT_DEPS_PORTS = { authDb: 55433, usersDb: 55434, redis: 56380 };
 
 const options = parseArgs(process.argv.slice(2));
 const engine = detectEngine();
@@ -30,7 +48,7 @@ const engine = detectEngine();
 function parseArgs(argv) {
   const parsed = {
     port: 3001,
-    usersPort: 4010,
+    usersPort: undefined,
     skipDeps: false,
     downDeps: false,
     build: false,
@@ -67,75 +85,6 @@ function compose(args, extra = {}) {
 function run(program, args, extra = {}) {
   const result = spawnSync(program, args, { stdio: 'inherit', cwd: ROOT, ...extra });
   if (result.status !== 0) throw new Error(`${program} ${args.join(' ')} failed with status ${result.status}`);
-}
-
-function rsaPair() {
-  const { publicKey, privateKey } = generateKeyPairSync('rsa', {
-    modulusLength: 2048,
-    publicKeyEncoding: { type: 'spki', format: 'pem' },
-    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-  });
-  return { publicKey, privateKey };
-}
-
-function buildConfig(containerMode) {
-  const access = rsaPair();
-  const inbound = rsaPair();
-  const outbound = rsaPair();
-  const dbPassword = 'authdev_db_pw';
-  const redisPassword = 'authdev_redis_pw';
-
-  const databaseUrl = containerMode
-    ? `postgresql://stayhub_auth:${dbPassword}@auth-db:5432/auth_db?schema=public`
-    : (process.env.DEV_AUTH_DATABASE_URL ??
-      'postgresql://stayhub_auth_test:test_password@127.0.0.1:55432/auth_test?schema=public');
-  const redisUrl = containerMode
-    ? `redis://:${redisPassword}@auth-redis:6379/0`
-    : (process.env.DEV_AUTH_REDIS_URL ?? 'redis://:test_redis_password@127.0.0.1:56379/15');
-
-  const config = {
-    NODE_ENV: 'development',
-    AUTH_PORT: '3001',
-    AUTH_DATABASE_URL: databaseUrl,
-    AUTH_REDIS_URL: redisUrl,
-    AUTH_ARGON2_MEMORY_COST: '8192',
-    AUTH_ARGON2_TIME_COST: '2',
-    AUTH_ARGON2_PARALLELISM: '1',
-    AUTH_JWT_ACTIVE_KID: 'dev-access',
-    AUTH_JWT_PRIVATE_KEY: access.privateKey,
-    AUTH_JWT_PUBLIC_KEYS_JSON: JSON.stringify({ 'dev-access': access.publicKey }),
-    AUTH_JWT_ISSUER: 'https://auth.stayhub.test',
-    AUTH_JWT_AUDIENCE: 'stayhub-api',
-    AUTH_INBOUND_SERVICE_PUBLIC_KEYS_JSON: JSON.stringify({ 'dev-inbound': inbound.publicKey }),
-    AUTH_INBOUND_SERVICE_ISSUER: 'stayhub-dev-gateway',
-    AUTH_INBOUND_SERVICE_AUDIENCE: 'stayhub-auth-service-dev',
-    AUTH_INBOUND_SERVICE_SCOPE: 'auth:invoke',
-    AUTH_OUTBOUND_SERVICE_PRIVATE_KEY: outbound.privateKey,
-    AUTH_OUTBOUND_SERVICE_KID: 'dev-outbound',
-    AUTH_OUTBOUND_SERVICE_ISSUER: 'stayhub-auth-service-dev',
-    AUTH_OUTBOUND_SERVICE_AUDIENCE: 'stayhub-users-service-dev',
-    AUTH_OUTBOUND_SERVICE_SCOPE: 'users:identity',
-    AUTH_OUTBOUND_SERVICE_TTL_SECONDS: '60',
-    USERS_SERVICE_URL: containerMode ? 'http://users-stub:4000' : `http://127.0.0.1:${options.usersPort}`,
-    AUTH_USERS_TIMEOUT_MS: '2000',
-    AUTH_USERS_CIRCUIT_FAILURE_THRESHOLD: '5',
-    AUTH_USERS_CIRCUIT_RESET_MS: '30000',
-    AUTH_ACCESS_TOKEN_TTL_SECONDS: '3600',
-    AUTH_SESSION_ABSOLUTE_TTL_SECONDS: '604800',
-    AUTH_REFRESH_TOKEN_HMAC_SECRET: randomBytes(48).toString('base64url'),
-    AUTH_REGISTRATION_FINGERPRINT_SECRET: randomBytes(48).toString('base64url'),
-    AUTH_LOGIN_IDENTIFIER_HMAC_SECRET: randomBytes(48).toString('base64url'),
-    OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
-    OTEL_SERVICE_NAME: 'stayhub-auth-service-dev',
-    AUTH_SWAGGER_SERVER_URL: '/',
-  };
-  return { config, inbound, dbPassword, redisPassword };
-}
-
-function serializeEnvFile(config) {
-  return `${Object.entries(config)
-    .map(([key, value]) => `${key}=${String(value).replace(/\n/g, '\\n')}`)
-    .join('\n')}\n`;
 }
 
 function waitPort(port, timeoutMs = 90_000) {
@@ -175,7 +124,7 @@ function portInUse(port) {
   });
 }
 
-async function waitReady(port, timeoutMs = 120_000) {
+async function waitReady(port, timeoutMs = 120_000, label = 'servicio') {
   const deadline = Date.now() + timeoutMs;
   let lastResult = 'sin respuesta';
   for (;;) {
@@ -191,146 +140,312 @@ async function waitReady(port, timeoutMs = 120_000) {
       lastResult = error instanceof Error ? error.message : String(error);
     }
     if (Date.now() > deadline) {
-      throw new Error(`auth-service did not become ready on port ${port}; ultimo resultado: ${lastResult}`);
+      throw new Error(`${label} did not become ready on port ${port}; ultimo resultado: ${lastResult}`);
     }
     await sleep(500);
   }
 }
 
-async function issueInboundServiceToken(config, inbound) {
-  const key = await importPKCS8(inbound.privateKey, 'RS256');
+// Firma el service JWT de desarrollo con el par persistente Gateway -> Auth.
+async function issueServiceToken(gatewayPrivateKey) {
+  const key = await importPKCS8(gatewayPrivateKey, 'RS256');
   const issuedAt = Math.floor(Date.now() / 1000);
-  return new SignJWT({ scope: config.AUTH_INBOUND_SERVICE_SCOPE })
-    .setProtectedHeader({ alg: 'RS256', kid: 'dev-inbound', typ: 'JWT' })
+  return new SignJWT({ scope: INBOUND_SCOPE })
+    .setProtectedHeader({ alg: 'RS256', kid: INBOUND_KID, typ: 'JWT' })
     .setSubject('local-dev-gateway')
-    .setIssuer(config.AUTH_INBOUND_SERVICE_ISSUER)
-    .setAudience(config.AUTH_INBOUND_SERVICE_AUDIENCE)
+    .setIssuer(INBOUND_ISSUER)
+    .setAudience(INBOUND_AUDIENCE)
     .setIssuedAt(issuedAt)
     .setExpirationTime(issuedAt + 3600)
     .sign(key);
 }
 
-function printHelpers(port, token, containerMode) {
+function printReady(mode, port, token) {
+  const persistence =
+    mode === 'nativo'
+      ? 'Los datos persisten en los volúmenes de desarrollo (auth-dev-db-data, users-dev-db-data).'
+      : 'Los datos persisten en los volúmenes de Compose (auth-db-data, users_data).';
+  const stop =
+    mode === 'nativo'
+      ? 'Ctrl+C detiene los dos procesos; las dependencias quedan arriba (usa --down-deps).'
+      : 'Ctrl+C baja el stack de contenedores y conserva los volúmenes.';
   console.log(`\n==================== LISTO PARA PROBAR ====================
-Modo        : ${containerMode ? 'auth-service en contenedor' : 'auth-service nativo'}
-Swagger UI  : http://127.0.0.1:${port}/docs
-Service JWT : ${token}
+Modo         : ${mode} (Auth y Users reales)
+Auth Swagger : http://127.0.0.1:${port}/docs
+Users Swagger: http://127.0.0.1:${USERS_PORT}/docs
+Service JWT  : ${token}
 
-Pasos en Swagger:
-  1. Abre la URL, pulsa "Authorize" y pega el Service JWT (sin "Bearer ").
-  2. Ejecuta POST /internal/v1/registrations con header Idempotency-Key (UUID).
-  3. Luego POST /internal/v1/login con el mismo correo y contraseña.
-  4. Usa el refreshToken en POST /internal/v1/sessions/refresh.
-  5. Valida sesión en POST /internal/v1/sessions/validate (sessionId/userId del login).
+Pasos (Auth, Swagger):
+  1. Authorize con el Service JWT (sin "Bearer ").
+  2. POST /internal/v1/registrations con header Idempotency-Key (UUID).
+  3. POST /internal/v1/login con el mismo correo y contraseña.
+     Guarda el "accessToken" de la respuesta.
 
-El stub de Users está en memoria: al reiniciar se olvidan los usuarios.
-Ctrl+C para detener todo.
+Pasos (Users, Swagger):
+  4. Abre http://127.0.0.1:${USERS_PORT}/docs, Authorize con el "accessToken"
+     del login (sin "Bearer ").
+  5. GET /internal/v1/users/{userId}/profile. Usa el userId del login/registro.
+  6. PATCH multipart con el JSON en el campo "profile" y "expectedVersion".
+
+${persistence}
+${stop}
 ==========================================================\n`);
 }
 
 function printHelp() {
   console.log(`Uso: node scripts/dev-auth-swagger.mjs [opciones]
 
+Modo nativo (por defecto): levanta PostgreSQL de Auth, PostgreSQL de Users y Redis
+en contenedores, aplica migraciones y arranca auth-service y users-service reales.
+No hay stub de Users. El service JWT se firma con la configuración persistente.
+
 Opciones:
   --port <n>             Puerto HTTP de auth-service (por defecto 3001)
-  --users-port <n>       Puerto del stub de Users nativo (por defecto 4010)
-  --service-container    Corre auth-service, migraciones, DB/Redis y stub de Users en contenedores
-  --skip-deps            No levantar Postgres/Redis nativos (modo nativo)
-  --down-deps            Bajar Postgres/Redis al salir (modo nativo)
-  --build                Forzar la compilación de auth-service (modo nativo)
+  --service-container    Corre Auth, Users, migraciones, PostgreSQL y Redis en contenedores
+  --skip-deps            No levanta contenedores; usa DEV_AUTH_DATABASE_URL, DEV_USERS_DATABASE_URL y DEV_AUTH_REDIS_URL
+  --down-deps            Baja las dependencias al salir (conserva los volúmenes)
+  --build                Fuerza la compilación de auth-service y users-service
   -h, --help             Esta ayuda
+
+El modo nativo conserva datos y claves entre reinicios en .env y secrets/.
+Para regenerar la configuración desde cero, elimina .env y secrets/ y ejecuta
+npm run env:auth:dev.
+
+Variables de puertos de dependencias (opcionales):
+  DEV_AUTH_DB_PORT (55433), DEV_USERS_DB_PORT (55434), DEV_REDIS_PORT (56380)
 
 Guía completa y troubleshooting: docs/dev-swagger.md
 `);
 }
 
+// Configuración persistente compartida por Auth y Users (task-02).
+function loadNativeConfig() {
+  const dev = ensureDevEnvironment({ root: ROOT });
+  const env = Object.fromEntries(parseEnv(readFileSync(dev.envPath, 'utf8')));
+  const readSecret = (name) => readFileSync(join(dev.secretsDir, name), 'utf8').trim();
+  const usersDbPassword = readSecret(SECRET_FILES.usersDbPassword);
+  const gatewayPrivate = readSecret(SECRET_FILES.gatewayPrivate);
+
+  const authDbPort = Number(process.env.DEV_AUTH_DB_PORT ?? DEFAULT_DEPS_PORTS.authDb);
+  const usersDbPort = Number(process.env.DEV_USERS_DB_PORT ?? DEFAULT_DEPS_PORTS.usersDb);
+  const redisPort = Number(process.env.DEV_REDIS_PORT ?? DEFAULT_DEPS_PORTS.redis);
+
+  const authDatabaseUrl =
+    process.env.DEV_AUTH_DATABASE_URL ??
+    `postgresql://stayhub_auth:${env.AUTH_DB_PASSWORD}@127.0.0.1:${authDbPort}/auth_db?schema=public`;
+  const redisUrl =
+    process.env.DEV_AUTH_REDIS_URL ??
+    `redis://:${env.AUTH_REDIS_PASSWORD}@127.0.0.1:${redisPort}/0`;
+  const usersDatabaseUrl =
+    process.env.DEV_USERS_DATABASE_URL ??
+    `postgresql://users:${usersDbPassword}@127.0.0.1:${usersDbPort}/users_db`;
+
+  return {
+    env,
+    secretsDir: dev.secretsDir,
+    gatewayPrivate,
+    authDatabaseUrl,
+    redisUrl,
+    usersDatabaseUrl,
+    authDbPort,
+    usersDbPort,
+    redisPort,
+    depsPasswords: {
+      authDb: env.AUTH_DB_PASSWORD,
+      usersDb: usersDbPassword,
+      redis: env.AUTH_REDIS_PASSWORD,
+    },
+  };
+}
+
+function buildAuthEnvironment(config) {
+  return {
+    ...config.env,
+    NODE_ENV: 'development',
+    AUTH_PORT: String(options.port),
+    AUTH_DATABASE_URL: config.authDatabaseUrl,
+    AUTH_REDIS_URL: config.redisUrl,
+    USERS_SERVICE_URL: `http://127.0.0.1:${USERS_PORT}`,
+    AUTH_SWAGGER_SERVER_URL: config.env.AUTH_SWAGGER_SERVER_URL ?? '/',
+  };
+}
+
+function buildUsersEnvironment(config) {
+  return {
+    NODE_ENV: 'development',
+    USERS_PORT: String(USERS_PORT),
+    USERS_DATABASE_URL: config.usersDatabaseUrl,
+    USERS_DATABASE_URL_FILE: '',
+    USERS_JWT_ISSUER: config.env.USERS_JWT_ISSUER,
+    USERS_JWT_AUDIENCE: config.env.USERS_JWT_AUDIENCE,
+    USERS_JWT_KID: config.env.USERS_JWT_KID,
+    USERS_JWT_PUBLIC_KEY_FILE: join(config.secretsDir, SECRET_FILES.accessPublic),
+    USERS_SERVICE_JWT_ISSUER: config.env.USERS_SERVICE_JWT_ISSUER,
+    USERS_SERVICE_JWT_AUDIENCE: config.env.USERS_SERVICE_JWT_AUDIENCE,
+    USERS_SERVICE_JWT_KID: config.env.USERS_SERVICE_JWT_KID,
+    USERS_SERVICE_JWT_PUBLIC_KEY_FILE: join(config.secretsDir, SECRET_FILES.servicePublic),
+    USERS_REGISTRATION_SCOPE: config.env.USERS_REGISTRATION_SCOPE,
+    USERS_LOOKUP_SCOPE: config.env.USERS_LOOKUP_SCOPE,
+    USERS_MAX_PHOTO_BYTES: '5000000',
+    USERS_SWAGGER_SERVER_URL: `http://127.0.0.1:${USERS_PORT}`,
+    OTEL_EXPORTER_OTLP_ENDPOINT: config.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://127.0.0.1:4318',
+  };
+}
+
+function depsEnvironment(config) {
+  return {
+    ...process.env,
+    DEV_AUTH_DB_PASSWORD: config.depsPasswords.authDb,
+    DEV_USERS_DB_PASSWORD: config.depsPasswords.usersDb,
+    DEV_AUTH_REDIS_PASSWORD: config.depsPasswords.redis,
+    DEV_AUTH_DB_PORT: String(config.authDbPort),
+    DEV_USERS_DB_PORT: String(config.usersDbPort),
+    DEV_REDIS_PORT: String(config.redisPort),
+  };
+}
+
+async function startDevDependencies(config) {
+  if (engine === null) {
+    throw new Error('Instala docker o podman para levantar PostgreSQL/Redis, o usa --skip-deps');
+  }
+  const alreadyUp = (await Promise.all([
+    portInUse(config.authDbPort),
+    portInUse(config.usersDbPort),
+    portInUse(config.redisPort),
+  ])).every(Boolean);
+  if (alreadyUp) {
+    console.log('[dev-auth] reutilizando PostgreSQL/Redis de desarrollo ya levantados');
+    return;
+  }
+  console.log('[dev-auth] levantando PostgreSQL (auth, users) y Redis de desarrollo...');
+  const up = compose(['-p', DEPS_PROJECT, '-f', COMPOSE_DEPS_FILE, 'up', '-d'], {
+    cwd: ROOT,
+    env: depsEnvironment(config),
+  });
+  if (up.status !== 0) throw new Error('No se pudieron levantar las dependencias');
+  await Promise.all([
+    waitPort(config.authDbPort),
+    waitPort(config.usersDbPort),
+    waitPort(config.redisPort),
+  ]);
+}
+
 async function runNative() {
-  if (!options.skipDeps && engine === null) {
-    throw new Error('Instala docker o podman para levantar Postgres/Redis, o usa --skip-deps');
-  }
-  const { config, inbound } = buildConfig(false);
-  console.log(`\n[dev-auth] modo=nativo engine=${engine ?? 'ninguno'} puerto=${options.port} users-stub=${options.usersPort}\n`);
+  const config = loadNativeConfig();
+  console.log(`\n[dev-auth] modo=nativo engine=${engine ?? 'ninguno'} auth=${options.port} users=${USERS_PORT}\n`);
 
-  if (!options.skipDeps) {
-    const alreadyUp = (await Promise.all(DEPS_PORTS.map((port) => portInUse(port)))).every(Boolean);
-    if (alreadyUp) {
-      console.log('[dev-auth] reutilizando Postgres/Redis de stayhub-auth-test ya levantados');
-    } else {
-      console.log('[dev-auth] levantando Postgres y Redis de pruebas...');
-      const up = compose(['-p', TEST_PROJECT, '-f', COMPOSE_TEST_FILE, 'up', '-d'], { cwd: ROOT });
-      if (up.status !== 0) throw new Error('No se pudieron levantar las dependencias');
-      await Promise.all(DEPS_PORTS.map((port) => waitPort(port)));
-    }
-  }
+  if (!options.skipDeps) await startDevDependencies(config);
 
-  console.log('[dev-auth] generando cliente Prisma...');
-  run('npm', ['run', 'prisma:generate']);
-  if (options.build || !existsSync(`${ROOT}/${DIST_ENTRY}`)) {
-    console.log('[dev-auth] compilando auth-service...');
-    run('npm', ['run', 'build']);
+  console.log('[dev-auth] generando clientes Prisma...');
+  run('npm', ['run', 'prisma:auth:generate']);
+  run('npm', ['run', 'prisma:users:generate']);
+
+  if (options.build || !existsSync(`${ROOT}/${AUTH_DIST_ENTRY}`) || !existsSync(`${ROOT}/${USERS_DIST_ENTRY}`)) {
+    console.log('[dev-auth] compilando auth-service y users-service...');
+    run('npm', ['run', 'build:auth']);
+    run('npm', ['run', 'build:users']);
   }
 
   console.log('[dev-auth] aplicando migraciones...');
   run('npx', ['prisma', 'migrate', 'deploy', '--schema', 'apps/auth-service/prisma/schema.prisma'], {
-    env: { ...process.env, AUTH_DATABASE_URL: config.AUTH_DATABASE_URL },
+    env: { ...process.env, AUTH_DATABASE_URL: config.authDatabaseUrl },
+  });
+  run(process.execPath, ['scripts/users-migrate.cjs'], {
+    env: {
+      ...process.env,
+      USERS_DATABASE_URL: config.usersDatabaseUrl,
+      USERS_DATABASE_URL_FILE: '',
+    },
   });
 
-  const usersServer = await startUsersStub(options.usersPort, {
-    log: (line) => console.log(`[users-stub] ${line}`),
+  console.log('[dev-auth] arrancando users-service real...');
+  const usersChild = spawn(process.execPath, [USERS_DIST_ENTRY], {
+    cwd: ROOT,
+    env: { ...process.env, ...buildUsersEnvironment(config) },
+    stdio: 'inherit',
   });
-  console.log(`[dev-auth] stub de Users en http://127.0.0.1:${options.usersPort}`);
 
   console.log('[dev-auth] arrancando auth-service...');
-  const child = spawn(process.execPath, [DIST_ENTRY], {
+  const authChild = spawn(process.execPath, [AUTH_DIST_ENTRY], {
     cwd: ROOT,
-    env: { ...process.env, ...config },
+    env: { ...process.env, ...buildAuthEnvironment(config) },
     stdio: 'inherit',
   });
 
   let shuttingDown = false;
-  const shutdown = async (code = 0) => {
+  const shutdown = (code = 0) => {
     if (shuttingDown) return;
     shuttingDown = true;
-    child.kill('SIGTERM');
-    await new Promise((resolve) => usersServer.close(resolve));
+    authChild.kill('SIGTERM');
+    usersChild.kill('SIGTERM');
     if (!options.skipDeps && options.downDeps && engine !== null) {
-      compose(['-p', TEST_PROJECT, '-f', COMPOSE_TEST_FILE, 'down', '-v'], { cwd: ROOT });
+      console.log('[dev-auth] bajando dependencias (se conservan los volúmenes)...');
+      compose(['-p', DEPS_PROJECT, '-f', COMPOSE_DEPS_FILE, 'down'], {
+        cwd: ROOT,
+        env: depsEnvironment(config),
+      });
     }
     process.exit(code);
   };
-  process.on('SIGINT', () => void shutdown(0));
-  process.on('SIGTERM', () => void shutdown(0));
-  child.on('exit', (code) => void shutdown(code ?? 1));
+  process.on('SIGINT', () => shutdown(0));
+  process.on('SIGTERM', () => shutdown(0));
+  authChild.on('exit', (code) => shutdown(code ?? 1));
+  usersChild.on('exit', (code) => shutdown(code ?? 1));
 
-  await waitReady(options.port);
-  const token = await issueInboundServiceToken(config, inbound);
-  printHelpers(options.port, token, false);
+  console.log(`[dev-auth] esperando readiness de users-service en http://127.0.0.1:${USERS_PORT}/health/ready...`);
+  await waitReady(USERS_PORT, 120_000, 'users-service');
+  console.log(`[dev-auth] esperando readiness de auth-service en http://127.0.0.1:${options.port}/health/ready...`);
+  await waitReady(options.port, 120_000, 'auth-service');
+
+  const token = await issueServiceToken(config.gatewayPrivate);
+  printReady('nativo', options.port, token);
+}
+
+// Compose monta los secretos de archivo conservando el modo 0600 del host, que los
+// usuarios no root de los contenedores (postgres/node) no pueden leer. Copiarlos a un
+// directorio temporal legible evita ese fallo sin relajar los secretos en disco.
+function stageReadableSecrets(secretsDir) {
+  const directory = mkdtempSync(join(tmpdir(), 'stayhub-dev-secrets-'));
+  chmodSync(directory, 0o755);
+  const env = {};
+  const mapping = {
+    USERS_DB_PASSWORD_FILE: SECRET_FILES.usersDbPassword,
+    USERS_DATABASE_URL_FILE: SECRET_FILES.usersDatabaseUrl,
+    USERS_JWT_PUBLIC_KEY_FILE: SECRET_FILES.accessPublic,
+    USERS_SERVICE_JWT_PUBLIC_KEY_FILE: SECRET_FILES.servicePublic,
+  };
+  for (const [variable, file] of Object.entries(mapping)) {
+    const staged = join(directory, file);
+    copyFileSync(join(secretsDir, file), staged);
+    chmodSync(staged, 0o444);
+    env[variable] = staged;
+  }
+  return { directory, env };
 }
 
 async function runContainer() {
   if (engine === null) {
-    throw new Error('Instala docker o podman para correr el servicio en contenedor');
+    throw new Error('Instala docker o podman para correr el stack en contenedores');
   }
-  const { config, inbound, dbPassword, redisPassword } = buildConfig(true);
-  console.log(`\n[dev-auth] modo=container engine=${engine} puerto=${options.port}\n`);
-
-  const directory = mkdtempSync(join(tmpdir(), 'auth-swagger-docker-'));
-  const envFile = join(directory, '.env');
-  writeFileSync(envFile, serializeEnvFile(config));
+  const dev = ensureDevEnvironment({ root: ROOT });
+  const gatewayPrivate = readFileSync(join(dev.secretsDir, SECRET_FILES.gatewayPrivate), 'utf8').trim();
+  const staged = stageReadableSecrets(dev.secretsDir);
+  console.log(`\n[dev-auth] modo=container engine=${engine} auth=${options.port} users=${USERS_PORT}\n`);
 
   const composeArgs = ['-p', DEV_PROJECT, '-f', COMPOSE_BASE_FILE, '-f', COMPOSE_DEV_FILE];
   const composeEnv = {
     ...process.env,
-    AUTH_ENV_FILE: envFile,
-    AUTH_DB_PASSWORD: dbPassword,
-    AUTH_REDIS_PASSWORD: redisPassword,
+    AUTH_ENV_FILE: '.env',
     AUTH_DEV_PORT: String(options.port),
+    USERS_DEV_PORT: String(USERS_PORT),
+    ...staged.env,
   };
 
-  console.log('[dev-auth] construyendo y levantando el stack (auth, migrate, db, redis, users-stub)...');
+  console.log('[dev-auth] construyendo y levantando el stack (auth, users, migraciones, db, redis)...');
   const up = compose([...composeArgs, 'up', '-d', '--build'], { cwd: ROOT, env: composeEnv });
   if (up.status !== 0) {
-    compose([...composeArgs, 'down', '-v', '--remove-orphans'], { cwd: ROOT, env: composeEnv });
+    compose([...composeArgs, 'down', '--remove-orphans'], { cwd: ROOT, env: composeEnv });
+    rmSync(staged.directory, { recursive: true, force: true });
     throw new Error('No se pudo levantar el stack de contenedores');
   }
 
@@ -343,31 +458,42 @@ async function runContainer() {
     if (shuttingDown) return;
     shuttingDown = true;
     clearInterval(keepAliveTimer);
-    console.log('\n[dev-auth] bajando el stack de contenedores...');
-    compose([...composeArgs, 'down', '-v', '--remove-orphans'], { cwd: ROOT, env: composeEnv });
-    rmSync(directory, { recursive: true, force: true });
+    console.log('\n[dev-auth] bajando el stack de contenedores (se conservan los volúmenes)...');
+    compose([...composeArgs, 'down', '--remove-orphans'], { cwd: ROOT, env: composeEnv });
+    rmSync(staged.directory, { recursive: true, force: true });
     process.exit(code);
   };
   process.on('SIGINT', () => shutdown(0));
   process.on('SIGTERM', () => shutdown(0));
 
   try {
-    console.log(`[dev-auth] esperando readiness en http://127.0.0.1:${options.port}/health/ready...`);
-    await waitReady(options.port);
+    console.log(`[dev-auth] esperando readiness de users-service en http://127.0.0.1:${USERS_PORT}/health/ready...`);
+    await waitReady(USERS_PORT, 180_000, 'users-service');
+    console.log(`[dev-auth] esperando readiness de auth-service en http://127.0.0.1:${options.port}/health/ready...`);
+    await waitReady(options.port, 180_000, 'auth-service');
   } catch (error) {
-    console.error('[dev-auth] diagnostico: estado y logs de auth-migrate/auth-service');
+    console.error('[dev-auth] diagnostico: estado y logs de migraciones y servicios');
     compose([...composeArgs, 'ps', '--all'], { cwd: ROOT, env: composeEnv });
     compose(
-      [...composeArgs, 'logs', '--no-color', '--tail', '200', 'auth-migrate', 'auth-service'],
+      [
+        ...composeArgs,
+        'logs',
+        '--no-color',
+        '--tail',
+        '200',
+        'auth-migrate',
+        'auth-service',
+        'users-migrate',
+        'users-service',
+      ],
       { cwd: ROOT, env: composeEnv },
     );
     shutdown(1);
     throw error;
   }
 
-  console.log('[dev-auth] auth-service listo; generando Service JWT...');
-  const token = await issueInboundServiceToken(config, inbound);
-  printHelpers(options.port, token, true);
+  const token = await issueServiceToken(gatewayPrivate);
+  printReady('contenedor', options.port, token);
 
   // El temporizador mantiene el proceso activo hasta Ctrl+C; shutdown lo libera.
   await new Promise(() => undefined);
@@ -377,6 +503,11 @@ async function main() {
   if (options.help) {
     printHelp();
     return;
+  }
+  if (options.usersPort !== undefined) {
+    throw new Error(
+      '--users-port se retiró: users-service real escucha en 3002 en ambos modos; usa --port para Auth',
+    );
   }
   if (options.serviceContainer) await runContainer();
   else await runNative();

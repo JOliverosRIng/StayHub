@@ -23,6 +23,10 @@ export class PrismaUserRepository implements UserRepository {
       throw new DomainError('UNAVAILABLE');
     }
   }
+  async findByRegistrationId(registrationId: string): Promise<UserSummary | null> {
+    const user = await this.prisma.user.findUnique({ where: { registrationId } });
+    return user ? summary(user) : null;
+  }
   async transition(registrationId: string, status: 'ACTIVE' | 'CANCELLED'): Promise<UserSummary> {
     return this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<StoredUser[]>`SELECT * FROM "User" WHERE "registrationId" = ${registrationId}::uuid FOR UPDATE`;

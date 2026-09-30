@@ -17,7 +17,21 @@ Desde la raíz: `npm ci`, `npm run prisma:users:generate`, `npm run build:users`
 `npm run prisma:users:migrate:deploy` aplica las versionadas. No se utiliza `db push`.
 
 Las suites integration y contract requieren PostgreSQL 16 aislado y migraciones reales.
-La integración final con Auth/Gateway requiere sus entregables y revisión contractual.
+La integración con Auth está verificada sin Gateway: Auth usa Users real para registro
+(`POST`, `GET /internal/v1/registrations/{registrationId}`, `activate`, `cancel`, scope
+`users:registration`) y login (`POST /internal/v1/login-identities/resolve`, scope
+`users:login-identity`), y Users acepta el access JWT de Auth (RS256, `kid`/`iss`/`aud` de Auth,
+solo la clave pública). Evidencia: `npm run test:auth-users` y
+`agents/integracion/resultado.md`. El control de sesiones revocadas antes del perfil y la revisión
+contractual con Gateway siguen pendientes, porque dependen de Gateway.
+
+## Prueba manual con Swagger (integración con Auth)
+
+`npm run dev:swagger` (raíz) levanta Auth y Users reales con PostgreSQL/Redis en contenedores y
+publica Users en `http://127.0.0.1:3002/docs`. En `development` el server de "Try it out" es
+`USERS_SWAGGER_SERVER_URL` (el script nativo lo fija a `http://127.0.0.1:3002`). Para el perfil,
+usa como bearer el `accessToken` devuelto por `POST /internal/v1/login` de Auth. Guía completa:
+[docs/dev-swagger.md](../../docs/dev-swagger.md).
 
 ## Nota para Windows con Docker Desktop
 

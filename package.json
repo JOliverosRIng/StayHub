@@ -19,6 +19,7 @@
     "test:auth:contract": "npm run test:contract --workspace @stayhub/auth-service",
     "test:auth:security": "npm run test:security --workspace @stayhub/auth-service",
     "test:auth:cross-service": "npm run test:cross-service --workspace @stayhub/auth-service",
+    "test:auth-users": "npm run test:auth-users --workspace @stayhub/auth-service",
     "openapi:auth:check": "node scripts/check-auth-openapi-syntax.mjs && npm run test:contract --workspace @stayhub/auth-service -- --runTestsByPath test/contract/openapi-drift.spec.ts",
     "dev:swagger": "node scripts/dev-auth-swagger.mjs",
     "dev:swagger:docker": "node scripts/dev-auth-swagger.mjs --service-container",

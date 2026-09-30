@@ -1,11 +1,10 @@
+# Override de desarrollo para `npm run dev:swagger:docker`.
+#
+# Publica Auth (3001) y Users (3002) solo en 127.0.0.1 para la UI de Swagger y
+# pruebas directas, y exige Users sano antes de arrancar Auth. No arranca ningún
+# stub de Users: los dos servicios son reales. El Compose base conserva los
+# puertos privados. Usa la configuración persistente de `.env` y `secrets/`.
 services:
-  users-stub:
-    build:
-      context: .
-      dockerfile: infra/docker/auth/Dockerfile.users-stub
-    networks: [services]
-    restart: unless-stopped
-
   auth-service:
     ports:
       - "127.0.0.1:${AUTH_DEV_PORT:-3001}:3001"
@@ -17,8 +16,26 @@ services:
         condition: service_healthy
       auth-migrate:
         condition: service_completed_successfully
-      users-stub:
-        condition: service_started
+      users-service:
+        condition: service_healthy
+
+  users-service:
+    environment:
+      NODE_ENV: development
+      USERS_SWAGGER_SERVER_URL: http://127.0.0.1:${USERS_DEV_PORT:-3002}
+    ports:
+      - "127.0.0.1:${USERS_DEV_PORT:-3002}:3002"
+    networks: [users-internal, services, dev-public]
+    security_opt: ["label=disable"]
+
+  # Podman conserva el modo 0600/label SELinux de los secretos montados; deshabilitar
+  # el etiquetado en estos contenedores de desarrollo permite leerlos sin relajar los
+  # archivos en disco. Docker aplica 0444 y tolera el mismo override.
+  users-db:
+    security_opt: ["label=disable"]
+
+  users-migrate:
+    security_opt: ["label=disable"]
 
 networks:
   dev-public:

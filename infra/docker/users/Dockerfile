@@ -3,6 +3,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/users-service/package.json ./apps/users-service/package.json
+# El lockfile de workspaces necesita el paquete hermano para reproducir el árbol real:
+# sin él, `@nestjs/swagger` se anida en el workspace y no es resoluble en runtime.
+COPY apps/auth-service/package.json ./apps/auth-service/package.json
 RUN npm ci
 
 FROM dependencies AS build
@@ -15,14 +18,13 @@ FROM build AS migration
 USER node
 CMD ["node", "scripts/users-migrate.cjs"]
 
-FROM build AS production-dependencies
-RUN npm prune --omit=dev --ignore-scripts
-
 FROM node:20-bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=production-dependencies /app/node_modules ./node_modules
+# `npm prune --omit=dev` en la raíz de workspaces elimina dependencias productivas
+# de Users (p. ej. @nestjs/swagger). Se copia node_modules del build, igual que Auth.
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 USER node
 EXPOSE 3002

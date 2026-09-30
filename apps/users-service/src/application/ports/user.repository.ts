@@ -5,6 +5,7 @@ export interface UserSummary { id: string; name: string; email: string; role: Ro
 export interface LoginIdentity { userId: string; role: Role; status: 'ACTIVE' }
 export interface UserRepository {
   create(command: PendingUser): Promise<UserSummary>;
+  findByRegistrationId(registrationId: string): Promise<UserSummary | null>;
   transition(registrationId: string, status: 'ACTIVE' | 'CANCELLED'): Promise<UserSummary>;
 }
 export interface LoginIdentityRepository { findActiveLoginIdentityByNormalizedEmail(email: string): Promise<LoginIdentity | null> }

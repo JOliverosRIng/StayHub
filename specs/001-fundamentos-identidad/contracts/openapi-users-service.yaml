@@ -3,25 +3,28 @@ paths:
   /health/live:
     get:
       operationId: usersLiveness
-      summary: ""
       parameters: []
       responses:
         "200":
           description: Process is alive.
+      summary: ""
+      tags:
+        - Health
   /health/ready:
     get:
       operationId: usersReadiness
-      summary: ""
       parameters: []
       responses:
         "200":
           description: Database is ready.
         "503":
           description: Database is unavailable.
+      summary: ""
+      tags:
+        - Health
   /internal/v1/registrations:
     post:
       operationId: createPendingUser
-      summary: ""
       parameters: []
       requestBody:
         required: true
@@ -94,7 +97,7 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: &a1
+              schema:
                 type: object
                 required:
                   - type
@@ -136,28 +139,437 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a1
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "403":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a1
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "409":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a1
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "503":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a1
-      security: &a3
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
+      security:
         - serviceAuth: []
+      summary: ""
+      tags:
+        - Registration
+  /internal/v1/registrations/{registrationId}:
+    get:
+      operationId: getRegistration
+      parameters:
+        - name: registrationId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          description: Current user summary for the registration.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - name
+                  - email
+                  - role
+                  - status
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  email:
+                    type: string
+                    format: email
+                  role:
+                    type: string
+                    enum:
+                      - GUEST
+                      - OWNER
+                      - ADMIN
+                  status:
+                    type: string
+                    enum:
+                      - PENDING
+                      - ACTIVE
+                      - CANCELLED
+        "400":
+          description: Safe Problem Details response.
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
+        "401":
+          description: Safe Problem Details response.
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
+        "403":
+          description: Safe Problem Details response.
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
+        "404":
+          description: Safe Problem Details response.
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
+        "503":
+          description: Safe Problem Details response.
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
+      security:
+        - serviceAuth: []
+      summary: ""
+      tags:
+        - Registration
   /internal/v1/registrations/{registrationId}/activate:
     post:
       operationId: activatePendingUser
-      summary: ""
       parameters:
         - name: registrationId
           required: true
@@ -203,7 +615,7 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: &a2
+              schema:
                 type: object
                 required:
                   - type
@@ -245,32 +657,220 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a2
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "403":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a2
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "404":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a2
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "409":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a2
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "503":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a2
-      security: *a3
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
+      security:
+        - serviceAuth: []
+      summary: ""
+      tags:
+        - Registration
   /internal/v1/registrations/{registrationId}/cancel:
     post:
       operationId: cancelPendingUser
-      summary: ""
       parameters:
         - name: registrationId
           required: true
@@ -285,7 +885,7 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: &a4
+              schema:
                 type: object
                 required:
                   - type
@@ -327,32 +927,220 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a4
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "403":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a4
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "404":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a4
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "409":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a4
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "503":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a4
-      security: *a3
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
+      security:
+        - serviceAuth: []
+      summary: ""
+      tags:
+        - Registration
   /internal/v1/login-identities/resolve:
     post:
       operationId: resolveLoginIdentity
-      summary: ""
       parameters: []
       requestBody:
         required: true
@@ -397,7 +1185,7 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: &a5
+              schema:
                 type: object
                 required:
                   - type
@@ -439,28 +1227,178 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a5
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "403":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a5
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "404":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a5
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "503":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a5
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
       security:
         - serviceAuth: []
+      summary: ""
+      tags:
+        - LoginIdentity
   /internal/v1/users/{userId}/profile:
     get:
       operationId: getProfile
-      summary: ""
       parameters:
         - name: userId
           required: true
@@ -519,7 +1457,7 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: &a6
+              schema:
                 type: object
                 required:
                   - type
@@ -561,25 +1499,138 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a6
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "404":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a6
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "503":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a6
-      security: &a9
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
+      security:
         - bearerAuth: []
-    patch:
-      operationId: updateProfile
       summary: ""
+      tags:
+        - Profile
+    patch:
       description: Atomic partial update. Omitted fields are preserved; null clears
         optional values. File plus photo:null and empty changes are invalid.
         Authentication precedes ownership and input validation.
+      operationId: updateProfile
       parameters:
         - name: userId
           required: true
@@ -620,8 +1671,7 @@ paths:
                       pattern: ^\+[1-9][0-9]{7,14}$
                     preferences:
                       allOf:
-                        - &a7
-                          type: object
+                        - type: object
                           maxProperties: 20
                           additionalProperties:
                             oneOf:
@@ -676,7 +1726,13 @@ paths:
                     nullable: true
                   preferences:
                     allOf:
-                      - *a7
+                      - type: object
+                        maxProperties: 20
+                        additionalProperties:
+                          oneOf:
+                            - type: string
+                            - type: number
+                            - type: boolean
                     nullable: true
                   photoUrl:
                     type: string
@@ -688,7 +1744,7 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: &a8
+              schema:
                 type: object
                 required:
                   - type
@@ -730,42 +1786,304 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a8
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "403":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a8
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "404":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a8
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "409":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a8
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "413":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a8
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "415":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a8
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "503":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a8
-      security: *a9
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
+      security:
+        - bearerAuth: []
+      summary: ""
+      tags:
+        - Profile
   /internal/v1/users/{userId}/profile/photo:
     get:
       operationId: getProfilePhoto
-      summary: ""
       parameters:
         - name: userId
           required: true
@@ -793,7 +2111,7 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: &a10
+              schema:
                 type: object
                 required:
                   - type
@@ -835,18 +2153,133 @@ paths:
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a10
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "404":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a10
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
         "503":
           description: Safe Problem Details response.
           content:
             application/problem+json:
-              schema: *a10
-      security: *a9
+              schema:
+                type: object
+                required:
+                  - type
+                  - title
+                  - status
+                  - detail
+                  - instance
+                  - code
+                  - traceId
+                  - errors
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  code:
+                    type: string
+                  traceId:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - field
+                        - code
+                      properties:
+                        field:
+                          type: string
+                        code:
+                          type: string
+      security:
+        - bearerAuth: []
+      summary: ""
+      tags:
+        - Profile
 info:
   title: StayHub Users Service API
   description: Internal REST API; users-service owns identity, role and profile data.

@@ -14,8 +14,13 @@ const crossServicePatterns = [
   'gateway.provider.spec.ts',
   'cross-service-registration.spec.ts',
   'cross-service-login.spec.ts',
+  'cross-service-profile.spec.ts',
+  'cross-service-recovery.spec.ts',
+  'cross-service-reconciliation.spec.ts',
+  'cross-service-restart.spec.ts',
   'gateway-auth.spec.ts',
   'auth-compose.spec.ts',
+  'auth-users-smoke.spec.ts',
 ];
 
 const project = (name: string, testPathIgnorePatterns: string[] = []): Config => ({

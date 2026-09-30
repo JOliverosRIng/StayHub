@@ -202,11 +202,21 @@ export class ReconcileRegistrationsUseCase implements ReconcileRegistrations {
     try {
       await this.users.cancelRegistration(registrationId, traceId);
     } catch (error) {
+      const remote = await this.loadRemote(registrationId, traceId);
       if (error instanceof RegistrationConflictError) {
-        const remote = await this.loadRemote(registrationId, traceId);
         if (remote !== 'unavailable' && remote !== null && remote.status === 'ACTIVE') {
           return this.finishAsActive(registration, owner, now);
         }
+      } else if (remote === null) {
+        // Users confirma con un 404 autenticado que la identidad no existe (la
+        // saga se interrumpió antes de crearla): el objetivo de la compensación
+        // ya se cumple. 401/403/5xx/red siguen siendo 'unavailable' y se reintenta.
+        // Una creación tardía posterior queda PENDING: Auth no activa registros
+        // CANCELLED y el lookup de login solo resuelve identidades ACTIVE.
+        await this.revokeCredential(userId, now);
+        await this.persistState(registration, 'CANCELLED', now);
+        await this.work.release(registrationId, owner, now);
+        return 'completed';
       }
       await this.persistState(registration, 'COMPENSATING', now);
       await this.work.release(registrationId, owner, now);

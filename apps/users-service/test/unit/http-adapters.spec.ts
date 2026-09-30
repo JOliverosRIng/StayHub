@@ -19,7 +19,7 @@ describe('HTTP adapters with application ports isolated (unit)', () => {
   let app: INestApplication; let server: Server;
   const command = pendingFixture(); const id = command.userId;
   const profile = { id, name: command.name, email: command.email, role: 'GUEST', phone: null, preferences: null, photoUrl: null, version: 1 };
-  const users = { create: jest.fn(), transition: jest.fn() };
+  const users = { create: jest.fn(), transition: jest.fn(), findByRegistrationId: jest.fn() };
   const profiles = { find: jest.fn(), update: jest.fn(), photo: jest.fn() };
   const lookup = { findActiveLoginIdentityByNormalizedEmail: jest.fn() };
   const ready = jest.fn(); const logs: SafeLog[] = [];
@@ -92,7 +92,8 @@ describe('HTTP adapters with application ports isolated (unit)', () => {
     ready.mockResolvedValue(true); await request(server).get('/health/ready').expect(200);
   });
   it('generates only the published Users endpoints and both security schemes', () => {
-    const doc = createOpenApi(app); expect(Object.keys(doc.paths)).toHaveLength(8); expect(doc.components?.securitySchemes).toHaveProperty('bearerAuth'); expect(doc.components?.securitySchemes).toHaveProperty('serviceAuth');
+    const doc = createOpenApi(app); expect(Object.keys(doc.paths)).toHaveLength(9); expect(doc.components?.securitySchemes).toHaveProperty('bearerAuth'); expect(doc.components?.securitySchemes).toHaveProperty('serviceAuth');
+    expect(doc.paths['/internal/v1/registrations/{registrationId}']?.get?.operationId).toBe('getRegistration');
     expect(doc.paths['/internal/v1/users/{userId}/profile']?.patch?.requestBody).toHaveProperty('content.multipart/form-data.encoding.profile.contentType', 'application/json');
   });
 });
