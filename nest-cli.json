@@ -18,7 +18,15 @@
       "compilerOptions": {
         "tsConfigPath": "apps/auth-service/tsconfig.build.json"
       }
+    },
+    "users-service": {
+      "type": "application",
+      "root": "apps/users-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/users-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/users-service/tsconfig.build.json"
+      }
     }
   }
 }
-
