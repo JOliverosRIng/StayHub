@@ -1,0 +1,31 @@
+import { createRequire } from 'node:module';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { generateKeyPairSync } from 'node:crypto';
+import assert from 'node:assert/strict';
+import YAML from 'yaml';
+import SwaggerParser from '@apidevtools/swagger-parser';
+const require = createRequire(import.meta.url);
+const { Test } = require('@nestjs/testing');
+const { AppModule } = require('../dist/apps/users-service/app.module.js');
+const { USERS_CONFIG } = require('../dist/apps/users-service/infrastructure/config/users-config.js');
+const { PrismaService } = require('../dist/apps/users-service/infrastructure/persistence/prisma/prisma.service.js');
+const { createOpenApi } = require('../dist/apps/users-service/interfaces/openapi/openapi.factory.js');
+const publicKey = generateKeyPairSync('rsa', { modulusLength: 2048 }).publicKey.export({ type: 'spki', format: 'pem' }).toString();
+const config = { userJwt: { issuer: 'test', audience: 'test', kid: 'test', publicKey }, serviceJwt: { issuer: 'service', audience: 'users', kid: 'service', publicKey }, port: 3002 };
+const module = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(USERS_CONFIG).useValue(config).overrideProvider(PrismaService).useValue({}).compile();
+const app = module.createNestApplication({ logger: false });
+const document = JSON.parse(JSON.stringify(createOpenApi(app)));
+document.openapi = '3.0.3';
+const filename = new URL('../specs/001-fundamentos-identidad/contracts/openapi-users-service.yaml', import.meta.url);
+try {
+  await SwaggerParser.validate(structuredClone(document));
+  if (process.argv.includes('--write')) writeFileSync(filename, YAML.stringify(document));
+  const contract = YAML.parse(readFileSync(filename, 'utf8'));
+  await SwaggerParser.validate(structuredClone(contract));
+  const actual = await SwaggerParser.dereference(structuredClone(document));
+  const expected = await SwaggerParser.dereference(structuredClone(contract));
+  assert.deepStrictEqual(actual.paths, expected.paths, 'Users OpenAPI paths/requests/responses/security drift');
+  assert.deepStrictEqual(actual.components, expected.components, 'Users OpenAPI schema/security drift');
+  assert.deepStrictEqual(actual.servers, expected.servers, 'Users OpenAPI server drift');
+  console.log('Users OpenAPI: valid, generated paths/schemas/security match versioned contract');
+} finally { await app.close(); }

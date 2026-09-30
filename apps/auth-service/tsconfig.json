@@ -5,7 +5,13 @@
     "rootDir": "../..",
     "types": ["node", "jest"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "jest.config.ts", "jest.cross-service.config.ts"],
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "jest.config.ts",
+    "jest.cross-service.config.ts",
+    "jest.auth-users.config.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }
 

@@ -235,6 +235,26 @@ describe('registration reconciler (AUTH-043)', () => {
     expect(await stateOf(seeded.registrationId)).toBe('CANCELLED');
   });
 
+  it('cancels when Users confirms that the identity was never created', async () => {
+    const seeded = await seedRegistration({ state: 'COMPENSATING' });
+
+    await reconciler().execute();
+
+    expect(await stateOf(seeded.registrationId)).toBe('CANCELLED');
+  });
+
+  it('keeps COMPENSATING when the absence cannot be confirmed', async () => {
+    const seeded = await seedRegistration({ state: 'COMPENSATING' });
+    stub.failNext({ methods: ['GET'], pathEndsWith: seeded.registrationId, mode: 'before', status: 503 });
+    stub.failNext({ methods: ['GET'], pathEndsWith: seeded.registrationId, mode: 'before', status: 503 });
+
+    await reconciler().execute();
+    expect(await stateOf(seeded.registrationId)).toBe('COMPENSATING');
+
+    await reconciler().execute();
+    expect(await stateOf(seeded.registrationId)).toBe('CANCELLED');
+  });
+
   it('completes when compensation finds an ACTIVE user behind the conflict', async () => {
     const seeded = await seedRegistration({ state: 'COMPENSATING' });
     await seedCredential(seeded.userId, 'PENDING');

@@ -17,6 +17,7 @@
     "test:contract": "jest --selectProjects contract --runInBand",
     "test:security": "jest --selectProjects security --runInBand",
     "test:cross-service": "jest --config jest.cross-service.config.ts --runInBand",
+    "test:auth-users": "jest --config jest.auth-users.config.ts --runInBand",
     "test:coverage": "jest --coverage --runInBand",
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",
     "prisma:migrate:dev": "prisma migrate dev --schema prisma/schema.prisma",

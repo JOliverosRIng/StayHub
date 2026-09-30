@@ -1,7 +1,7 @@
-# Probar auth-service con Swagger
+# Probar Auth y Users con Swagger
 
-Guía rápida y autosuficiente para levantar Auth y probar su API interna desde Swagger UI, sin Gateway
-ni servicio Users reales. Todo lo gestiona `scripts/dev-auth-swagger.mjs`.
+Guía rápida y autosuficiente para levantar Auth y Users reales y probar su API interna desde
+Swagger UI, sin Gateway. Todo lo gestiona `scripts/dev-auth-swagger.mjs`.
 
 ## Requisitos
 
@@ -18,19 +18,20 @@ Son dos cosas distintas y **no** se ejecutan juntas cada vez:
   - cuando cambia `package.json` o `package-lock.json`,
   - si borras `node_modules`.
   No se ejecuta en cada prueba. También sirve `npm install` cuando añades dependencias.
-- **`npm run dev:swagger`** asume que las dependencias ya están instaladas. No instala nada; hace:
-  1. reutiliza/levanta PostgreSQL y Redis,
-  2. `prisma:generate`,
-  3. `build` solo si falta `dist/apps/auth-service/main.js` (o con `--build`),
-  4. aplica migraciones,
-  5. arranca el stub en memoria de Users,
-  6. arranca Auth en `development` e imprime la URL de Swagger y el service JWT.
+- **`npm run dev:swagger`** asume que las dependencias ya están instaladas. En modo nativo hace:
+  1. reutiliza (o genera y valida) la configuración persistente `.env` y `secrets/`,
+  2. levanta PostgreSQL de Auth, PostgreSQL de Users y Redis en contenedores con volúmenes,
+  3. `prisma:auth:generate` y `prisma:users:generate`,
+  4. `build:auth` y `build:users` solo si falta algún `dist` (o con `--build`),
+  5. aplica las migraciones de ambos servicios,
+  6. arranca `users-service` (3002) y `auth-service` (3001) con `NODE_ENV=development`,
+  7. espera readiness de ambos e imprime las dos URLs de Swagger y el service JWT.
 
 ```sh
 npm ci                      # una sola vez (o al cambiar dependencias)
-npm run env:auth:dev        # genera .env local válido para Compose manual
-npm run dev:swagger         # Auth nativo; solo DB/Redis en contenedor
-npm run dev:swagger:docker  # Auth + migrate + DB/Redis + stub de Users en contenedores
+npm run env:auth:dev        # opcional: genera/valida .env y secrets/ por adelantado
+npm run dev:swagger         # Auth + Users reales nativos; DB/Redis en contenedor
+npm run dev:swagger:docker  # Auth + Users + migraciones + DB/Redis en contenedores
 ```
 
 Flags útiles:
@@ -38,62 +39,44 @@ Flags útiles:
 | Flag | Efecto |
 |---|---|
 | `--port <n>` | Puerto HTTP de Auth (por defecto 3001). |
-| `--users-port <n>` | Puerto del stub de Users nativo (por defecto 4010). |
-| `--service-container` | Equivale a `dev:swagger:docker`. |
-| `--skip-deps` | No levanta DB/Redis; usa `DEV_AUTH_DATABASE_URL` / `DEV_AUTH_REDIS_URL`. |
-| `--down-deps` | Baja DB/Redis al salir (modo nativo). |
-| `--build` | Fuerza la compilación de Auth. |
+| `--service-container` | Equivale a `dev:swagger:docker` (Auth, Users real, migraciones y DB/Redis en contenedores). |
+| `--skip-deps` | No levanta contenedores; usa `DEV_AUTH_DATABASE_URL`, `DEV_USERS_DATABASE_URL` y `DEV_AUTH_REDIS_URL`. |
+| `--down-deps` | Baja PostgreSQL/Redis al salir (conserva los volúmenes). |
+| `--build` | Fuerza la compilación de Auth y Users. |
 
-## Por qué el script genera un JWT al arrancar
+Puertos de dependencias configurables por entorno (por defecto): `DEV_AUTH_DB_PORT=55433`,
+`DEV_USERS_DB_PORT=55434`, `DEV_REDIS_PORT=56380`. Son distintos del harness de pruebas
+(55432/56379) para no reutilizar ni detener bases de pruebas.
 
-Las cuatro rutas internas de Auth **no son públicas**. Todas exigen
-`Authorization: Bearer <service JWT>`:
+El flag `--users-port` **se retiró**: el modo nativo usa `users-service` real en el puerto fijo 3002.
 
-- `POST /internal/v1/registrations`
-- `POST /internal/v1/login`
-- `POST /internal/v1/sessions/refresh`
-- `POST /internal/v1/sessions/validate`
+## Dos tokens distintos
 
-En producción esas llamadas las hace el **Gateway (G1)**, no un usuario final, presentando un
-*service JWT*. El `ServiceAuthGuard` y `ServiceJwtVerifier` verifican
-(`apps/auth-service/src/infrastructure/security/service-jwt.verifier.ts`):
-
-- `alg = RS256` y un `kid` presente en `AUTH_INBOUND_SERVICE_PUBLIC_KEYS_JSON`,
-- `issuer` y `audience` configurados,
-- `iat`/`exp` vigentes,
-- que el `scope` incluya `auth:invoke`.
-
-Como no hay Gateway levantado, el script lo **simula**:
-
-1. Genera un par RSA **efímero** (inbound).
-2. Publica la clave pública en `AUTH_INBOUND_SERVICE_PUBLIC_KEYS_JSON` con `kid = dev-inbound`.
-3. Firma un token con `sub = local-dev-gateway`, `iss = stayhub-dev-gateway`,
-   `aud = stayhub-auth-service-dev`, `scope = auth:invoke`.
-4. Lo imprime al final para que lo pegues en **Authorize**.
-
-Consecuencias:
-
-- Ese JWT es el que autoriza tus pruebas; sin él, las rutas internas responden **401**.
-- Las claves son efímeras: el token dura ~1 hora y **cambia en cada arranque**. Si reinicias el
-  script, el token anterior deja de valer; copia el nuevo.
+- **Service JWT (Auth).** Las rutas internas de Auth no son públicas y exigen
+  `Authorization: Bearer <service JWT>`: las llamaría el Gateway. El script firma uno con el par
+  persistente Gateway→Auth (`secrets/gateway-private.pem`, kid `gateway-dev-2026-01`,
+  iss `stayhub-dev-gateway`, aud `stayhub-auth-service-dev`, scope `auth:invoke`) y lo imprime.
+- **accessToken (Users).** El `accessToken` que devuelve `POST /internal/v1/login` de Auth es un
+  bearer de usuario. Se usa contra Users para `GET/PATCH /internal/v1/users/{userId}/profile`. No
+  se firma a mano: se obtiene del login real.
 
 ## URLs
 
 | Recurso | URL |
 |---|---|
-| Swagger UI | `http://localhost:3001/docs` (**no** `/api`) |
-| OpenAPI JSON | `http://localhost:3001/docs-json` |
-| OpenAPI YAML | `http://localhost:3001/docs-yaml` |
-| Health | `http://localhost:3001/health/live`, `/health/ready` |
+| Auth Swagger UI | `http://127.0.0.1:3001/docs` (**no** `/api`) |
+| Auth OpenAPI JSON | `http://127.0.0.1:3001/docs-json` |
+| Auth Health | `http://127.0.0.1:3001/health/live`, `/health/ready` |
+| Users Swagger UI | `http://127.0.0.1:3002/docs` |
+| Users OpenAPI JSON | `http://127.0.0.1:3002/docs-json` |
+| Users Health | `http://127.0.0.1:3002/health/live`, `/health/ready` |
 
-El servidor que usa "Try it out" se toma de **`AUTH_SWAGGER_SERVER_URL`** (solo en `development`).
-Por defecto es `/` (relativo al origen), así que funciona igual abriendo `localhost` o `127.0.0.1`
-y **sin CORS**. Si necesitas un host concreto:
-`AUTH_SWAGGER_SERVER_URL=https://auth.example.test`.
+En modo nativo el server de "Try it out" de Auth es `/` (`AUTH_SWAGGER_SERVER_URL`) y el de Users es
+`http://127.0.0.1:3002` (`USERS_SWAGGER_SERVER_URL`), así que ambos apuntan al origen correcto.
 
 ## Flujo de prueba (campos exactos)
 
-1. **Authorize** (arriba a la derecha): pega el service JWT, sin la palabra `Bearer`.
+1. **Auth — Authorize** (arriba a la derecha): pega el service JWT, sin la palabra `Bearer`.
 
 2. **`POST /internal/v1/registrations`**
    - Header `Idempotency-Key`: un UUID, por ejemplo `3f2504e0-4f89-41d3-9a0c-0305e82c3301`.
@@ -127,49 +110,76 @@ y **sin CORS**. Si necesitas un host concreto:
      }
      ```
    - Respuesta `200`: `{"active":true,"role":"GUEST"}`.
-   - `validate` busca la sesión por `sessionId` y exige que su `userId` coincida; si los cambias,
-     devuelve `401 SESSION_INVALID`.
 
-Mapeo mental:
+6. **Users — Authorize**: abre `http://127.0.0.1:3002/docs` y pega el `accessToken` del login
+   (sin la palabra `Bearer`).
 
-- `principal.sessionId` → campo `sessionId` de `validate`.
-- `principal.userId` → campo `userId` de `validate`.
-- `refreshToken` → campo `refreshToken` de `refresh`.
-- `accessToken` **no** se envía a ninguna de estas rutas internas.
+7. **`GET /internal/v1/users/{userId}/profile`** con `userId = principal.userId`.
+   - Respuesta `200`: perfil con `version`, `phone`, `preferences`, `photoUrl`.
+
+8. **`PATCH /internal/v1/users/{userId}/profile`** (`multipart/form-data`): campo `profile` con el
+   JSON y el `expectedVersion` actual (obtenido del GET), por ejemplo
+   `{"phone":"+3412345678","expectedVersion":1}`. Una versión obsoleta devuelve `409`.
+
+Mapeo mental: `principal.sessionId`/`principal.userId` → `validate`; `refreshToken` → `refresh`;
+`accessToken` → Users perfil. El `accessToken` **no** se envía a las rutas internas de Auth.
 
 ## Problemas comunes
 
 | Síntoma | Causa / solución |
 |---|---|
 | `/api` o `/` dan 404 | Swagger está en `/docs`. |
-| `TypeError: NetworkError ...` al ejecutar | Abre por `127.0.0.1` o ajusta `AUTH_SWAGGER_SERVER_URL`. |
-| 401 en rutas internas | Falta el service JWT o expiró: vuelve a copiarlo del script. |
-| 401 en `validate` | `sessionId`/`userId` invertidos, sesión revocada (replay) o reiniciaste el stack. |
-| 503 | DB, Redis o el stub de Users no están arriba. |
-| Los usuarios "desaparecen" | El stub de Users es **en memoria**: se pierden al reiniciar. |
-| El contenedor está healthy pero `localhost:3001` no responde | Comprueba que se incluyó `compose.dev.yml`; este override conecta Auth a `dev-public` para publicar el puerto sin exponer DB/Redis. |
+| 401 en rutas internas de Auth | Falta el service JWT o expiró: vuelve a copiarlo del script. |
+| 401 en `validate` | `sessionId`/`userId` invertidos, sesión revocada (replay) o reiniciaste Auth. |
+| 401 en el perfil de Users | Falta el `accessToken` real o Auth no está `ready`. |
+| 403 en el perfil de Users | El `userId` de la URL no es el dueño del token. |
+| 503 | DB, Redis o Users no están arriba; revisa `health/ready` de cada servicio. |
+| Puerto de dependencia ocupado | Cambia `DEV_AUTH_DB_PORT`/`DEV_USERS_DB_PORT`/`DEV_REDIS_PORT`. |
+| El contenedor está healthy pero `localhost:3001` no responde | En modo contenedor, comprueba que se incluyó `compose.dev.yml`. |
 
 ## Limpieza
 
-- `Ctrl+C` detiene todo. En modo contenedor baja y limpia el proyecto `stayhub-auth-dev`
-  (contenedores, redes y volumen). Las imágenes construidas se conservan como caché para el siguiente arranque.
-- En modo nativo, añade `--down-deps` si también quieres bajar PostgreSQL/Redis.
+- `Ctrl+C` detiene los dos procesos Node del modo nativo y **conserva** PostgreSQL/Redis en marcha
+  con sus volúmenes. Añade `--down-deps` para bajarlos sin borrar datos.
+- Para regenerar claves o secretos desde cero, elimina `.env` y `secrets/` y ejecuta
+  `npm run env:auth:dev`.
+- En modo contenedor, `Ctrl+C` baja el proyecto `stayhub-auth-dev` (contenedores y redes) **sin** `-v`:
+  los volúmenes `stayhub-auth-dev_auth-db-data` y `stayhub-auth-dev_users_data` se conservan. Para
+  borrar esos datos a propósito: `podman volume rm` (o `docker volume rm`) de esos volúmenes.
+- Volúmenes del modo nativo: `stayhub-auth-users-dev_auth-dev-db-data` y
+  `stayhub-auth-users-dev_users-dev-db-data`.
 
 ## Entorno de desarrollo en contenedores
 
-El modo `--service-container` compone:
+`npm run dev:swagger:docker` equivale a `--service-container` y compone
+`docker-compose.yml` (base) + `infra/docker/auth/compose.dev.yml` (override de desarrollo):
 
-- `docker-compose.yml` (base) + `infra/docker/auth/compose.dev.yml` (override de desarrollo),
-- proyecto Compose `stayhub-auth-dev`,
-- publica `127.0.0.1:${AUTH_DEV_PORT:-3001}:3001`,
-- conecta solo `auth-service` a la red no interna `dev-public`; DB y Redis permanecen aislados,
-- `NODE_ENV=development` y un env temporal con claves/secretos efímeros,
-- servicio `users-stub` construido desde `infra/docker/auth/Dockerfile.users-stub`.
+- proyecto Compose `stayhub-auth-dev`, con la configuración persistente `.env` y `secrets/`
+  (no se generan claves efímeras);
+- levanta Auth, **Users real** (sin `users-stub`), sus migraciones y PostgreSQL/Redis;
+- publica `127.0.0.1:${AUTH_DEV_PORT:-3001}:3001` y `127.0.0.1:${USERS_DEV_PORT:-3002}:3002`
+  solo en loopback; las redes internas de DB permanecen aisladas;
+- `NODE_ENV=development` en ambos para habilitar Swagger;
+- espera `users-service: service_healthy` antes de arrancar Auth;
+- al detener (`Ctrl+C`) baja los contenedores **sin** `-v`: conserva datos y secretos.
 
-Equivalente manual (primero genera un env local con claves y secretos válidos):
+Notas de motor:
 
-```sh
-npm run env:auth:dev
-docker compose --env-file .env -f docker-compose.yml -f infra/docker/auth/compose.dev.yml -p stayhub-auth-dev up -d --build
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3001/docs   # 200
-```
+- El script copia los secretos a un directorio temporal legible (`0444`) antes de componer:
+  Compose monta los archivos conservando el `0600` del host y los usuarios no root de los
+  contenedores (postgres/node) no podrían leerlos.
+- Con SELinux en modo `enforcing` el override aplica `security_opt: ["label=disable"]` a los
+  servicios de Users que montan secretos. Docker aplica `0444` y tolera el mismo override.
+- Verificado con `podman` + `podman-compose`; también es compatible con Docker.
+
+## Verificación registrada (2026-09-30)
+
+Ambos modos se ejecutaron con `podman` + `podman-compose` y los recorridos de
+[agents/integracion/resultado.md](../agents/integracion/resultado.md). En cada modo: readiness 200 y
+`/docs` 200 en ambos servicios; registro 201, login 200 y perfil GET 200 / PATCH 200 (`version` 2);
+perfil ajeno 403 y service JWT usado como bearer de perfil 401. Tras `Ctrl+C` y un nuevo arranque,
+el login del mismo usuario devuelve el mismo `userId` con el perfil persistido, y `.env`/`secrets/`
+no cambian (sha256 idéntico). No arrancó ningún `users-stub`. El Compose base no publica puertos; el
+override de desarrollo solo publica Auth y Users en `127.0.0.1`.
+
+Las pruebas automáticas equivalentes, sin Gateway, se ejecutan con `npm run test:auth-users`.
