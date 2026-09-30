@@ -19,6 +19,7 @@ import {
   type ProfileMultipart,
   type UsersProfile,
 } from '@gateway/infrastructure/http/users-profile.client';
+import { ProfileApiDocs, ProfilePatchApiDocs } from '@gateway/interfaces/openapi/profile.openapi';
 
 import { PHOTO_MAX_BYTES } from './profile-streaming.interceptor';
 import { contextOf, userIdOf } from './profile-request';
@@ -63,6 +64,7 @@ export class ProfileController {
   public constructor(private readonly users: UsersProfileClient) {}
 
   @Get(':userId/profile')
+  @ProfileApiDocs()
   public getProfile(@Req() request: Request): Promise<UsersProfile> {
     return this.users.getProfile(userIdOf(request), contextOf(request));
   }
@@ -74,6 +76,7 @@ export class ProfileController {
       fileFilter: photoFilter,
     }),
   )
+  @ProfilePatchApiDocs()
   public updateProfile(@Req() request: Request): Promise<UsersProfile> {
     const multipartRequest = request as MultipartRequest;
     const fields = multipartRequest.body as Record<string, unknown> | undefined;

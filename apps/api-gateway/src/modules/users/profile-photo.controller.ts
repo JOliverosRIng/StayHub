@@ -9,6 +9,7 @@ import {
 import type { Request, Response } from 'express';
 
 import { UsersProfileClient } from '@gateway/infrastructure/http/users-profile.client';
+import { ProfilePhotoApiDocs } from '@gateway/interfaces/openapi/profile.openapi';
 
 import { PHOTO_MAX_BYTES, ProfileStreamingInterceptor } from './profile-streaming.interceptor';
 import { contextOf, userIdOf } from './profile-request';
@@ -29,6 +30,7 @@ export class ProfilePhotoController {
 
   @Get(':userId/profile/photo')
   @UseInterceptors(ProfileStreamingInterceptor)
+  @ProfilePhotoApiDocs()
   public async getPhoto(@Req() request: Request, @Res() response: Response): Promise<void> {
     const photo = await this.users.getProfilePhoto(userIdOf(request), contextOf(request));
     if (photo.bytes.length > PHOTO_MAX_BYTES) {
