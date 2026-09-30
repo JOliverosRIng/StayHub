@@ -3,12 +3,29 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
+    "apps/auth-service",
     "apps/users-service"
   ],
   "engines": {
     "node": ">=20 <21"
   },
   "scripts": {
+    "build:auth": "npm run build --workspace @stayhub/auth-service",
+    "lint:auth": "npm run lint --workspace @stayhub/auth-service",
+    "typecheck:auth": "npm run typecheck --workspace @stayhub/auth-service",
+    "test:auth": "npm run test --workspace @stayhub/auth-service",
+    "test:auth:unit": "npm run test:unit --workspace @stayhub/auth-service",
+    "test:auth:integration": "npm run test:integration --workspace @stayhub/auth-service",
+    "test:auth:contract": "npm run test:contract --workspace @stayhub/auth-service",
+    "test:auth:security": "npm run test:security --workspace @stayhub/auth-service",
+    "test:auth:cross-service": "npm run test:cross-service --workspace @stayhub/auth-service",
+    "openapi:auth:check": "node scripts/check-auth-openapi-syntax.mjs && npm run test:contract --workspace @stayhub/auth-service -- --runTestsByPath test/contract/openapi-drift.spec.ts",
+    "dev:swagger": "node scripts/dev-auth-swagger.mjs",
+    "dev:swagger:docker": "node scripts/dev-auth-swagger.mjs --service-container",
+    "env:auth:dev": "node scripts/generate-auth-dev-env.mjs",
+    "prisma:auth:generate": "npm run prisma:generate --workspace @stayhub/auth-service",
+    "prisma:auth:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/auth-service",
+    "prisma:auth:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/auth-service",
     "build:users": "npm run build --workspace @stayhub/users-service",
     "lint:users": "npm run lint --workspace @stayhub/users-service",
     "typecheck:users": "npm run typecheck --workspace @stayhub/users-service",
@@ -20,9 +37,9 @@
     "prisma:users:generate": "npm run prisma:generate --workspace @stayhub/users-service",
     "prisma:users:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/users-service",
     "prisma:users:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/users-service",
-    "build": "npm run build:users",
-    "lint": "npm run lint:users",
-    "typecheck": "npm run typecheck:users",
-    "test": "npm run test:users"
+    "build": "npm run build:auth && npm run build:users",
+    "lint": "npm run lint:auth && npm run lint:users",
+    "typecheck": "npm run typecheck:auth && npm run typecheck:users",
+    "test": "npm run test:auth && npm run test:users"
   }
 }

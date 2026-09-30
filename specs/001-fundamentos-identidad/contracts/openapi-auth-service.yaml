@@ -27,6 +27,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/UserSummary' }
         '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
   /internal/v1/login:
@@ -44,6 +45,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/InternalTokenPair' }
+        '400': { $ref: '#/components/responses/Problem' }
         '401': { $ref: '#/components/responses/Problem' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '503': { $ref: '#/components/responses/Problem' }
@@ -60,13 +62,18 @@ paths:
               additionalProperties: false
               required: [refreshToken]
               properties:
-                refreshToken: { type: string, writeOnly: true }
+                refreshToken:
+                  type: string
+                  minLength: 32
+                  writeOnly: true
+                  description: Raw refresh token sent in the body; persisted only as an HMAC.
       responses:
         '200':
           description: Rotated pair; absolute session expiry unchanged.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/InternalTokenPair' }
+        '400': { $ref: '#/components/responses/Problem' }
         '401': { $ref: '#/components/responses/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
   /internal/v1/sessions/validate:
@@ -99,6 +106,7 @@ paths:
                     type: string
                     enum: [GUEST, OWNER, ADMIN]
                     description: Authoritative immutable role captured when the session was created.
+        '400': { $ref: '#/components/responses/Problem' }
         '401': { $ref: '#/components/responses/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
   /health/live:
@@ -124,8 +132,16 @@ components:
       additionalProperties: false
       required: [name, email, password, role]
       properties:
-        name: { type: string, minLength: 2, maxLength: 100 }
-        email: { type: string, format: email, maxLength: 254 }
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: Outer whitespace is trimmed before validation.
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Outer whitespace is trimmed, then the address is lowercased for fingerprinting.
         password:
           type: string
           format: password
@@ -139,8 +155,17 @@ components:
       additionalProperties: false
       required: [email, password]
       properties:
-        email: { type: string, format: email, maxLength: 254 }
-        password: { type: string, format: password, maxLength: 128, writeOnly: true }
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Outer whitespace is trimmed before validation; the use case lowercases it.
+        password:
+          type: string
+          format: password
+          maxLength: 128
+          writeOnly: true
+          description: Evaluated exactly as supplied; no trimming, case folding or Unicode normalization.
     UserSummary:
       type: object
       required: [id, name, email, role]
@@ -167,14 +192,18 @@ components:
             role: { type: string, enum: [GUEST, OWNER, ADMIN] }
     Problem:
       type: object
-      required: [type, title, status, code, traceId]
+      required: [type, title, status, detail, instance, code, traceId]
       properties:
         type: { type: string }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }
+        instance: { type: string }
         code: { type: string }
         traceId: { type: string }
+        errors:
+          type: array
+          items: { type: string }
   responses:
     TooManyRequests:
       description: Identifier failure limit exceeded without revealing account existence.

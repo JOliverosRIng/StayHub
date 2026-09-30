@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("AUTH_DATABASE_URL")
+}
+
+enum CredentialStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+enum RegistrationState {
+  STARTED
+  USER_PENDING
+  CREDENTIAL_PENDING
+  CREDENTIAL_ACTIVE
+  COMPLETED
+  COMPENSATING
+  CANCELLED
+}
+
+enum UserRole {
+  GUEST
+  OWNER
+  ADMIN
+}
+
+enum RefreshTokenStatus {
+  ACTIVE
+  CONSUMED
+  REVOKED
+}
+
+enum SessionRevokeReason {
+  REFRESH_REUSE
+  EXPIRED
+  SECURITY
+  USER_INACTIVE
+}
+
+model Credential {
+  userId       String           @id @db.Uuid
+  passwordHash String
+  status       CredentialStatus
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(6)
+}
+
+model Registration {
+  id                 String            @id @db.Uuid
+  requestFingerprint String            @db.Char(64)
+  userId             String            @unique @db.Uuid
+  state              RegistrationState @default(STARTED)
+  attemptCount       Int               @default(0)
+  lastErrorCode      String?           @db.VarChar(100)
+  expiresAt          DateTime          @db.Timestamptz(6)
+  processingOwner    String?           @db.Uuid
+  leaseUntil         DateTime?         @db.Timestamptz(6)
+  nextAttemptAt      DateTime          @default(now()) @db.Timestamptz(6)
+  createdAt          DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime          @updatedAt @db.Timestamptz(6)
+
+  @@index([state, expiresAt])
+  @@index([state, attemptCount, updatedAt])
+  @@index([state, nextAttemptAt, leaseUntil])
+}
+
+model Session {
+  id                String               @id @db.Uuid
+  userId            String               @db.Uuid
+  role              UserRole
+  absoluteExpiresAt DateTime             @db.Timestamptz(6)
+  revokedAt         DateTime?            @db.Timestamptz(6)
+  revokeReason      SessionRevokeReason?
+  createdAt         DateTime             @default(now()) @db.Timestamptz(6)
+  version           Int                  @default(1)
+  refreshTokens     RefreshToken[]
+
+  @@index([userId])
+  @@index([absoluteExpiresAt])
+}
+
+model RefreshToken {
+  id                String             @id @db.Uuid
+  sessionId         String             @db.Uuid
+  tokenHash         String             @unique @db.Char(64)
+  status            RefreshTokenStatus @default(ACTIVE)
+  issuedAt          DateTime           @default(now()) @db.Timestamptz(6)
+  expiresAt         DateTime           @db.Timestamptz(6)
+  consumedAt        DateTime?          @db.Timestamptz(6)
+  replacedByTokenId String?            @unique @db.Uuid
+  session           Session            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  replacedBy        RefreshToken?      @relation("RefreshSuccessor", fields: [replacedByTokenId], references: [id], onDelete: SetNull)
+  replaces          RefreshToken?      @relation("RefreshSuccessor")
+
+  @@index([sessionId, status])
+  @@index([expiresAt])
+}
+

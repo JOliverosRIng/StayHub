@@ -8,6 +8,19 @@ export default tseslint.config(
     ignores: ['node_modules/', '**/generated/**', 'dist/', 'build/', 'coverage/', '*.min.js'],
   },
   {
+    files: ['apps/auth-service/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: './apps/auth-service/tsconfig.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'error',
+      '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
+  {
     files: ['apps/users-service/**/*.ts'],
     languageOptions: {
       parserOptions: {

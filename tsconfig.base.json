@@ -16,6 +16,11 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
+      "@auth/domain/*": ["apps/auth-service/src/domain/*"],
+      "@auth/application/*": ["apps/auth-service/src/application/*"],
+      "@auth/infrastructure/*": ["apps/auth-service/src/infrastructure/*"],
+      "@auth/interfaces/*": ["apps/auth-service/src/interfaces/*"],
+      "@auth/modules/*": ["apps/auth-service/src/modules/*"],
       "@users/domain/*": ["apps/users-service/src/domain/*"],
       "@users/application/*": ["apps/users-service/src/application/*"],
       "@users/infrastructure/*": ["apps/users-service/src/infrastructure/*"],
