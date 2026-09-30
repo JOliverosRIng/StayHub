@@ -30,9 +30,9 @@ export function mapProblem(
 ): ProblemDetails {
   if (exception instanceof HttpException) return fromHttp(exception, instance, traceId);
   if (exception instanceof GatewayDependencyError) {
-    return problem(503, 'DEPENDENCY_UNAVAILABLE', instance, traceId);
+    return buildProblem(503, 'DEPENDENCY_UNAVAILABLE', instance, traceId);
   }
-  return problem(500, 'INTERNAL_ERROR', instance, traceId);
+  return buildProblem(500, 'INTERNAL_ERROR', instance, traceId);
 }
 
 function fromHttp(exception: HttpException, instance: string, traceId: string): ProblemDetails {
@@ -40,7 +40,7 @@ function fromHttp(exception: HttpException, instance: string, traceId: string): 
   const response = exception.getResponse();
   const object =
     typeof response === 'object' && response !== null ? (response as Record<string, unknown>) : {};
-  return problem(
+  return buildProblem(
     status,
     readCode(object['code'], status),
     instance,
@@ -49,7 +49,11 @@ function fromHttp(exception: HttpException, instance: string, traceId: string): 
   );
 }
 
-function problem(
+/**
+ * Construye un Problem Details canonico del Gateway (tipo, titulo y detalle locales).
+ * Reutilizado por el mapeo de errores remotos (GW-019) para no duplicar el formato.
+ */
+export function buildProblem(
   status: number,
   code: string,
   instance: string,
@@ -68,11 +72,11 @@ function problem(
   };
 }
 
-function readCode(value: unknown, status: number): string {
+export function readCode(value: unknown, status: number): string {
   return typeof value === 'string' && value !== '' ? value : `HTTP_${status}`;
 }
 
-function readFieldErrors(value: unknown): readonly FieldError[] | undefined {
+export function readFieldErrors(value: unknown): readonly FieldError[] | undefined {
   if (!Array.isArray(value)) return undefined;
   return value.filter(isFieldError);
 }
