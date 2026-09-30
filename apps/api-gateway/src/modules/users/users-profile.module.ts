@@ -6,6 +6,7 @@ import { UsersProfileClient } from '@gateway/infrastructure/http/users-profile.c
 
 import { ProfileController } from './profile.controller';
 import { ProfilePhotoController } from './profile-photo.controller';
+import { ProfileOwnershipGuard } from './profile-ownership.guard';
 import { ProfileStreamingInterceptor } from './profile-streaming.interceptor';
 
 /**
@@ -19,6 +20,7 @@ import { ProfileStreamingInterceptor } from './profile-streaming.interceptor';
   controllers: [ProfileController, ProfilePhotoController],
   providers: [
     ProfileStreamingInterceptor,
+    ProfileOwnershipGuard,
     {
       provide: UsersProfileClient,
       useFactory: (config: GatewayConfig): UsersProfileClient =>

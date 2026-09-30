@@ -8,6 +8,7 @@ import {
   PayloadTooLargeException,
   Req,
   UnsupportedMediaTypeException,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -21,6 +22,7 @@ import {
 } from '@gateway/infrastructure/http/users-profile.client';
 import { ProfileApiDocs, ProfilePatchApiDocs } from '@gateway/interfaces/openapi/profile.openapi';
 
+import { ProfileOwnershipGuard } from './profile-ownership.guard';
 import { PHOTO_MAX_BYTES } from './profile-streaming.interceptor';
 import { contextOf, userIdOf } from './profile-request';
 
@@ -35,8 +37,8 @@ import { contextOf, userIdOf } from './profile-request';
  * 5.000.000 bytes (413) y su tipo a JPEG/PNG (415), y reenvía el multipart a Users. Los estados
  * 200/400/401/403/404/409/413/415/503 se expresan como Problem Details.
  *
- * El ownership (403 por perfil ajeno) lo añade GW-053; hasta entonces no se comprueba aquí (Users
- * lo aplica de todos modos al revalidar el bearer y exigir `sub == userId`).
+ * El ownership (403 por perfil ajeno, incluido ADMIN, antes de contactar a Users) lo aplica el
+ * {@link ProfileOwnershipGuard} de GW-053, activo sobre este controlador.
  */
 
 const E164_PATTERN = /^\+[1-9]\d{7,14}$/;
@@ -60,6 +62,7 @@ interface MulterFile {
 type MultipartRequest = Request & { file?: MulterFile };
 
 @Controller('users')
+@UseGuards(ProfileOwnershipGuard)
 export class ProfileController {
   public constructor(private readonly users: UsersProfileClient) {}
 
