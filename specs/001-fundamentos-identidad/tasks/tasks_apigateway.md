@@ -95,7 +95,7 @@ contexto autorizado y aplica exactamente 5.000.000 bytes.
 
 ## Phase 6: User Story 4 — Restringir modificaciones no autorizadas (P2)
 
-- [ ] GW-050 [P] [US4] Escribir primero pruebas de spoofing para headers de identidad, forwarding, service JWT y bearer duplicado (Component: Header spoofing; Trace: FR-011–FR-013, FR-020–FR-024; Depends on: GW-004, GW-017) in `apps/api-gateway/test/security/identity-header-spoofing.spec.ts`
+- [x] GW-050 [P] [US4] Escribir primero pruebas de spoofing para headers de identidad, forwarding, service JWT y bearer duplicado (Component: Header spoofing; Trace: FR-011–FR-013, FR-020–FR-024; Depends on: GW-004, GW-017) in `apps/api-gateway/test/security/identity-header-spoofing.spec.ts`
 - [ ] GW-051 [P] [US4] Escribir primero pruebas de ownership para identidad ajena existente/inexistente y ADMIN sin privilegio implícito, exigiendo 403 antes de Users (Component: Ownership tests; Trace: FR-020–FR-021, SC-004; Depends on: GW-004, GW-040) in `apps/api-gateway/test/security/profile-ownership.spec.ts`
 - [ ] GW-052 [US4] Endurecer stripping y allowlists para satisfacer spoofing sin reenviar identidad no validada (Component: Header hardening; Trace: FR-011–FR-013, FR-024; Depends on: GW-050, GW-017) in `apps/api-gateway/src/interfaces/http/security/identity-header.interceptor.ts`
 - [ ] GW-053 [US4] Implementar ownership `principal.sub == route.userId` antes de Users y devolver 403 uniforme incluido ADMIN (Component: Ownership guard; Trace: FR-020–FR-021; Depends on: GW-051, GW-040) in `apps/api-gateway/src/modules/users/profile-ownership.guard.ts`
