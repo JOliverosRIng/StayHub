@@ -25,6 +25,7 @@ import { RefreshCookieService } from './refresh-cookie.service';
 import { RegisterController } from './register.controller';
 import { RolesGuard } from './roles.guard';
 import { SessionIntrospectionService } from './session-introspection.service';
+import { ValidateController } from './validate.controller';
 
 /**
  * El orden de los `APP_GUARD` es significativo: Nest los ejecuta en el orden de registro, así que
@@ -33,7 +34,7 @@ import { SessionIntrospectionService } from './session-introspection.service';
  */
 @Module({
   imports: [GatewayConfigModule, GatewayRedisModule, PassportModule],
-  controllers: [RegisterController, LoginController, RefreshController],
+  controllers: [RegisterController, LoginController, RefreshController, ValidateController],
   providers: [
     JwtVerifierService,
     { provide: JWT_VERIFIER, useExisting: JwtVerifierService },
