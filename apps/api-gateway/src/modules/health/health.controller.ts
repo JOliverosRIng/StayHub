@@ -6,6 +6,7 @@ import {
   type GatewayConfig,
   type TlsConfig,
 } from '@gateway/infrastructure/config/gateway-config';
+import { Public } from '@gateway/modules/auth/public.decorator';
 
 /**
  * GW-020 — Sondas operativas del Gateway.
@@ -16,6 +17,10 @@ import {
  *
  * Ambas rutas viven en la raíz, fuera del prefijo `/api/v1`; la exclusión la aplica el
  * bootstrap (GW-010) reutilizando {@link HEALTH_PREFIX_EXCLUDE}.
+ *
+ * `@Public()` (GW-040): las sondas las invocan el orquestador y el healthcheck del contenedor, que
+ * no presentan credenciales de usuario. Exigírselas impediría al Gateway demostrar su
+ * disponibilidad, que es justamente lo que estas rutas existen para probar.
  */
 
 export const HEALTH_ROUTE = 'health';
@@ -64,6 +69,7 @@ export interface LivenessResult {
 }
 
 @Controller(HEALTH_ROUTE)
+@Public()
 export class HealthController {
   public constructor(
     @Inject(GATEWAY_CONFIG) private readonly config: GatewayConfig,

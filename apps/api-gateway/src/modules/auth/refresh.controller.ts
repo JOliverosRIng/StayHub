@@ -9,6 +9,7 @@ import { traceIdFromRequest } from '@gateway/interfaces/http/trace-id';
 import { REFRESH_COOKIE_NAME, RefreshCookieService } from '@gateway/modules/auth/refresh-cookie.service';
 
 import { toPublicTokenResponse, type PublicTokenResponse } from './login.controller';
+import { Public } from './public.decorator';
 
 /**
  * GW-038 — Ruta pública `POST /api/v1/auth/refresh` (FR-010, FR-024).
@@ -18,13 +19,15 @@ import { toPublicTokenResponse, type PublicTokenResponse } from './login.control
  * inválido → 401), se limpia la cookie: la reutilización obliga a un nuevo login. La respuesta
  * pública nunca expone el refresh token. Estados 200/401/503 como Problem Details.
  *
- * Ruta pública: no exige bearer. El guard global llega en GW-040.
+ * Ruta pública: no exige bearer —la credencial viaja en la cookie— y así lo declara con `@Public()`,
+ * que la exime del guard global de GW-040. La sesión solo puede renovarse, nunca crearse aquí.
  */
 
 const UNAUTHORIZED_STATUS = 401;
 const COOKIE_PATTERN = new RegExp(`(?:^|;\\s*)${REFRESH_COOKIE_NAME}=([^;]+)`);
 
 @Controller('auth')
+@Public()
 export class RefreshController {
   public constructor(
     private readonly authClient: AuthSessionClient,

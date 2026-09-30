@@ -11,6 +11,8 @@ import { traceIdFromRequest } from '@gateway/interfaces/http/trace-id';
 import { LoginRateLimitService } from '@gateway/modules/rate-limit/login-rate-limit.service';
 import { RefreshCookieService } from '@gateway/modules/auth/refresh-cookie.service';
 
+import { Public } from './public.decorator';
+
 /**
  * GW-038 — Ruta pública `POST /api/v1/auth/login` (FR-007–FR-012).
  *
@@ -20,7 +22,8 @@ import { RefreshCookieService } from '@gateway/modules/auth/refresh-cookie.servi
  * el refresh token (viaja solo en la cookie). Los mensajes de credenciales inválidas provienen de
  * Auth y no permiten enumerar cuentas. Estados 200/400/401/429/503 como Problem Details.
  *
- * Ruta pública: no exige bearer. El guard global llega en GW-040.
+ * Ruta pública: no exige bearer y así lo declara con `@Public()`, que la exime del guard global de
+ * GW-040. Es la única vía para obtener una sesión, por lo que el límite de GW-035 es su protección.
  */
 
 export class LoginDto {
@@ -59,6 +62,7 @@ export function toPublicTokenResponse(pair: InternalTokenPair): PublicTokenRespo
 }
 
 @Controller('auth')
+@Public()
 export class LoginController {
   public constructor(
     private readonly rateLimit: LoginRateLimitService,

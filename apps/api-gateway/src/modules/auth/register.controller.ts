@@ -20,6 +20,7 @@ import { traceIdFromRequest } from '@gateway/interfaces/http/trace-id';
 import { RegistrationRateLimitService } from '@gateway/modules/rate-limit/registration-rate-limit.service';
 
 import { RegisterDto } from './dto/register.dto';
+import { Public } from './public.decorator';
 
 /**
  * GW-029 — Ruta pública `POST /api/v1/auth/register` (RQ-02, FR-001–FR-006), SIN lógica de saga.
@@ -30,14 +31,15 @@ import { RegisterDto } from './dto/register.dto';
  * de GW-028 reenviando `Idempotency-Key` y `traceId`. Auth coordina el registro; aquí no hay
  * orquestación de saga. Los estados 201/400/409/429/503 se conservan como Problem Details.
  *
- * Ruta pública: no exige bearer. El guard de autorización se incorpora en GW-040 y marcará esta
- * ruta como pública explícitamente; hoy no hay guard global que interceptarla.
+ * Ruta pública: `@Public()` la exime del guard global de GW-040, que sí exige sesión en cualquier
+ * otra ruta. No es una excepción implícita: la marca queda visible en el controlador.
  */
 
 const IDEMPOTENCY_HEADER = 'idempotency-key';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Controller('auth')
+@Public()
 export class RegisterController {
   public constructor(
     private readonly rateLimit: RegistrationRateLimitService,
