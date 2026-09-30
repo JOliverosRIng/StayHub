@@ -2,6 +2,7 @@ import { Controller, Get, HttpCode, HttpStatus, Req, UnauthorizedException } fro
 import type { Request } from 'express';
 
 import type { UserRole } from '@gateway/application/ports/jwt-verifier.port';
+import { ValidateApiDocs } from '@gateway/interfaces/openapi/session.openapi';
 
 import { principalFrom } from './access.guard';
 import type { AuthenticatedPrincipal } from './jwt.strategy';
@@ -39,6 +40,7 @@ export interface PublicPrincipal {
 export class ValidateController {
   @Get('validate')
   @HttpCode(HttpStatus.OK)
+  @ValidateApiDocs()
   public validate(@Req() request: Request): PublicPrincipal {
     const principal = requirePrincipal(request);
     return {

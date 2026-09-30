@@ -6,6 +6,7 @@ import {
   AuthSessionClient,
   type InternalTokenPair,
 } from '@gateway/infrastructure/http/auth-session.client';
+import { LoginApiDocs } from '@gateway/interfaces/openapi/session.openapi';
 import { applyRetryAfter } from '@gateway/interfaces/http/retry-after';
 import { traceIdFromRequest } from '@gateway/interfaces/http/trace-id';
 import { LoginRateLimitService } from '@gateway/modules/rate-limit/login-rate-limit.service';
@@ -72,6 +73,7 @@ export class LoginController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @LoginApiDocs()
   public async login(
     @Body() dto: LoginDto,
     @Req() request: Request,

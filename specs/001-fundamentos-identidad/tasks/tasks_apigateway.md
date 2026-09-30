@@ -78,7 +78,7 @@ límites, 401/403/429/503 e introspección fail-closed.
 - [x] GW-039 [US2] Implementar introspección de `sid/sub` y comparar rol JWT con rol autoritativo, fallando cerrado (Component: Session introspection; Trace: FR-009–FR-013; Depends on: GW-016, GW-033, GW-036) in `apps/api-gateway/src/modules/auth/session-introspection.service.ts`
 - [x] GW-040 [US2] Implementar guards globales con metadata pública, precedencia 401→403 e introspección obligatoria (Component: Authorization; Trace: FR-011–FR-013; Depends on: GW-033, GW-039) in `apps/api-gateway/src/modules/auth/access.guard.ts`, `apps/api-gateway/src/modules/auth/roles.guard.ts` and `apps/api-gateway/src/modules/auth/public.decorator.ts`
 - [x] GW-041 [US2] Implementar `GET /api/v1/auth/validate` con proyección pública mínima (Component: Validate route; Trace: FR-009–FR-013, FR-024; Depends on: GW-039–GW-040) in `apps/api-gateway/src/modules/auth/validate.controller.ts`
-- [ ] GW-042 [US2] Sincronizar OpenAPI y cerrar suites unit/contract/integration/security de sesión (Component: Session verification; Trace: FR-007–FR-013, SC-002–SC-003, SC-007; Depends on: GW-031–GW-041) in `specs/001-fundamentos-identidad/contracts/openapi-public.yaml`, `apps/api-gateway/src/interfaces/openapi/session.openapi.ts` and `apps/api-gateway/test/`
+- [x] GW-042 [US2] Sincronizar OpenAPI y cerrar suites unit/contract/integration/security de sesión (Component: Session verification; Trace: FR-007–FR-013, SC-002–SC-003, SC-007; Depends on: GW-031–GW-041) in `specs/001-fundamentos-identidad/contracts/openapi-public.yaml`, `apps/api-gateway/src/interfaces/openapi/session.openapi.ts` and `apps/api-gateway/test/`
 
 ## Phase 5: User Story 3 — Consultar y editar perfil propio (P2) — entrada RQ-01
 

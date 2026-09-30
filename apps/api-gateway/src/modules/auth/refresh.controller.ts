@@ -5,6 +5,7 @@ import {
   AuthSessionClient,
   type InternalTokenPair,
 } from '@gateway/infrastructure/http/auth-session.client';
+import { RefreshApiDocs } from '@gateway/interfaces/openapi/session.openapi';
 import { traceIdFromRequest } from '@gateway/interfaces/http/trace-id';
 import { REFRESH_COOKIE_NAME, RefreshCookieService } from '@gateway/modules/auth/refresh-cookie.service';
 
@@ -36,6 +37,7 @@ export class RefreshController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @RefreshApiDocs()
   public async refresh(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
