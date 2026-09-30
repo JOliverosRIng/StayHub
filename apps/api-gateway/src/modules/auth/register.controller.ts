@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   HttpCode,
-  HttpException,
   HttpStatus,
   Post,
   Req,
@@ -16,6 +15,7 @@ import {
   type UserSummary,
 } from '@gateway/infrastructure/http/auth-registration.client';
 import { RegisterApiDocs } from '@gateway/interfaces/openapi/register.openapi';
+import { applyRetryAfter } from '@gateway/interfaces/http/retry-after';
 import { traceIdFromRequest } from '@gateway/interfaces/http/trace-id';
 import { RegistrationRateLimitService } from '@gateway/modules/rate-limit/registration-rate-limit.service';
 
@@ -36,7 +36,6 @@ import { RegisterDto } from './dto/register.dto';
 
 const IDEMPOTENCY_HEADER = 'idempotency-key';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const TOO_MANY_REQUESTS_STATUS = 429;
 
 @Controller('auth')
 export class RegisterController {
@@ -78,18 +77,4 @@ function requireIdempotencyKey(request: Request): string {
     throw new BadRequestException({ code: 'IDEMPOTENCY_KEY_REQUIRED' });
   }
   return value;
-}
-
-function applyRetryAfter(error: unknown, response: Response): void {
-  if (!(error instanceof HttpException) || error.getStatus() !== TOO_MANY_REQUESTS_STATUS) {
-    return;
-  }
-  const body = error.getResponse();
-  const retryAfter =
-    typeof body === 'object' && body !== null
-      ? (body as { retryAfter?: number }).retryAfter
-      : undefined;
-  if (typeof retryAfter === 'number') {
-    response.setHeader('Retry-After', String(retryAfter));
-  }
 }

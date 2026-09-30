@@ -9,22 +9,28 @@ import {
   type GatewayConfig,
 } from '@gateway/infrastructure/config/gateway-config';
 import { AuthRegistrationClient } from '@gateway/infrastructure/http/auth-registration.client';
+import { AuthSessionClient } from '@gateway/infrastructure/http/auth-session.client';
 import { JwtVerifierService } from '@gateway/infrastructure/security/jwt-verifier.service';
 import { ServiceTokenProvider } from '@gateway/infrastructure/service-auth/service-token.provider';
 import { TrustedOriginService } from '@gateway/infrastructure/security/trusted-origin.service';
+import { LoginRateLimitService } from '@gateway/modules/rate-limit/login-rate-limit.service';
 import { RegistrationRateLimitService } from '@gateway/modules/rate-limit/registration-rate-limit.service';
 
 import { GatewayJwtStrategy } from './jwt.strategy';
+import { LoginController } from './login.controller';
+import { RefreshController } from './refresh.controller';
+import { RefreshCookieService } from './refresh-cookie.service';
 import { RegisterController } from './register.controller';
 
 @Module({
   imports: [GatewayConfigModule, GatewayRedisModule, PassportModule],
-  controllers: [RegisterController],
+  controllers: [RegisterController, LoginController, RefreshController],
   providers: [
     JwtVerifierService,
     { provide: JWT_VERIFIER, useExisting: JwtVerifierService },
     GatewayJwtStrategy,
     ServiceTokenProvider,
+    RefreshCookieService,
     {
       provide: TrustedOriginService,
       useFactory: (config: GatewayConfig): TrustedOriginService =>
@@ -32,10 +38,17 @@ import { RegisterController } from './register.controller';
       inject: [GATEWAY_CONFIG],
     },
     RegistrationRateLimitService,
+    LoginRateLimitService,
     {
       provide: AuthRegistrationClient,
       useFactory: (config: GatewayConfig, serviceToken: ServiceTokenProvider): AuthRegistrationClient =>
         new AuthRegistrationClient(config, serviceToken),
+      inject: [GATEWAY_CONFIG, ServiceTokenProvider],
+    },
+    {
+      provide: AuthSessionClient,
+      useFactory: (config: GatewayConfig, serviceToken: ServiceTokenProvider): AuthSessionClient =>
+        new AuthSessionClient(config, serviceToken),
       inject: [GATEWAY_CONFIG, ServiceTokenProvider],
     },
   ],
