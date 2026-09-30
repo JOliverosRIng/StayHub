@@ -164,11 +164,10 @@ function post(headers: Record<string, string>, body: string): Promise<Reply> {
   });
 }
 
-function register(
-  body: Record<string, unknown>,
-  key: string | undefined = randomUUID(),
-): Promise<Reply> {
-  const headers = key === undefined ? {} : { 'idempotency-key': key };
+// `null` omite el header a propósito; `undefined` dispararía el default de parámetro y enviaría
+// un UUID, lo que no probaría el caso "sin Idempotency-Key".
+function register(body: Record<string, unknown>, key: string | null = randomUUID()): Promise<Reply> {
+  const headers = key === null ? {} : { 'idempotency-key': key };
   return post(headers, JSON.stringify(body));
 }
 
@@ -246,7 +245,7 @@ describe('Contrato POST /api/v1/auth/register (GW-023)', () => {
     });
 
     it('rechaza con 400 la ausencia del header Idempotency-Key', async () => {
-      const reply = await register(validBody(), undefined);
+      const reply = await register(validBody(), null);
 
       expectProblemDetails(reply, 400);
     });
