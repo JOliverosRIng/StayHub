@@ -11,7 +11,8 @@ const project = (name: string): Config => ({
   displayName: name,
   rootDir: '.',
   testEnvironment: 'node',
-  testMatch: [`<rootDir>/test/${name}/**/*.spec.ts`],
+  // Acepta tanto `*.spec.ts` como `*.e2e-spec.ts` (convención de las suites E2E de Sprint 1).
+  testMatch: [`<rootDir>/test/${name}/**/*[.-]spec.ts`],
   transform: { '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }] },
   moduleNameMapper: alias,
   setupFilesAfterEnv: [`<rootDir>/test/${name}/setup.ts`],

@@ -10,7 +10,7 @@ interface HomeProps {
 
 const CATEGORIES = ['Todo', 'Playa', 'Montaña', 'Ciudad', 'Cabaña', 'Lujo', 'Piscina', 'Pet-friendly'];
 const CAT_ICONS: Record<string, string> = {
-  Todo: '🗺️', Playa: '🏖️', Montaña: '⛰️', Ciudad: '🌆', Cabaña: '🏕️', Lujo: '✨', Piscina: '🏊', 'Pet-friendly': '🐾',
+  Todo: '', Playa: '', Montaña: '', Ciudad: '', Cabaña: '', Lujo: '', Piscina: '', 'Pet-friendly': '',
 };
 
 export function Home({ onNavigate }: HomeProps) {
