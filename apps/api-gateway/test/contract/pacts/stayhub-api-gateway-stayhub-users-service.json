@@ -1,0 +1,428 @@
+{
+  "consumer": {
+    "name": "stayhub-api-gateway"
+  },
+  "provider": {
+    "name": "stayhub-users-service"
+  },
+  "metadata": {
+    "pactSpecification": {
+      "version": "3.0.0"
+    },
+    "generatedBy": "GW-057",
+    "alignedWith": "specs/001-fundamentos-identidad/contracts/openapi-users-service.yaml",
+    "photoMaxBytes": 5000000,
+    "streaming": "photo is forwarded chunked, capped at photoMaxBytes without full buffering (GW-047)"
+  },
+  "interactions": [
+    {
+      "description": "GET profile returns the profile (200)",
+      "request": {
+        "method": "GET",
+        "path": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+        "headers": {
+          "authorization": "Bearer user.access.jwt.validated",
+          "x-trace-id": "trace-consumer-users-0001",
+          "accept": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Ada Lovelace",
+          "email": "ada@stayhub.test",
+          "role": "GUEST",
+          "phone": null,
+          "preferences": null,
+          "photoUrl": null,
+          "version": 1
+        }
+      }
+    },
+    {
+      "description": "GET profile is rejected without a valid bearer (401)",
+      "request": {
+        "method": "GET",
+        "path": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+        "headers": {
+          "authorization": "Bearer user.access.jwt.validated",
+          "x-trace-id": "trace-consumer-users-0001",
+          "accept": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 401,
+        "headers": {
+          "content-type": "application/problem+json"
+        },
+        "body": {
+          "type": "https://contracts.stayhub.internal/errors/BEARER_REJECTED",
+          "title": "BEARER_REJECTED",
+          "status": 401,
+          "detail": "Documented failure of the internal Users operation.",
+          "instance": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+          "code": "BEARER_REJECTED",
+          "traceId": "trace-consumer-users-0001"
+        }
+      }
+    },
+    {
+      "description": "GET profile is forbidden for another identity (403)",
+      "request": {
+        "method": "GET",
+        "path": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+        "headers": {
+          "authorization": "Bearer user.access.jwt.validated",
+          "x-trace-id": "trace-consumer-users-0001",
+          "accept": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 403,
+        "headers": {
+          "content-type": "application/problem+json"
+        },
+        "body": {
+          "type": "https://contracts.stayhub.internal/errors/PROFILE_ACCESS_FORBIDDEN",
+          "title": "PROFILE_ACCESS_FORBIDDEN",
+          "status": 403,
+          "detail": "Documented failure of the internal Users operation.",
+          "instance": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+          "code": "PROFILE_ACCESS_FORBIDDEN",
+          "traceId": "trace-consumer-users-0001"
+        }
+      }
+    },
+    {
+      "description": "GET profile is missing (404)",
+      "request": {
+        "method": "GET",
+        "path": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+        "headers": {
+          "authorization": "Bearer user.access.jwt.validated",
+          "x-trace-id": "trace-consumer-users-0001",
+          "accept": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/problem+json"
+        },
+        "body": {
+          "type": "https://contracts.stayhub.internal/errors/PROFILE_NOT_FOUND",
+          "title": "PROFILE_NOT_FOUND",
+          "status": 404,
+          "detail": "Documented failure of the internal Users operation.",
+          "instance": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+          "code": "PROFILE_NOT_FOUND",
+          "traceId": "trace-consumer-users-0001"
+        }
+      }
+    },
+    {
+      "description": "GET profile fails closed when Users is unavailable (503)",
+      "request": {
+        "method": "GET",
+        "path": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+        "headers": {
+          "authorization": "Bearer user.access.jwt.validated",
+          "x-trace-id": "trace-consumer-users-0001",
+          "accept": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 503,
+        "headers": {
+          "content-type": "application/problem+json"
+        },
+        "body": {
+          "type": "https://contracts.stayhub.internal/errors/DEPENDENCY_UNAVAILABLE",
+          "title": "DEPENDENCY_UNAVAILABLE",
+          "status": 503,
+          "detail": "Documented failure of the internal Users operation.",
+          "instance": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+          "code": "DEPENDENCY_UNAVAILABLE",
+          "traceId": "trace-consumer-users-0001"
+        }
+      }
+    },
+    {
+      "description": "PATCH profile is rejected as invalid (400)",
+      "request": {
+        "method": "PATCH",
+        "path": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+        "headers": {
+          "authorization": "Bearer user.access.jwt.validated",
+          "x-trace-id": "trace-consumer-users-0001",
+          "accept": "application/json",
+          "content-type": "multipart/form-data"
+        },
+        "body": {
+          "contentType": "multipart/form-data",
+          "parts": [
+            {
+              "name": "profile",
+              "contentType": "application/json"
+            },
+            {
+              "name": "photo",
+              "contentType": "image/jpeg",
+              "maxBytes": 5000000,
+              "streaming": true
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/problem+json"
+        },
+        "body": {
+          "type": "https://contracts.stayhub.internal/errors/VALIDATION_ERROR",
+          "title": "VALIDATION_ERROR",
+          "status": 400,
+          "detail": "Documented failure of the internal Users operation.",
+          "instance": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+          "code": "VALIDATION_ERROR",
+          "traceId": "trace-consumer-users-0001"
+        }
+      }
+    },
+    {
+      "description": "PATCH profile conflicts on version or email (409)",
+      "request": {
+        "method": "PATCH",
+        "path": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+        "headers": {
+          "authorization": "Bearer user.access.jwt.validated",
+          "x-trace-id": "trace-consumer-users-0001",
+          "accept": "application/json",
+          "content-type": "multipart/form-data"
+        },
+        "body": {
+          "contentType": "multipart/form-data",
+          "parts": [
+            {
+              "name": "profile",
+              "contentType": "application/json"
+            },
+            {
+              "name": "photo",
+              "contentType": "image/jpeg",
+              "maxBytes": 5000000,
+              "streaming": true
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 409,
+        "headers": {
+          "content-type": "application/problem+json"
+        },
+        "body": {
+          "type": "https://contracts.stayhub.internal/errors/PROFILE_CONFLICT",
+          "title": "PROFILE_CONFLICT",
+          "status": 409,
+          "detail": "Documented failure of the internal Users operation.",
+          "instance": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+          "code": "PROFILE_CONFLICT",
+          "traceId": "trace-consumer-users-0001"
+        }
+      }
+    },
+    {
+      "description": "PATCH profile rejects an oversized photo (413)",
+      "request": {
+        "method": "PATCH",
+        "path": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+        "headers": {
+          "authorization": "Bearer user.access.jwt.validated",
+          "x-trace-id": "trace-consumer-users-0001",
+          "accept": "application/json",
+          "content-type": "multipart/form-data"
+        },
+        "body": {
+          "contentType": "multipart/form-data",
+          "parts": [
+            {
+              "name": "profile",
+              "contentType": "application/json"
+            },
+            {
+              "name": "photo",
+              "contentType": "image/jpeg",
+              "maxBytes": 5000000,
+              "streaming": true
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 413,
+        "headers": {
+          "content-type": "application/problem+json"
+        },
+        "body": {
+          "type": "https://contracts.stayhub.internal/errors/PHOTO_TOO_LARGE",
+          "title": "PHOTO_TOO_LARGE",
+          "status": 413,
+          "detail": "Documented failure of the internal Users operation.",
+          "instance": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+          "code": "PHOTO_TOO_LARGE",
+          "traceId": "trace-consumer-users-0001"
+        }
+      }
+    },
+    {
+      "description": "PATCH profile rejects an unsupported photo type (415)",
+      "request": {
+        "method": "PATCH",
+        "path": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+        "headers": {
+          "authorization": "Bearer user.access.jwt.validated",
+          "x-trace-id": "trace-consumer-users-0001",
+          "accept": "application/json",
+          "content-type": "multipart/form-data"
+        },
+        "body": {
+          "contentType": "multipart/form-data",
+          "parts": [
+            {
+              "name": "profile",
+              "contentType": "application/json"
+            },
+            {
+              "name": "photo",
+              "contentType": "image/jpeg",
+              "maxBytes": 5000000,
+              "streaming": true
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 415,
+        "headers": {
+          "content-type": "application/problem+json"
+        },
+        "body": {
+          "type": "https://contracts.stayhub.internal/errors/UNSUPPORTED_MEDIA_TYPE",
+          "title": "UNSUPPORTED_MEDIA_TYPE",
+          "status": 415,
+          "detail": "Documented failure of the internal Users operation.",
+          "instance": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+          "code": "UNSUPPORTED_MEDIA_TYPE",
+          "traceId": "trace-consumer-users-0001"
+        }
+      }
+    },
+    {
+      "description": "GET photo is missing (404)",
+      "request": {
+        "method": "GET",
+        "path": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile/photo",
+        "headers": {
+          "authorization": "Bearer user.access.jwt.validated",
+          "x-trace-id": "trace-consumer-users-0001",
+          "accept": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/problem+json"
+        },
+        "body": {
+          "type": "https://contracts.stayhub.internal/errors/PHOTO_NOT_FOUND",
+          "title": "PHOTO_NOT_FOUND",
+          "status": 404,
+          "detail": "Documented failure of the internal Users operation.",
+          "instance": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+          "code": "PHOTO_NOT_FOUND",
+          "traceId": "trace-consumer-users-0001"
+        }
+      }
+    },
+    {
+      "description": "PATCH profile with a photo of exactly 5,000,000 bytes (200)",
+      "request": {
+        "method": "PATCH",
+        "path": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile",
+        "headers": {
+          "authorization": "Bearer user.access.jwt.validated",
+          "x-trace-id": "trace-consumer-users-0001",
+          "accept": "application/json",
+          "content-type": "multipart/form-data"
+        },
+        "body": {
+          "contentType": "multipart/form-data",
+          "parts": [
+            {
+              "name": "profile",
+              "contentType": "application/json"
+            },
+            {
+              "name": "photo",
+              "contentType": "image/jpeg",
+              "maxBytes": 5000000,
+              "streaming": true
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Ada Lovelace",
+          "email": "ada@stayhub.test",
+          "role": "GUEST",
+          "phone": null,
+          "preferences": null,
+          "photoUrl": null,
+          "version": 1
+        }
+      }
+    },
+    {
+      "description": "GET photo streams the image bytes (200)",
+      "request": {
+        "method": "GET",
+        "path": "/internal/v1/users/11111111-1111-4111-8111-111111111111/profile/photo",
+        "headers": {
+          "authorization": "Bearer user.access.jwt.validated",
+          "x-trace-id": "trace-consumer-users-0001",
+          "accept": "application/json"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "image/jpeg"
+        },
+        "body": {
+          "encoding": "binary",
+          "streaming": true,
+          "maxBytes": 5000000
+        }
+      }
+    }
+  ]
+}

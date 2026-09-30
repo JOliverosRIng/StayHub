@@ -11,6 +11,17 @@ import {
 
 export const USER_JWT_STRATEGY = 'gateway-access-jwt';
 
+const BEARER_PATTERN = /^Bearer ([^\s]+)$/;
+
+/**
+ * Extrae el bearer de la petición. Es la regla única de lectura del access token: la comparten la
+ * estrategia de GW-016 y el `AccessGuard` de GW-040 para que no existan dos extractores distintos.
+ */
+export function extractBearerToken(request: Request): string | undefined {
+  const match = BEARER_PATTERN.exec(request.header('authorization') ?? '');
+  return match?.[1];
+}
+
 export interface AuthenticatedPrincipal {
   readonly userId: string;
   readonly sessionId: string;
@@ -30,8 +41,7 @@ export class GatewayJwtStrategy extends PassportStrategy(
   }
 
   public async validate(request: Request): Promise<AuthenticatedPrincipal> {
-    const match = /^Bearer ([^\s]+)$/.exec(request.header('authorization') ?? '');
-    const token = match?.[1];
+    const token = extractBearerToken(request);
     if (token === undefined) {
       throw new UnauthorizedException('Access token is required');
     }
