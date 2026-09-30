@@ -60,7 +60,7 @@ límite por origen, y conserva 201/400/409/429/503.
 - [x] GW-027 [P] [US1] Implementar límite Redis de registro por origen confiable con fallo cerrado 503 (Component: Register edge policy; Trace: Plan §3; Depends on: GW-013–GW-014, GW-024) in `apps/api-gateway/src/modules/rate-limit/registration-rate-limit.service.ts`
 - [x] GW-028 [P] [US1] Implementar cliente `POST /internal/v1/registrations` con service JWT, idempotencia y timeout (Component: Auth registration client; Trace: RQ-02, FR-001–FR-006; Depends on: GW-018, GW-025; External dependency: G3 congela contrato Auth) in `apps/api-gateway/src/infrastructure/http/auth-registration.client.ts`
 - [x] GW-029 [US1] Implementar `POST /api/v1/auth/register` sin lógica de saga (Component: Register route; Trace: RQ-02, FR-001–FR-006; Depends on: GW-026–GW-028) in `apps/api-gateway/src/modules/auth/register.controller.ts`
-- [ ] GW-030 [US1] Sincronizar registro público y ejecutar suites unit/contract/integration/security sin declarar completa la saga externa (Component: Register verification; Trace: RQ-02, SC-002–SC-003, SC-007; Depends on: GW-023–GW-029) in `specs/001-fundamentos-identidad/contracts/openapi-public.yaml`, `apps/api-gateway/src/interfaces/openapi/register.openapi.ts` and `apps/api-gateway/test/`
+- [x] GW-030 [US1] Sincronizar registro público y ejecutar suites unit/contract/integration/security sin declarar completa la saga externa (Component: Register verification; Trace: RQ-02, SC-002–SC-003, SC-007; Depends on: GW-023–GW-029) in `specs/001-fundamentos-identidad/contracts/openapi-public.yaml`, `apps/api-gateway/src/interfaces/openapi/register.openapi.ts` and `apps/api-gateway/test/`
 
 ## Phase 4: User Story 2 — Iniciar y renovar sesión (P1)
 

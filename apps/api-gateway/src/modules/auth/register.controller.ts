@@ -15,6 +15,7 @@ import {
   AuthRegistrationClient,
   type UserSummary,
 } from '@gateway/infrastructure/http/auth-registration.client';
+import { RegisterApiDocs } from '@gateway/interfaces/openapi/register.openapi';
 import { traceIdFromRequest } from '@gateway/interfaces/http/trace-id';
 import { RegistrationRateLimitService } from '@gateway/modules/rate-limit/registration-rate-limit.service';
 
@@ -46,6 +47,7 @@ export class RegisterController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @RegisterApiDocs()
   public async register(
     @Body() dto: RegisterDto,
     @Req() request: Request,
