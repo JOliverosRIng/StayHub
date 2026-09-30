@@ -99,7 +99,7 @@ contexto autorizado y aplica exactamente 5.000.000 bytes.
 - [x] GW-051 [P] [US4] Escribir primero pruebas de ownership para identidad ajena existente/inexistente y ADMIN sin privilegio implícito, exigiendo 403 antes de Users (Component: Ownership tests; Trace: FR-020–FR-021, SC-004; Depends on: GW-004, GW-040) in `apps/api-gateway/test/security/profile-ownership.spec.ts`
 - [x] GW-052 [US4] Endurecer stripping y allowlists para satisfacer spoofing sin reenviar identidad no validada (Component: Header hardening; Trace: FR-011–FR-013, FR-024; Depends on: GW-050, GW-017) in `apps/api-gateway/src/interfaces/http/security/identity-header.interceptor.ts`
 - [x] GW-053 [US4] Implementar ownership `principal.sub == route.userId` antes de Users y devolver 403 uniforme incluido ADMIN (Component: Ownership guard; Trace: FR-020–FR-021; Depends on: GW-051, GW-040) in `apps/api-gateway/src/modules/users/profile-ownership.guard.ts`
-- [ ] GW-054 [US4] Aplicar Passport→introspección→ownership→routing y cerrar Swagger/suites 401/403 (Component: Authorization pipeline; Trace: FR-011–FR-013, FR-020–FR-024, SC-003–SC-004; Depends on: GW-052–GW-053) in `apps/api-gateway/src/modules/users/users-proxy.module.ts`, `apps/api-gateway/src/interfaces/openapi/profile.openapi.ts` and `apps/api-gateway/test/`
+- [x] GW-054 [US4] Aplicar Passport→introspección→ownership→routing y cerrar Swagger/suites 401/403 (Component: Authorization pipeline; Trace: FR-011–FR-013, FR-020–FR-024, SC-003–SC-004; Depends on: GW-052–GW-053) in `apps/api-gateway/src/modules/users/users-proxy.module.ts`, `apps/api-gateway/src/interfaces/openapi/profile.openapi.ts` and `apps/api-gateway/test/`
 
 ## Phase 7: Integración y cierre
 

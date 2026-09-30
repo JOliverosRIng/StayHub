@@ -9,7 +9,7 @@ import { TraceInterceptor } from '@gateway/interfaces/http/trace.interceptor';
 import { GatewayValidationPipe } from '@gateway/interfaces/http/validation.pipe';
 import { GatewayAuthModule } from '@gateway/modules/auth/gateway-auth.module';
 import { HealthModule } from '@gateway/modules/health/health.module';
-import { UsersProfileModule } from '@gateway/modules/users/users-profile.module';
+import { UsersProxyModule } from '@gateway/modules/users/users-proxy.module';
 
 /**
  * GW-022 — Composición raíz del Gateway. Solo cablea piezas ya construidas (GW-009–GW-021):
@@ -22,7 +22,7 @@ import { UsersProfileModule } from '@gateway/modules/users/users-profile.module'
  * cliente y luego se establece/propaga el `traceId`.
  */
 @Module({
-  imports: [GatewayConfigModule, GatewayRedisModule, GatewayAuthModule, HealthModule, UsersProfileModule],
+  imports: [GatewayConfigModule, GatewayRedisModule, GatewayAuthModule, HealthModule, UsersProxyModule],
   providers: [
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
     { provide: APP_PIPE, useClass: GatewayValidationPipe },
