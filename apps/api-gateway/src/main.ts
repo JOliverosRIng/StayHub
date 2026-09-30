@@ -7,6 +7,8 @@ import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module';
 import { loadGatewayConfig, type GatewayConfig } from './infrastructure/config/gateway-config';
+import { GatewayLogger } from './infrastructure/observability/gateway-logger';
+import { startTelemetry } from './infrastructure/observability/otel';
 import { HEALTH_PREFIX_EXCLUDE } from './modules/health/health.controller';
 
 export interface GatewayHttpsOptions {
@@ -31,6 +33,7 @@ export async function createGatewayApp(
     bufferLogs: true,
     httpsOptions: httpsOptionsFrom(config),
   });
+  app.useLogger(new GatewayLogger());
   app.setGlobalPrefix(config.apiPrefix, { exclude: [...HEALTH_PREFIX_EXCLUDE] });
   return app;
 }
@@ -45,7 +48,9 @@ export async function startGateway(
 }
 
 if (require.main === module) {
-  void startGateway().catch((error: unknown) => {
+  const config = loadGatewayConfig();
+  startTelemetry(config);
+  void startGateway(config).catch((error: unknown) => {
     new Logger('Bootstrap').error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   });

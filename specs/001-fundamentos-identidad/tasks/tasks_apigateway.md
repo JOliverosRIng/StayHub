@@ -44,7 +44,7 @@ No incluye lógica de negocio, persistencia de dominio, cliente web ni broker as
 - [x] GW-019 [P] Mapear errores remotos a Problem Details preservando 400/401/403/404/409/413/415/429/503 (Component: Remote errors; Trace: FR-008, FR-012–FR-013, FR-019–FR-024; Depends on: GW-011, GW-018) in `apps/api-gateway/src/infrastructure/http/remote-problem.mapper.ts`
 - [x] GW-020 [P] Implementar `/health/live` y `/health/ready` exigiendo configuración, TLS, Redis y destinos resolubles (Component: Gateway health; Trace: Plan §7; Depends on: GW-009–GW-010, GW-014) in `apps/api-gateway/src/modules/health/health.controller.ts` and `apps/api-gateway/src/modules/health/health.module.ts`
 - [x] GW-021 [P] Inicializar Swagger público con bearer, refresh cookie, idempotencia, multipart, límites y Problem Details (Component: Public OpenAPI; Trace: Constitution VII; Depends on: GW-002) in `apps/api-gateway/src/interfaces/openapi/openapi.factory.ts` and `apps/api-gateway/src/interfaces/openapi/openapi.module.ts`
-- [ ] GW-022 Integrar módulos, filtros, validación, trazas y stripping global en `AppModule` (Component: Gateway bootstrap; Trace: Plan §3, Constitution II/V; Depends on: GW-009–GW-021) in `apps/api-gateway/src/app.module.ts` and `apps/api-gateway/src/main.ts`
+- [x] GW-022 Integrar módulos, filtros, validación, trazas y stripping global en `AppModule` (Component: Gateway bootstrap; Trace: Plan §3, Constitution II/V; Depends on: GW-009–GW-021) in `apps/api-gateway/src/app.module.ts` and `apps/api-gateway/src/main.ts`
 
 **Checkpoint**: Los fundamentos están listos y bloquean el inicio de las historias.
 
