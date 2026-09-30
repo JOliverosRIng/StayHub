@@ -67,7 +67,7 @@ límite por origen, y conserva 201/400/409/429/503.
 **Independent Test**: Con stub Auth, login/refresh/validate conservan expiraciones, cookie,
 límites, 401/403/429/503 e introspección fail-closed.
 
-- [ ] GW-031 [P] [US2] Escribir primero contrato de login, refresh y validate con bearer/cookie y 200/400/401/429/503 (Component: Session contract; Trace: FR-007–FR-013; Depends on: GW-004, GW-021) in `apps/api-gateway/test/contract/session.contract.spec.ts`
+- [x] GW-031 [P] [US2] Escribir primero contrato de login, refresh y validate con bearer/cookie y 200/400/401/429/503 (Component: Session contract; Trace: FR-007–FR-013; Depends on: GW-004, GW-021) in `apps/api-gateway/test/contract/session.contract.spec.ts`
 - [ ] GW-032 [P] [US2] Escribir primero pruebas del límite 30 intentos/origen/5 minutos, intento 31 con `Retry-After` y 503 sin Redis (Component: Login rate limit; Trace: FR-007–FR-008; Depends on: GW-004, GW-013–GW-014) in `apps/api-gateway/test/unit/login-rate-limit.spec.ts`
 - [ ] GW-033 [P] [US2] Escribir primero pruebas para JWT inválido 401, rol no permitido 403, mismatch claim/sesión y Auth caído 503 (Component: Auth guards; Trace: FR-009–FR-013, SC-003; Depends on: GW-004, GW-016) in `apps/api-gateway/test/security/auth-guards.spec.ts`
 - [ ] GW-034 [P] [US2] Escribir primero pruebas de cookie `Secure`, `HttpOnly`, `SameSite=Strict`, path restringido, rotación y limpieza (Component: Refresh cookie; Trace: FR-010, FR-024; Depends on: GW-004) in `apps/api-gateway/test/unit/refresh-cookie.spec.ts`
