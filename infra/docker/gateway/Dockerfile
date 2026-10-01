@@ -5,6 +5,9 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json nest-cli.json tsconfig.base.json ./
 COPY apps/api-gateway/package.json apps/api-gateway/package.json
+# Los workspaces hermanos permiten a `npm ci` reproducir el árbol exacto del lockfile.
+COPY apps/auth-service/package.json apps/auth-service/package.json
+COPY apps/users-service/package.json apps/users-service/package.json
 COPY apps/web/package.json apps/web/package.json
 RUN npm ci
 

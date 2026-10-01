@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
+    "apps/api-gateway",
     "apps/auth-service",
     "apps/users-service"
   ],
@@ -10,6 +11,11 @@
     "node": ">=20 <21"
   },
   "scripts": {
+    "build:gateway": "npm run build --workspace @stayhub/api-gateway",
+    "lint:gateway": "npm run lint --workspace @stayhub/api-gateway",
+    "typecheck:gateway": "npm run typecheck --workspace @stayhub/api-gateway",
+    "test:gateway": "npm run test --workspace @stayhub/api-gateway",
+    "openapi:gateway:check": "node scripts/check-public-openapi-syntax.mjs && node scripts/validate-public-openapi.mjs",
     "build:auth": "npm run build --workspace @stayhub/auth-service",
     "lint:auth": "npm run lint --workspace @stayhub/auth-service",
     "typecheck:auth": "npm run typecheck --workspace @stayhub/auth-service",
@@ -39,9 +45,9 @@
     "prisma:users:generate": "npm run prisma:generate --workspace @stayhub/users-service",
     "prisma:users:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/users-service",
     "prisma:users:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/users-service",
-    "build": "npm run build:auth && npm run build:users",
-    "lint": "npm run lint:auth && npm run lint:users",
-    "typecheck": "npm run typecheck:auth && npm run typecheck:users",
-    "test": "npm run test:auth && npm run test:users"
+    "build": "npm run build:gateway && npm run build:auth && npm run build:users",
+    "lint": "npm run lint:gateway && npm run lint:auth && npm run lint:users",
+    "typecheck": "npm run typecheck:gateway && npm run typecheck:auth && npm run typecheck:users",
+    "test": "npm run test:gateway && npm run test:auth && npm run test:users"
   }
 }

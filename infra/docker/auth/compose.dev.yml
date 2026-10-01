@@ -37,5 +37,12 @@ services:
   users-migrate:
     security_opt: ["label=disable"]
 
+  # Gateway HTTPS en 127.0.0.1:8080 (puerto publicado por el Compose base).
+  api-gateway:
+    security_opt: ["label=disable"]
+
+  gateway-redis:
+    security_opt: ["label=disable"]
+
 networks:
   dev-public:

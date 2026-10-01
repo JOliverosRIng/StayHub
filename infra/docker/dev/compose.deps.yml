@@ -56,6 +56,25 @@ services:
       retries: 20
     restart: "no"
 
+  # Redis de borde del Gateway (límites por origen), separado de auth-redis.
+  gateway-redis:
+    image: redis:7-alpine
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$(cat /run/secrets/gateway_redis_password)\""]
+    secrets: [gateway_redis_password]
+    security_opt: ["label=disable"]
+    ports:
+      - "127.0.0.1:${DEV_GATEWAY_REDIS_PORT:-56381}:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$(cat /run/secrets/gateway_redis_password)\" --no-auth-warning ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: "no"
+
+secrets:
+  gateway_redis_password:
+    file: ${DEV_GATEWAY_REDIS_PASSWORD_FILE:?required}
+
 volumes:
   auth-dev-db-data:
   users-dev-db-data:

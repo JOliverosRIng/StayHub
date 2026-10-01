@@ -4,6 +4,7 @@
 // archivos de secretos públicos que Compose monta en Users. Se reutiliza entre
 // reinicios y entre ambos modos de arranque (nativo y contenedores) para no rotar
 // claves ni romper tokens de registro. No contiene claves privadas de Users.
+import { spawnSync } from 'node:child_process';
 import { createPublicKey, generateKeyPairSync, randomBytes } from 'node:crypto';
 import {
   chmodSync,
@@ -274,7 +275,106 @@ export function ensureDevEnvironment({ root, examplePath = join(root, '.env.exam
   const envPath = join(root, '.env');
   const secretsDir = join(root, 'secrets');
   ensureSecretsDirectory(secretsDir);
-  return existsSync(envPath)
+  const result = existsSync(envPath)
     ? reuseExistingEnvironment(envPath, secretsDir)
     : createFreshEnvironment(envPath, secretsDir, examplePath);
+  Object.assign(result.files, ensureGatewaySecrets(secretsDir));
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// API Gateway (desarrollo). No escribe en `.env`: los secretos propios del Gateway
+// (certificado TLS autofirmado y contraseña de su Redis) se crean una sola vez en
+// `secrets/` y las variables GATEWAY_* se derivan de la configuración de Auth para
+// que el service JWT Gateway->Auth y la verificación del access JWT coincidan.
+// ---------------------------------------------------------------------------
+export const GATEWAY_SECRET_FILES = {
+  tlsCert: 'gateway-tls-cert.pem',
+  tlsKey: 'gateway-tls-key.pem',
+  redisPassword: 'gateway-redis-password.txt',
+};
+
+function ensureGatewaySecrets(secretsDir) {
+  const certPath = join(secretsDir, GATEWAY_SECRET_FILES.tlsCert);
+  const keyPath = join(secretsDir, GATEWAY_SECRET_FILES.tlsKey);
+  const redisPath = join(secretsDir, GATEWAY_SECRET_FILES.redisPassword);
+  if (!existsSync(certPath) || !existsSync(keyPath)) {
+    // Certificado autofirmado de desarrollo válido para 127.0.0.1 y localhost.
+    const result = spawnSync(
+      'openssl',
+      [
+        'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-sha256', '-days', '825',
+        '-subj', '/CN=localhost',
+        '-addext', 'subjectAltName=DNS:localhost,IP:127.0.0.1',
+        '-keyout', keyPath, '-out', certPath,
+      ],
+      { stdio: ['ignore', 'ignore', 'pipe'] },
+    );
+    if (result.status !== 0) {
+      throw new Error(`No se pudo generar el certificado TLS del Gateway con openssl: ${result.stderr ?? ''}`);
+    }
+    chmodSync(certPath, 0o600);
+    chmodSync(keyPath, 0o600);
+  }
+  if (!existsSync(redisPath)) writeSecretFile(redisPath, secret());
+  return { gatewayTlsCert: certPath, gatewayTlsKey: keyPath, gatewayRedisPassword: redisPath };
+}
+
+function firstKid(json, name) {
+  // El JSON ya viene en una sola línea (saltos escapados); no se desescapa.
+  const kid = Object.keys(JSON.parse(json ?? '{}'))[0];
+  if (kid === undefined) throw new Error(`${name} no contiene ninguna clave`);
+  return kid;
+}
+
+// Variables GATEWAY_* coherentes con Auth. `paths` indica dónde ve el Gateway sus
+// secretos (rutas del host en modo nativo, /run/secrets en contenedor).
+export function buildGatewayEnvironment(env, { secretsDir, authBaseUrl, usersBaseUrl, redisHostPort, paths }) {
+  const accessKid = env.AUTH_JWT_ACTIVE_KID ?? ACCESS_KID;
+  const accessPublic = readFileSync(join(secretsDir, SECRET_FILES.accessPublic), 'utf8');
+  const redisPassword = readFileSync(
+    join(secretsDir, GATEWAY_SECRET_FILES.redisPassword),
+    'utf8',
+  ).trim();
+  return {
+    NODE_ENV: 'development',
+    GATEWAY_PORT: '8080',
+    GATEWAY_API_PREFIX: '/api/v1',
+    GATEWAY_TLS_CERT_FILE: paths.tlsCert,
+    GATEWAY_TLS_KEY_FILE: paths.tlsKey,
+    GATEWAY_TLS_MIN_VERSION: 'TLSv1.2',
+    GATEWAY_AUTH_BASE_URL: authBaseUrl,
+    GATEWAY_USERS_BASE_URL: usersBaseUrl,
+    GATEWAY_JWT_PUBLIC_KEYS_JSON: JSON.stringify({ [accessKid]: accessPublic }),
+    GATEWAY_JWT_ISSUER: env.AUTH_JWT_ISSUER ?? AUTH_JWT_ISSUER,
+    GATEWAY_JWT_AUDIENCE: env.AUTH_JWT_AUDIENCE ?? AUTH_JWT_AUDIENCE,
+    GATEWAY_SERVICE_KID: firstKid(
+      env.AUTH_INBOUND_SERVICE_PUBLIC_KEYS_JSON,
+      'AUTH_INBOUND_SERVICE_PUBLIC_KEYS_JSON',
+    ),
+    GATEWAY_SERVICE_PRIVATE_KEY_FILE: paths.servicePrivateKey,
+    GATEWAY_SERVICE_ISSUER: env.AUTH_INBOUND_SERVICE_ISSUER ?? INBOUND_ISSUER,
+    GATEWAY_SERVICE_AUDIENCE: env.AUTH_INBOUND_SERVICE_AUDIENCE ?? INBOUND_AUDIENCE,
+    GATEWAY_SERVICE_SCOPE: env.AUTH_INBOUND_SERVICE_SCOPE ?? INBOUND_SCOPE,
+    GATEWAY_SERVICE_TTL_SECONDS: '60',
+    GATEWAY_REDIS_URL: `redis://:${redisPassword}@${redisHostPort}/0`,
+    GATEWAY_REDIS_PASSWORD_FILE: paths.redisPassword,
+    GATEWAY_REDIS_NAMESPACE: 'gateway:edge',
+    GATEWAY_TRUSTED_PROXY_CIDRS: '10.0.0.0/8,172.16.0.0/12',
+    GATEWAY_REGISTER_RATE_LIMIT: '10',
+    GATEWAY_REGISTER_RATE_WINDOW_SECONDS: '600',
+    GATEWAY_LOGIN_RATE_LIMIT: '30',
+    GATEWAY_LOGIN_RATE_WINDOW_SECONDS: '300',
+    GATEWAY_MAX_PHOTO_BYTES: '5000000',
+    GATEWAY_AUTH_TIMEOUT_MS: '3000',
+    GATEWAY_AUTH_CIRCUIT_FAILURE_THRESHOLD: '5',
+    GATEWAY_AUTH_CIRCUIT_RESET_MS: '30000',
+    GATEWAY_USERS_TIMEOUT_MS: '5000',
+    GATEWAY_USERS_CIRCUIT_FAILURE_THRESHOLD: '5',
+    GATEWAY_USERS_CIRCUIT_RESET_MS: '30000',
+    GATEWAY_INTROSPECTION_TIMEOUT_MS: '2000',
+    GATEWAY_OTEL_SERVICE_NAME: 'stayhub-api-gateway',
+    GATEWAY_OTEL_EXPORTER_OTLP_ENDPOINT: env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://127.0.0.1:4318',
+    GATEWAY_SWAGGER_SERVER_URL: 'https://127.0.0.1:8080',
+  };
 }

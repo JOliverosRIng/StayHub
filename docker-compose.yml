@@ -1,29 +1,6 @@
 name: stayhub
 
-secrets:
-  gateway_tls_cert:
-    file: ${GATEWAY_TLS_CERT_SOURCE:-./.artifacts/gateway/tls_cert.pem}
-  gateway_tls_key:
-    file: ${GATEWAY_TLS_KEY_SOURCE:-./.artifacts/gateway/tls_key.pem}
-  gateway_redis_password:
-    file: ${GATEWAY_REDIS_PASSWORD_SOURCE:-./.artifacts/gateway/redis_password.txt}
-  gateway_service_private_key:
-    file: ${GATEWAY_SERVICE_PRIVATE_KEY_SOURCE:-./.artifacts/gateway/service_private_key.pem}
-
 services:
-  gateway-redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--requirepass", "${GATEWAY_REDIS_PASSWORD}"]
-    secrets:
-      - gateway_redis_password
-    networks: [stayhub-internal]
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"$$(cat /run/secrets/gateway_redis_password)\" ping | grep PONG"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
   auth-db:
     image: postgres:16-alpine
     environment:
@@ -32,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
     volumes:
       - auth-db-data:/var/lib/postgresql/data
-    networks: [stayhub-internal]
+    networks: [auth-internal]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U stayhub_auth -d auth_db"]
       interval: 5s
@@ -43,7 +20,7 @@ services:
   auth-redis:
     image: redis:7-alpine
     command: ["redis-server", "--requirepass", "${AUTH_REDIS_PASSWORD}"]
-    networks: [stayhub-internal]
+    networks: [auth-internal]
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${AUTH_REDIS_PASSWORD}", "ping"]
       interval: 5s
@@ -58,7 +35,7 @@ services:
       target: build
     command: ["npm", "run", "prisma:migrate:deploy", "--workspace", "@stayhub/auth-service"]
     env_file: ${AUTH_ENV_FILE:-.env}
-    networks: [stayhub-internal]
+    networks: [auth-internal]
     depends_on:
       auth-db:
         condition: service_healthy
@@ -69,7 +46,7 @@ services:
       context: .
       dockerfile: infra/docker/auth/Dockerfile
     env_file: ${AUTH_ENV_FILE:-.env}
-    networks: [stayhub-internal]
+    networks: [auth-internal, services]
     depends_on:
       auth-db:
         condition: service_healthy
@@ -145,9 +122,54 @@ services:
     depends_on:
       users-migrate: { condition: service_completed_successfully }
 
+  gateway-redis:
+    image: redis:7-alpine
+    # La contraseña se lee del secreto para no exponerla en argumentos ni en el entorno.
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$(cat /run/secrets/gateway_redis_password)\""]
+    secrets: [gateway_redis_password]
+    networks: [gateway-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$(cat /run/secrets/gateway_redis_password)\" --no-auth-warning ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: infra/docker/gateway/Dockerfile
+    env_file: ${GATEWAY_ENV_FILE:-.env}
+    secrets:
+      - gateway_tls_cert
+      - gateway_tls_key
+      - gateway_redis_password
+      - gateway_service_private_key
+    # Único servicio publicado (HTTPS). Por defecto solo en loopback.
+    ports:
+      - "${GATEWAY_PUBLISH:-127.0.0.1:8080}:8080"
+    networks: [gateway-internal, services, edge]
+    depends_on:
+      gateway-redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      users-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.env.NODE_TLS_REJECT_UNAUTHORIZED='0';fetch('https://127.0.0.1:8080/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: always
+
 networks:
-  stayhub-internal:
+  auth-internal:
     internal: true
+  gateway-internal:
+    internal: true
+  # Red de borde con salida al host: solo api-gateway publica puerto.
+  edge: {}
   users-internal:
     internal: true
   services:
@@ -166,3 +188,11 @@ secrets:
     file: ${USERS_JWT_PUBLIC_KEY_FILE:?required}
   users_service_public:
     file: ${USERS_SERVICE_JWT_PUBLIC_KEY_FILE:?required}
+  gateway_tls_cert:
+    file: ${GATEWAY_TLS_CERT_SOURCE:?required}
+  gateway_tls_key:
+    file: ${GATEWAY_TLS_KEY_SOURCE:?required}
+  gateway_redis_password:
+    file: ${GATEWAY_REDIS_PASSWORD_SOURCE:?required}
+  gateway_service_private_key:
+    file: ${GATEWAY_SERVICE_PRIVATE_KEY_SOURCE:?required}

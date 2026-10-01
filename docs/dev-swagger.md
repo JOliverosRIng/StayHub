@@ -1,7 +1,8 @@
-# Probar Auth y Users con Swagger
+# Probar Gateway, Auth y Users con Swagger
 
-Guía rápida y autosuficiente para levantar Auth y Users reales y probar su API interna desde
-Swagger UI, sin Gateway. Todo lo gestiona `scripts/dev-auth-swagger.mjs`.
+Guía rápida para levantar API Gateway, Auth y Users reales y probarlos desde Swagger UI. Todo lo
+gestiona `scripts/dev-auth-swagger.mjs`. El Gateway es la entrada pública (HTTPS 8080, `/api/v1`);
+Auth y Users siguen publicados en `127.0.0.1` solo para probar sus rutas internas directamente.
 
 ## Requisitos
 
@@ -24,8 +25,9 @@ Son dos cosas distintas y **no** se ejecutan juntas cada vez:
   3. `prisma:auth:generate` y `prisma:users:generate`,
   4. `build:auth` y `build:users` solo si falta algún `dist` (o con `--build`),
   5. aplica las migraciones de ambos servicios,
-  6. arranca `users-service` (3002) y `auth-service` (3001) con `NODE_ENV=development`,
-  7. espera readiness de ambos e imprime las dos URLs de Swagger y el service JWT.
+  6. arranca `users-service` (3002), `auth-service` (3001) y `api-gateway` (HTTPS 8080) con
+     `NODE_ENV=development`,
+  7. espera readiness de los tres e imprime las URLs de Swagger y el service JWT.
 
 ```sh
 npm ci                      # una sola vez (o al cambiar dependencias)
@@ -45,12 +47,42 @@ Flags útiles:
 | `--build` | Fuerza la compilación de Auth y Users. |
 
 Puertos de dependencias configurables por entorno (por defecto): `DEV_AUTH_DB_PORT=55433`,
-`DEV_USERS_DB_PORT=55434`, `DEV_REDIS_PORT=56380`. Son distintos del harness de pruebas
+`DEV_USERS_DB_PORT=55434`, `DEV_REDIS_PORT=56380`, `DEV_GATEWAY_REDIS_PORT=56381`. Son distintos del harness de pruebas
 (55432/56379) para no reutilizar ni detener bases de pruebas.
 
 El flag `--users-port` **se retiró**: el modo nativo usa `users-service` real en el puerto fijo 3002.
 
-## Dos tokens distintos
+## Gateway (entrada pública)
+
+El script genera una sola vez en `secrets/` el material propio del Gateway, **sin tocar `.env`**:
+`gateway-tls-cert.pem`/`gateway-tls-key.pem` (autofirmado para `localhost` y `127.0.0.1`) y
+`gateway-redis-password.txt`. Las variables `GATEWAY_*` se derivan en cada arranque de la
+configuración de Auth, así que siempre coinciden:
+
+- Service JWT Gateway→Auth: firmado con `secrets/gateway-private.pem`; kid, issuer, audience y
+  scope salen de `AUTH_INBOUND_SERVICE_*`.
+- Access JWT de usuario: se verifica con `secrets/access-public.pem` y `AUTH_JWT_ISSUER`/`_AUDIENCE`.
+- Destinos: `auth-service:3001`/`users-service:3002` en contenedor; `127.0.0.1` en nativo.
+
+En el Gateway **no se usa el service JWT**: él mismo lo firma hacia Auth. El navegador pedirá
+aceptar el certificado autofirmado la primera vez que abras `https://127.0.0.1:8080/docs`
+(o usa `curl --cacert secrets/gateway-tls-cert.pem`).
+
+Flujo en `https://127.0.0.1:8080/docs`:
+
+1. `POST /api/v1/auth/register` con header `Idempotency-Key` (UUID) y el mismo body de abajo → `201`.
+2. `POST /api/v1/auth/login` → `200` con `accessToken` y `user { userId, sessionId, role }`. El
+   refresh **no** va en el cuerpo: llega como cookie `stayhub_refresh` (`HttpOnly; Secure;
+   SameSite=Strict; Path=/api/v1/auth/refresh`).
+3. Authorize con el `accessToken`; `GET /api/v1/auth/validate` → `200`.
+4. `POST /api/v1/auth/refresh` (usa la cookie) → `200` y cookie nueva. Reusar la anterior → `401`
+   y la sesión queda revocada.
+5. `GET /api/v1/users/{userId}/profile` → `200`; con otro `userId` → `403`.
+
+Límites de borde (Redis del Gateway): 10 registros/10 min y 30 logins/5 min por origen → `429`
+con `Retry-After`. Auth o Redis del Gateway caídos → `503`.
+
+## Dos tokens distintos (rutas internas, sin Gateway)
 
 - **Service JWT (Auth).** Las rutas internas de Auth no son públicas y exigen
   `Authorization: Bearer <service JWT>`: las llamaría el Gateway. El script firma uno con el par
@@ -64,6 +96,9 @@ El flag `--users-port` **se retiró**: el modo nativo usa `users-service` real e
 
 | Recurso | URL |
 |---|---|
+| Gateway Swagger UI | `https://127.0.0.1:8080/docs` |
+| Gateway API pública | `https://127.0.0.1:8080/api/v1` |
+| Gateway Health | `https://127.0.0.1:8080/health/live`, `/health/ready` |
 | Auth Swagger UI | `http://127.0.0.1:3001/docs` (**no** `/api`) |
 | Auth OpenAPI JSON | `http://127.0.0.1:3001/docs-json` |
 | Auth Health | `http://127.0.0.1:3001/health/live`, `/health/ready` |
@@ -136,6 +171,9 @@ Mapeo mental: `principal.sessionId`/`principal.userId` → `validate`; `refreshT
 | 503 | DB, Redis o Users no están arriba; revisa `health/ready` de cada servicio. |
 | Puerto de dependencia ocupado | Cambia `DEV_AUTH_DB_PORT`/`DEV_USERS_DB_PORT`/`DEV_REDIS_PORT`. |
 | El contenedor está healthy pero `localhost:3001` no responde | En modo contenedor, comprueba que se incluyó `compose.dev.yml`. |
+| Error de certificado en `https://127.0.0.1:8080` | Es autofirmado: acéptalo en el navegador o usa `--cacert secrets/gateway-tls-cert.pem`. |
+| `/api/v1/auth/refresh` da 401 desde Swagger | La cookie solo viaja a `https://…:8080/api/v1/auth/refresh` desde el mismo origen; haz login antes en la misma UI. |
+| Puerto 8080 ocupado | Libera el puerto o, en contenedor, define `GATEWAY_PUBLISH=127.0.0.1:<puerto>`. |
 
 ## Limpieza
 
@@ -156,11 +194,16 @@ Mapeo mental: `principal.sessionId`/`principal.userId` → `validate`; `refreshT
 
 - proyecto Compose `stayhub-auth-dev`, con la configuración persistente `.env` y `secrets/`
   (no se generan claves efímeras);
-- levanta Auth, **Users real** (sin `users-stub`), sus migraciones y PostgreSQL/Redis;
-- publica `127.0.0.1:${AUTH_DEV_PORT:-3001}:3001` y `127.0.0.1:${USERS_DEV_PORT:-3002}:3002`
-  solo en loopback; las redes internas de DB permanecen aisladas;
+- levanta `api-gateway` + `gateway-redis`, Auth, **Users real** (sin `users-stub`), sus migraciones
+  y PostgreSQL/Redis;
+- el Compose base solo publica el Gateway (`${GATEWAY_PUBLISH:-127.0.0.1:8080}:8080`); el override
+  añade `127.0.0.1:3001` y `127.0.0.1:3002` para Swagger interno. Redes: `auth-internal`,
+  `users-internal`, `gateway-internal` (aisladas), `services` (Gateway↔Auth↔Users) y `edge`;
+- las variables `GATEWAY_*` van en un `env_file` temporal (`GATEWAY_ENV_FILE`), no en `.env`;
+- antes de `up` hace `down` (sin `-v`) para que los secretos temporales se vuelvan a montar;
 - `NODE_ENV=development` en ambos para habilitar Swagger;
-- espera `users-service: service_healthy` antes de arrancar Auth;
+- espera `users-service: service_healthy` antes de Auth, y Auth + Users + `gateway-redis` sanos
+  antes del Gateway;
 - al detener (`Ctrl+C`) baja los contenedores **sin** `-v`: conserva datos y secretos.
 
 Notas de motor:
@@ -172,7 +215,16 @@ Notas de motor:
   servicios de Users que montan secretos. Docker aplica `0444` y tolera el mismo override.
 - Verificado con `podman` + `podman-compose`; también es compatible con Docker.
 
-## Verificación registrada (2026-09-30)
+## Verificación del Gateway (2026-09-30)
+
+Con `podman` + `podman-compose`, en `dev:swagger:docker` y en `dev:swagger` (nativo), por
+`https://127.0.0.1:8080`: `/docs` 200 con las 8 rutas; registro 201; login con contraseña errónea
+401; login 200 sin refresh en el cuerpo y cookie `HttpOnly; Secure; SameSite=Strict`; validate sin
+token 401 y con token 200; refresh 200 con cookie nueva; replay 401 y validate posterior 401; perfil
+propio 200, ajeno 403; `X-User-Id` sin token 401; login con Auth detenido 503. `.env` y los secretos
+previos quedaron con sha256 idéntico; los volúmenes se conservan tras `Ctrl+C`.
+
+## Verificación registrada Auth↔Users (2026-09-30)
 
 Ambos modos se ejecutaron con `podman` + `podman-compose` y los recorridos de
 [agents/integracion/resultado.md](../agents/integracion/resultado.md). En cada modo: readiness 200 y

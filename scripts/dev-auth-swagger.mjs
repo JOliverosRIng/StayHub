@@ -14,7 +14,9 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs';
+import https from 'node:https';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,7 +24,9 @@ import { fileURLToPath } from 'node:url';
 import { importPKCS8, SignJWT } from 'jose';
 
 import {
+  buildGatewayEnvironment,
   ensureDevEnvironment,
+  GATEWAY_SECRET_FILES,
   parseEnv,
   SECRET_FILES,
   INBOUND_AUDIENCE,
@@ -39,8 +43,10 @@ const DEV_PROJECT = 'stayhub-auth-dev';
 const DEPS_PROJECT = 'stayhub-auth-users-dev';
 const AUTH_DIST_ENTRY = 'dist/apps/auth-service/main.js';
 const USERS_DIST_ENTRY = 'dist/apps/users-service/main.js';
+const GATEWAY_DIST_ENTRY = 'dist/apps/api-gateway/main.js';
 const USERS_PORT = 3002;
-const DEFAULT_DEPS_PORTS = { authDb: 55433, usersDb: 55434, redis: 56380 };
+const GATEWAY_PORT = 8080;
+const DEFAULT_DEPS_PORTS = { authDb: 55433, usersDb: 55434, redis: 56380, gatewayRedis: 56381 };
 
 const options = parseArgs(process.argv.slice(2));
 const engine = detectEngine();
@@ -146,6 +152,36 @@ async function waitReady(port, timeoutMs = 120_000, label = 'servicio') {
   }
 }
 
+// Readiness HTTPS del Gateway confiando solo en su certificado autofirmado de desarrollo.
+function httpsStatus(url, ca) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, { ca, timeout: 2_000 }, (response) => {
+      response.resume();
+      resolve(response.statusCode ?? 0);
+    });
+    request.on('timeout', () => request.destroy(new Error('timeout')));
+    request.on('error', reject);
+  });
+}
+
+async function waitGatewayReady(ca, timeoutMs = 180_000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastResult = 'sin respuesta';
+  for (;;) {
+    try {
+      const status = await httpsStatus(`https://127.0.0.1:${GATEWAY_PORT}/health/ready`, ca);
+      lastResult = `HTTP ${status}`;
+      if (status === 200) return;
+    } catch (error) {
+      lastResult = error instanceof Error ? error.message : String(error);
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`api-gateway did not become ready on port ${GATEWAY_PORT}; ultimo resultado: ${lastResult}`);
+    }
+    await sleep(500);
+  }
+}
+
 // Firma el service JWT de desarrollo con el par persistente Gateway -> Auth.
 async function issueServiceToken(gatewayPrivateKey) {
   const key = await importPKCS8(gatewayPrivateKey, 'RS256');
@@ -170,12 +206,20 @@ function printReady(mode, port, token) {
       ? 'Ctrl+C detiene los dos procesos; las dependencias quedan arriba (usa --down-deps).'
       : 'Ctrl+C baja el stack de contenedores y conserva los volúmenes.';
   console.log(`\n==================== LISTO PARA PROBAR ====================
-Modo         : ${mode} (Auth y Users reales)
+Modo         : ${mode} (Gateway, Auth y Users reales)
+Gateway      : https://127.0.0.1:${GATEWAY_PORT}/api/v1  (certificado autofirmado)
+Gateway Swag.: https://127.0.0.1:${GATEWAY_PORT}/docs
 Auth Swagger : http://127.0.0.1:${port}/docs
 Users Swagger: http://127.0.0.1:${USERS_PORT}/docs
 Service JWT  : ${token}
 
-Pasos (Auth, Swagger):
+Pasos (Gateway, Swagger público, sin service JWT):
+  a. POST /api/v1/auth/register con header Idempotency-Key (UUID).
+  b. POST /api/v1/auth/login: devuelve accessToken y la cookie stayhub_refresh.
+  c. Authorize con el accessToken; GET /api/v1/auth/validate.
+  d. POST /api/v1/auth/refresh (usa la cookie) y GET /api/v1/users/{userId}/profile.
+
+Pasos (Auth directo, Swagger interno):
   1. Authorize con el Service JWT (sin "Bearer ").
   2. POST /internal/v1/registrations con header Idempotency-Key (UUID).
   3. POST /internal/v1/login con el mismo correo y contraseña.
@@ -195,8 +239,8 @@ ${stop}
 function printHelp() {
   console.log(`Uso: node scripts/dev-auth-swagger.mjs [opciones]
 
-Modo nativo (por defecto): levanta PostgreSQL de Auth, PostgreSQL de Users y Redis
-en contenedores, aplica migraciones y arranca auth-service y users-service reales.
+Modo nativo (por defecto): levanta PostgreSQL de Auth y Users y Redis (Auth y Gateway)
+en contenedores, aplica migraciones y arranca users-service, auth-service y api-gateway (HTTPS 8080).
 No hay stub de Users. El service JWT se firma con la configuración persistente.
 
 Opciones:
@@ -229,6 +273,9 @@ function loadNativeConfig() {
   const authDbPort = Number(process.env.DEV_AUTH_DB_PORT ?? DEFAULT_DEPS_PORTS.authDb);
   const usersDbPort = Number(process.env.DEV_USERS_DB_PORT ?? DEFAULT_DEPS_PORTS.usersDb);
   const redisPort = Number(process.env.DEV_REDIS_PORT ?? DEFAULT_DEPS_PORTS.redis);
+  const gatewayRedisPort = Number(
+    process.env.DEV_GATEWAY_REDIS_PORT ?? DEFAULT_DEPS_PORTS.gatewayRedis,
+  );
 
   const authDatabaseUrl =
     process.env.DEV_AUTH_DATABASE_URL ??
@@ -250,6 +297,7 @@ function loadNativeConfig() {
     authDbPort,
     usersDbPort,
     redisPort,
+    gatewayRedisPort,
     depsPasswords: {
       authDb: env.AUTH_DB_PASSWORD,
       usersDb: usersDbPassword,
@@ -301,6 +349,8 @@ function depsEnvironment(config) {
     DEV_AUTH_DB_PORT: String(config.authDbPort),
     DEV_USERS_DB_PORT: String(config.usersDbPort),
     DEV_REDIS_PORT: String(config.redisPort),
+    DEV_GATEWAY_REDIS_PORT: String(config.gatewayRedisPort),
+    DEV_GATEWAY_REDIS_PASSWORD_FILE: join(config.secretsDir, GATEWAY_SECRET_FILES.redisPassword),
   };
 }
 
@@ -312,12 +362,13 @@ async function startDevDependencies(config) {
     portInUse(config.authDbPort),
     portInUse(config.usersDbPort),
     portInUse(config.redisPort),
+    portInUse(config.gatewayRedisPort),
   ])).every(Boolean);
   if (alreadyUp) {
     console.log('[dev-auth] reutilizando PostgreSQL/Redis de desarrollo ya levantados');
     return;
   }
-  console.log('[dev-auth] levantando PostgreSQL (auth, users) y Redis de desarrollo...');
+  console.log('[dev-auth] levantando PostgreSQL (auth, users) y Redis (auth, gateway) de desarrollo...');
   const up = compose(['-p', DEPS_PROJECT, '-f', COMPOSE_DEPS_FILE, 'up', '-d'], {
     cwd: ROOT,
     env: depsEnvironment(config),
@@ -327,7 +378,23 @@ async function startDevDependencies(config) {
     waitPort(config.authDbPort),
     waitPort(config.usersDbPort),
     waitPort(config.redisPort),
+    waitPort(config.gatewayRedisPort),
   ]);
+}
+
+function buildNativeGatewayEnvironment(config) {
+  return buildGatewayEnvironment(config.env, {
+    secretsDir: config.secretsDir,
+    authBaseUrl: `http://127.0.0.1:${options.port}`,
+    usersBaseUrl: `http://127.0.0.1:${USERS_PORT}`,
+    redisHostPort: `127.0.0.1:${config.gatewayRedisPort}`,
+    paths: {
+      tlsCert: join(config.secretsDir, GATEWAY_SECRET_FILES.tlsCert),
+      tlsKey: join(config.secretsDir, GATEWAY_SECRET_FILES.tlsKey),
+      redisPassword: join(config.secretsDir, GATEWAY_SECRET_FILES.redisPassword),
+      servicePrivateKey: join(config.secretsDir, SECRET_FILES.gatewayPrivate),
+    },
+  });
 }
 
 async function runNative() {
@@ -340,10 +407,14 @@ async function runNative() {
   run('npm', ['run', 'prisma:auth:generate']);
   run('npm', ['run', 'prisma:users:generate']);
 
-  if (options.build || !existsSync(`${ROOT}/${AUTH_DIST_ENTRY}`) || !existsSync(`${ROOT}/${USERS_DIST_ENTRY}`)) {
-    console.log('[dev-auth] compilando auth-service y users-service...');
+  if (
+    options.build ||
+    ![AUTH_DIST_ENTRY, USERS_DIST_ENTRY, GATEWAY_DIST_ENTRY].every((entry) => existsSync(`${ROOT}/${entry}`))
+  ) {
+    console.log('[dev-auth] compilando auth-service, users-service y api-gateway...');
     run('npm', ['run', 'build:auth']);
     run('npm', ['run', 'build:users']);
+    run('npm', ['run', 'build:gateway']);
   }
 
   console.log('[dev-auth] aplicando migraciones...');
@@ -372,10 +443,12 @@ async function runNative() {
     stdio: 'inherit',
   });
 
+  let gatewayChild;
   let shuttingDown = false;
   const shutdown = (code = 0) => {
     if (shuttingDown) return;
     shuttingDown = true;
+    gatewayChild?.kill('SIGTERM');
     authChild.kill('SIGTERM');
     usersChild.kill('SIGTERM');
     if (!options.skipDeps && options.downDeps && engine !== null) {
@@ -397,6 +470,17 @@ async function runNative() {
   console.log(`[dev-auth] esperando readiness de auth-service en http://127.0.0.1:${options.port}/health/ready...`);
   await waitReady(options.port, 120_000, 'auth-service');
 
+  console.log('[dev-auth] arrancando api-gateway (HTTPS 8080)...');
+  gatewayChild = spawn(process.execPath, [GATEWAY_DIST_ENTRY], {
+    cwd: ROOT,
+    env: { ...process.env, ...buildNativeGatewayEnvironment(config) },
+    stdio: 'inherit',
+  });
+  gatewayChild.on('exit', (code) => shutdown(code ?? 1));
+  const ca = readFileSync(join(config.secretsDir, GATEWAY_SECRET_FILES.tlsCert));
+  console.log(`[dev-auth] esperando readiness de api-gateway en https://127.0.0.1:${GATEWAY_PORT}/health/ready...`);
+  await waitGatewayReady(ca, 120_000);
+
   const token = await issueServiceToken(config.gatewayPrivate);
   printReady('nativo', options.port, token);
 }
@@ -413,6 +497,10 @@ function stageReadableSecrets(secretsDir) {
     USERS_DATABASE_URL_FILE: SECRET_FILES.usersDatabaseUrl,
     USERS_JWT_PUBLIC_KEY_FILE: SECRET_FILES.accessPublic,
     USERS_SERVICE_JWT_PUBLIC_KEY_FILE: SECRET_FILES.servicePublic,
+    GATEWAY_TLS_CERT_SOURCE: GATEWAY_SECRET_FILES.tlsCert,
+    GATEWAY_TLS_KEY_SOURCE: GATEWAY_SECRET_FILES.tlsKey,
+    GATEWAY_REDIS_PASSWORD_SOURCE: GATEWAY_SECRET_FILES.redisPassword,
+    GATEWAY_SERVICE_PRIVATE_KEY_SOURCE: SECRET_FILES.gatewayPrivate,
   };
   for (const [variable, file] of Object.entries(mapping)) {
     const staged = join(directory, file);
@@ -420,6 +508,27 @@ function stageReadableSecrets(secretsDir) {
     chmodSync(staged, 0o444);
     env[variable] = staged;
   }
+  // Variables del Gateway en un env_file temporal: `.env` no se modifica.
+  const devEnv = Object.fromEntries(parseEnv(readFileSync(join(secretsDir, '..', '.env'), 'utf8')));
+  const gatewayEnv = buildGatewayEnvironment(devEnv, {
+    secretsDir,
+    authBaseUrl: 'http://auth-service:3001',
+    usersBaseUrl: 'http://users-service:3002',
+    redisHostPort: 'gateway-redis:6379',
+    paths: {
+      tlsCert: '/run/secrets/gateway_tls_cert',
+      tlsKey: '/run/secrets/gateway_tls_key',
+      redisPassword: '/run/secrets/gateway_redis_password',
+      servicePrivateKey: '/run/secrets/gateway_service_private_key',
+    },
+  });
+  const gatewayEnvFile = join(directory, 'gateway.env');
+  writeFileSync(
+    gatewayEnvFile,
+    `${Object.entries(gatewayEnv).map(([key, value]) => `${key}=${value}`).join('\n')}\n`,
+    { mode: 0o444 },
+  );
+  env.GATEWAY_ENV_FILE = gatewayEnvFile;
   return { directory, env };
 }
 
@@ -441,7 +550,11 @@ async function runContainer() {
     ...staged.env,
   };
 
-  console.log('[dev-auth] construyendo y levantando el stack (auth, users, migraciones, db, redis)...');
+  console.log('[dev-auth] construyendo y levantando el stack (gateway, auth, users, migraciones, db, redis)...');
+  // Los secretos se montan desde un directorio temporal nuevo en cada arranque.
+  // podman-compose no recrea contenedores existentes, así que se bajan antes
+  // (sin -v: los volúmenes y los datos se conservan).
+  compose([...composeArgs, 'down', '--remove-orphans'], { cwd: ROOT, env: composeEnv });
   const up = compose([...composeArgs, 'up', '-d', '--build'], { cwd: ROOT, env: composeEnv });
   if (up.status !== 0) {
     compose([...composeArgs, 'down', '--remove-orphans'], { cwd: ROOT, env: composeEnv });
@@ -471,6 +584,8 @@ async function runContainer() {
     await waitReady(USERS_PORT, 180_000, 'users-service');
     console.log(`[dev-auth] esperando readiness de auth-service en http://127.0.0.1:${options.port}/health/ready...`);
     await waitReady(options.port, 180_000, 'auth-service');
+    console.log(`[dev-auth] esperando readiness de api-gateway en https://127.0.0.1:${GATEWAY_PORT}/health/ready...`);
+    await waitGatewayReady(readFileSync(join(dev.secretsDir, GATEWAY_SECRET_FILES.tlsCert)), 240_000);
   } catch (error) {
     console.error('[dev-auth] diagnostico: estado y logs de migraciones y servicios');
     compose([...composeArgs, 'ps', '--all'], { cwd: ROOT, env: composeEnv });
@@ -485,6 +600,8 @@ async function runContainer() {
         'auth-service',
         'users-migrate',
         'users-service',
+        'gateway-redis',
+        'api-gateway',
       ],
       { cwd: ROOT, env: composeEnv },
     );

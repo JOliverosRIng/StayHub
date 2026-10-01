@@ -9,6 +9,7 @@ import { AppModule } from './app.module';
 import { loadGatewayConfig, type GatewayConfig } from './infrastructure/config/gateway-config';
 import { GatewayLogger } from './infrastructure/observability/gateway-logger';
 import { startTelemetry } from './infrastructure/observability/otel';
+import { mountPublicSwagger } from './interfaces/openapi/openapi.factory';
 import { HEALTH_PREFIX_EXCLUDE } from './modules/health/health.controller';
 
 export interface GatewayHttpsOptions {
@@ -35,6 +36,8 @@ export async function createGatewayApp(
   });
   app.useLogger(new GatewayLogger());
   app.setGlobalPrefix(config.apiPrefix, { exclude: [...HEALTH_PREFIX_EXCLUDE] });
+  // Swagger UI en `/docs` solo en development; en otros entornos no se expone.
+  mountPublicSwagger(app, config, config.environment);
   return app;
 }
 

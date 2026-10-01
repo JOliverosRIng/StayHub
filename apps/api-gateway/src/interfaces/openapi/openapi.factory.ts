@@ -164,6 +164,8 @@ export function mountPublicSwagger(
   const document: OpenAPIObject = {
     ...generated,
     ...base,
+    // `base.paths` está vacío: se conservan las rutas generadas desde los controladores.
+    paths: generated.paths,
     components: { ...generated.components, ...base.components },
     servers: base.servers ?? [],
     security: base.security ?? [],
