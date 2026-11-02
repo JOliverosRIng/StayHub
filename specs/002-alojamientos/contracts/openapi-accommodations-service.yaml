@@ -1,0 +1,476 @@
+openapi: 3.0.3
+info:
+  title: StayHub Accommodations Service API
+  version: 1.0.0
+  description: >-
+    Borrador interno para POST/PUT/GET de propiedades y carga de fotografías.
+    El servicio escucha en el puerto interno 3003. Las rutas públicas del Gateway
+    y el mecanismo para servir los bytes de fotos requieren coordinación con G1.
+servers:
+  - url: http://accommodations-service:3003
+tags:
+  - name: Properties
+security:
+  - bearerAuth: []
+paths:
+  /properties:
+    post:
+      tags: [Properties]
+      operationId: createProperty
+      summary: Crear una propiedad en borrador
+      description: >-
+        Requiere JWT válido con role OWNER. La propiedad se crea como DRAFT.
+        featureCodes desconocidos devuelven 400.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PropertyCreate'
+      responses:
+        '201':
+          description: Propiedad creada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+  /properties/{id}:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+    get:
+      tags: [Properties]
+      operationId: getProperty
+      summary: Consultar una propiedad visible
+      description: >-
+        Una propiedad PUBLISHED es pública. DRAFT y UNPUBLISHED solo pueden ser
+        consultados por su OWNER. Una propiedad ajena/no visible y un ID inexistente
+        devuelven 404. Un bearer presente pero inválido siempre devuelve 401, incluso
+        para una propiedad publicada; no se degrada a acceso anónimo. El ownerId se
+        omite del recurso devuelto a quien no es dueño. G1 debe permitir bearer opcional.
+      security:
+        - bearerAuth: []
+        - {}
+      responses:
+        '200':
+          description: Propiedad consultada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '400':
+          description: El parámetro id no tiene formato UUID.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+    put:
+      tags: [Properties]
+      operationId: replaceProperty
+      summary: Reemplazar la representación editable completa de una propiedad
+      description: >-
+        Requiere JWT válido con role OWNER y ownership. Las rooms se reemplazan
+        completamente: id actualiza, sin id crea, omitida elimina. Un id de Room
+        desconocido o perteneciente a otra propiedad devuelve 400 VALIDATION_ERROR
+        con errors[].field rooms[i].id, sin revelar si ese id existe. Al ser un
+        reemplazo completo, omitir description o basePrice los borra. La versión
+        debe coincidir; en otro caso se devuelve 409 VERSION_CONFLICT. PUBLISH
+        incompleto devuelve 409 PUBLICATION_INCOMPLETE. featureCodes desconocidos
+        devuelven 400. Se permite DRAFT→PUBLISHED y PUBLISHED↔UNPUBLISHED;
+        PUBLISHED→DRAFT y las demás transiciones no listadas devuelven 409
+        STATE_CONFLICT. Para despublicar se usa UNPUBLISHED.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PropertyReplace'
+      responses:
+        '200':
+          description: Representación reemplazada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '400':
+          description: >-
+            Body inválido. Un Room.id desconocido o ajeno usa code
+            VALIDATION_ERROR y errors[].field rooms[i].id sin revelar existencia.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+  /properties/{id}/photos:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+    post:
+      tags: [Properties]
+      operationId: addPropertyPhoto
+      summary: Agregar una foto a una propiedad
+      description: >-
+        Requiere OWNER y ownership. Una foto JPEG, PNG o WebP por solicitud,
+        determinada por magic bytes, máximo 5.000.000 bytes y diez fotos por
+        propiedad. La respuesta contiene metadatos; la entrega de bytes se
+        coordina con Gateway/infraestructura y no define aquí otra ruta. Agregar
+        una foto no incrementa Property.version.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG o WebP; 1–5.000.000 bytes.
+      responses:
+        '201':
+          description: Foto almacenada y metadatos creados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Se alcanzó el límite de diez fotos.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '413':
+          description: El archivo excede 5.000.000 bytes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '415':
+          description: El contenido no es JPEG, PNG o WebP.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT (RS256)
+  parameters:
+    PropertyId:
+      name: id
+      in: path
+      required: true
+      description: UUID de la propiedad.
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Problem:
+      description: Error con Problem Details compatible con Users.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    PropertyCreate:
+      type: object
+      additionalProperties: false
+      required: [type, name, location, rooms]
+      properties:
+        type:
+          $ref: '#/components/schemas/PropertyType'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 5000
+        location:
+          $ref: '#/components/schemas/Location'
+        featureCodes:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: string
+        rooms:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/RoomInput'
+    PropertyReplace:
+      type: object
+      additionalProperties: false
+      required: [type, name, location, status, rooms, version]
+      properties:
+        type:
+          $ref: '#/components/schemas/PropertyType'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 5000
+        location:
+          $ref: '#/components/schemas/Location'
+        featureCodes:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: string
+        status:
+          $ref: '#/components/schemas/PropertyStatus'
+        version:
+          type: integer
+          minimum: 1
+        rooms:
+          type: array
+          minItems: 1
+          description: Representación completa; ID actualiza, omisión elimina.
+          items:
+            $ref: '#/components/schemas/RoomReplaceInput'
+    Property:
+      type: object
+      description: ownerId solo se incluye cuando el solicitante es el dueño.
+      required: [id, type, name, location, status, version, rooms, features, photos, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/PropertyType'
+        name:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          nullable: true
+          maxLength: 5000
+        location:
+          $ref: '#/components/schemas/Location'
+        status:
+          $ref: '#/components/schemas/PropertyStatus'
+        version:
+          type: integer
+          minimum: 1
+        rooms:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Room'
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/Feature'
+        photos:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/Photo'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PropertyType:
+      type: string
+      enum: [HOTEL, APARTMENT, HOUSE, OTHER]
+    PropertyStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, UNPUBLISHED]
+    Location:
+      type: object
+      additionalProperties: false
+      required: [addressLine, city, region, country]
+      properties:
+        addressLine:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          maxLength: 100
+        region:
+          type: string
+          maxLength: 100
+        country:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          description: Código ISO 3166-1 alpha-2.
+        postalCode:
+          type: string
+          maxLength: 20
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+    RoomInput:
+      type: object
+      additionalProperties: false
+      required: [name, capacity]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        capacity:
+          type: integer
+          minimum: 1
+        basePrice:
+          $ref: '#/components/schemas/BasePrice'
+    RoomReplaceInput:
+      type: object
+      additionalProperties: false
+      required: [name, capacity]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 120
+        capacity:
+          type: integer
+          minimum: 1
+        basePrice:
+          $ref: '#/components/schemas/BasePrice'
+    Room:
+      type: object
+      required: [id, name, capacity]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 120
+        capacity:
+          type: integer
+          minimum: 1
+        basePrice:
+          allOf:
+            - $ref: '#/components/schemas/BasePrice'
+          nullable: true
+    BasePrice:
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount:
+          type: string
+          pattern: '^\d{1,10}(\.\d{1,2})?$'
+          not:
+            pattern: '^0+(\.0{1,2})?$'
+          description: Importe decimal positivo por noche; debe ser mayor que cero.
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: Código ISO 4217.
+    Feature:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+    Photo:
+      type: object
+      required: [id, mediaType, byteSize, position, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        mediaType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+        byteSize:
+          type: integer
+          minimum: 1
+          maximum: 5000000
+        position:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+    Problem:
+      type: object
+      required: [type, title, status, detail, instance, code, traceId, errors]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+          enum: [VALIDATION_ERROR, VERSION_CONFLICT, PUBLICATION_INCOMPLETE, PHOTO_LIMIT_REACHED, STATE_CONFLICT, NOT_FOUND, FORBIDDEN, PHOTO_TOO_LARGE, PHOTO_MEDIA_TYPE, UNAVAILABLE, HTTP_400, HTTP_401, HTTP_403, HTTP_404, HTTP_409, HTTP_413, HTTP_415, HTTP_500, HTTP_503]
+        traceId:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            required: [field, code]
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+                enum: [INVALID_VALUE]
