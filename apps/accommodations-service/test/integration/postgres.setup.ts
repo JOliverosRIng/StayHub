@@ -25,9 +25,19 @@ export async function withRollback(db: PrismaService, test: (tx: Prisma.Transact
 }
 
 export function migrate(url: string): void {
-  execFileSync(process.execPath, [resolve('node_modules/prisma/build/index.js'), 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'], {
-    cwd: resolve('.'), env: { ...process.env, ACCOMMODATIONS_DATABASE_URL: url }, stdio: ['ignore', 'ignore', 'inherit'], timeout: 60_000,
-  });
+  const env = { ...process.env, ACCOMMODATIONS_DATABASE_URL: url, CHECKPOINT_DISABLE: '1', CI: '1' };
+  const args = [resolve('node_modules/prisma/build/index.js'), 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'];
+  let last: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      execFileSync(process.execPath, args, { cwd: resolve('.'), env, stdio: ['ignore', 'ignore', 'ignore'], timeout: 60_000 });
+      return;
+    } catch (error) {
+      last = error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1_000 * attempt);
+    }
+  }
+  throw last;
 }
 
 /** Creates an isolated schema in a disposable PostgreSQL 16 accommodations_db, applies real migrations and boots the app. */

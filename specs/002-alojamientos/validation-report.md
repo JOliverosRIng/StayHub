@@ -266,3 +266,101 @@ La primera ejecución verde falló en 413: Nest transforma `LIMIT_FILE_SIZE` en 
 - Archivo vacío o ausente: `400 VALIDATION_ERROR` en `file`. Tamaño > 5.000.000: `413 PHOTO_TOO_LARGE`. Tipo no JPEG/PNG/WebP: `415 PHOTO_MEDIA_TYPE`. Onceava foto: `409 PHOTO_LIMIT_REACHED` sin escribir objeto.
 - Fallo de almacenamiento o de metadata tras un `store` exitoso: compensación con `remove` y `503 UNAVAILABLE` si el error no es de dominio.
 - La foto no incrementa `version`. No hay URL pública ni `storageKey` en respuestas.
+
+## Fase 8 — Validador OpenAPI local y cierre (2026-11-04)
+
+**Tareas cerradas**: ninguna.
+**Implementadas localmente, bloqueadas**: ACC-034 (parte local: validador bajo `apps/accommodations-service/scripts/` y `test/contract/openapi-drift.spec.ts`; no se tocó `.github/workflows/ci.yml` ni `scripts/` de la raíz). ACC-035 (Compose compartido), ACC-036 (G1) y ACC-037 (depende de ACC-034–ACC-036) quedan abiertas.
+
+### Prueba primero (ACC-034)
+
+| Comando | Exit | Resultado |
+|---|---|---|
+| `npx jest --selectProjects contract --runInBand openapi-drift` | 1 | Suite no arranca: `TS2345` al tipar el documento Swagger generado (conducta de comparación ausente/incorrecta). |
+| `npm run openapi:check` (script ya escrito) | 0 | Contrato YAML válido, cuatro operaciones, sin secretos. |
+
+Tras ajustar el tipado del helper (sin cambiar expectativas): drift 1 suite, 2 pruebas, exit 0.
+
+### Cierre: lint, typecheck, OpenAPI, suite completa
+
+Desde `apps/accommodations-service`, con `ACCOMMODATIONS_TEST_DATABASE_URL` apuntando al contenedor PostgreSQL 16.15.
+
+| Comando | Exit | Resultado |
+|---|---|---|
+| `npm run typecheck` | 0 | — |
+| `npm run lint` | 0 | — |
+| `npm run openapi:check` | 0 | `Accommodations OpenAPI is valid, matches the four v1 operations and carries no secrets` |
+| `npx jest --runInBand --coverage=false` | 0 | **35 suites, 416 pruebas** |
+| `npm run test:coverage` (primera pasada) | 1 | 34 suites OK; `property-ownership` falló en `prisma migrate deploy` (`Can't reach database server at 127.0.0.1:55436`). Cobertura global igualmente calculada. |
+| Reintento de esa suite | 0 | 1 suite, 4 pruebas |
+| `npm run test:coverage` (segunda pasada) | 1 | 34 suites OK; `property-authorization` mismo error transitorio de red hacia Postgres. |
+| `npx jest --selectProjects security --runInBand --coverage=false test/security/property-ownership.spec.ts` | 0 | 4/4 |
+
+Cobertura de la pasada instrumentada (umbral global 70 %):
+
+| Métrica | % |
+|---|---|
+| Statements | 94.94 |
+| Branches | 90.29 |
+| Functions | 93.79 |
+| Lines | 95.86 |
+
+El harness de migración ahora reintenta hasta 3 veces y desactiva el checkpoint de Prisma (`CI=1`, `CHECKPOINT_DISABLE=1`). No se cambió producto.
+
+### Entregables locales ACC-034
+
+- `apps/accommodations-service/scripts/validate-accommodations-openapi.mjs` (`SwaggerParser.validate` + las cuatro `operationId` v1 + ausencia de secretos/`storageKey`).
+- `apps/accommodations-service/test/contract/openapi-drift.spec.ts` (Swagger generado por Nest vs YAML: path, método, `operationId`, estados; health y storage internos ausentes).
+
+### Imagen Docker
+
+Se intentó `docker build -f infra/docker/accommodations/Dockerfile -t stayhub-accommodations:local .` desde la raíz. El contexto y las etapas `runtime`/`dependencies` (openssl) avanzaron; `npm ci` dentro de la imagen quedó sin salida nueva durante más de diez minutos y se abortó. La imagen no se etiquetó. Compose sigue fuera de alcance.
+
+## Inventario de tareas
+
+### Marcadas `[X]` (parte local completa, dependencias locales satisfechas)
+
+ACC-005, ACC-007, ACC-009, ACC-010, ACC-011, ACC-012, ACC-013, ACC-014, ACC-015, ACC-017.
+
+### Implementadas localmente, bloqueadas (no marcadas)
+
+| Tarea | Motivo |
+|---|---|
+| ACC-001 | Artefactos de spec/contrato no editables en esta fase; el usuario trató las decisiones v1 como aprobadas. |
+| ACC-002, ACC-003, ACC-004 | G1/G3. |
+| ACC-006 | Manifiestos raíz (`package.json`, lockfile, `nest-cli.json`, `tsconfig.base.json`). Parte local hecha. |
+| ACC-008 | `docker-compose.yml` compartido. Dockerfile, ignore, README y `.env.example` locales hechos. |
+| ACC-016, ACC-018, ACC-019 | Cadena ACC-001–ACC-004. POST `/properties` implementado y cubierto. |
+| ACC-020–ACC-023 | Cadena ACC-002–ACC-003. GET con bearer opcional implementado y cubierto. |
+| ACC-024–ACC-028 | Cadena ACC-001–ACC-004. PUT, versión y publicación implementados y cubiertos. |
+| ACC-029–ACC-033 | Cadena ACC-002–ACC-004. Fotos + StoragePort implementados y cubiertos. |
+| ACC-034 | Parte local hecha; CI compartida (`.github/workflows/ci.yml`) no tocada. Depende de ACC-019/023/028/033. |
+| ACC-035 | `docker-compose.yml` y prueba Compose fuera de alcance. |
+| ACC-036 | Integración Gateway; G1 no operativo. No se simuló evidencia conjunta. |
+| ACC-037 | Depende de ACC-034–ACC-036. Este informe cubre la evidencia local. |
+
+### Pendiente de G3 (no afirmar)
+
+Cómo se entregará la clave pública/JWKS real y la semántica de revocación/introspección. El servicio acepta PEM RSA ≥ 2048 **o** JWKS local con el `kid`; las pruebas usan claves sintéticas.
+
+## Comandos pendientes en el repo compartido
+
+No ejecutados aquí (archivos fuera de las rutas autorizadas):
+
+```text
+# 1. package.json raíz: añadir "apps/accommodations-service" a workspaces
+#    y scripts, p. ej. "test:accommodations": "npm test -w @stayhub/accommodations-service"
+# 2. nest-cli.json: proyecto accommodations-service → apps/accommodations-service
+# 3. tsconfig.base.json: "paths": { "@accommodations/*": ["apps/accommodations-service/src/*"] }
+# 4. npm install   (regenera package-lock.json raíz)
+# 5. docker-compose.yml:
+#    - servicio postgres accommodations_db (red interna, sin puerto público)
+#    - migrate (target migration del Dockerfile)
+#    - accommodations-service puerto interno 3003, volumen de fotos,
+#      healthcheck /health/ready, depends_on migrate
+#    - red interna stayhub
+# 6. .env.example raíz: ACCOMMODATIONS_* (sin secretos reales)
+# 7. .github/workflows/ci.yml: gates de este servicio (lint, typecheck, test, openapi:check, imagen)
+# 8. Gateway (G1): ruta pública, bearer opcional en GET, preservación de Problem Details,
+#    entrega de bytes de fotos (v1 no define URL)
+```
