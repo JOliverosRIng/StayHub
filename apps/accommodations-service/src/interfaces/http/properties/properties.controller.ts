@@ -1,8 +1,11 @@
-import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { CreatePropertyUseCase } from '@accommodations/application/properties/create-property.use-case';
+import { GetPropertyUseCase } from '@accommodations/application/properties/get-property.use-case';
 import type { Principal } from '@accommodations/domain/properties/property.types';
+import { parseUuid } from '@accommodations/domain/shared/uuid';
 import { JwtAuthGuard } from '../auth/jwt.strategy';
+import { OptionalJwtGuard } from '../auth/optional-jwt.guard';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../guards/roles.decorator';
@@ -12,7 +15,7 @@ import { presentProperty, type PropertyView } from './property.presenter';
 @ApiTags('Properties')
 @Controller('properties')
 export class PropertiesController {
-  constructor(private readonly createProperty: CreatePropertyUseCase) {}
+  constructor(private readonly createProperty: CreatePropertyUseCase, private readonly getProperty: GetPropertyUseCase) {}
 
   @Post()
   @HttpCode(201)
@@ -24,5 +27,17 @@ export class PropertiesController {
   async create(@CurrentPrincipal() principal: Principal, @Body() body: unknown): Promise<PropertyView> {
     const property = await this.createProperty.execute(principal, parseCreateProperty(body));
     return presentProperty(property, principal);
+  }
+
+  @Get(':id')
+  @UseGuards(OptionalJwtGuard)
+  @ApiBearerAuth('bearerAuth')
+  @ApiSecurity({})
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOperation({ operationId: 'getProperty', summary: 'Consultar una propiedad visible' })
+  @ApiResponse({ status: 200 }) @ApiResponse({ status: 400 }) @ApiResponse({ status: 401 }) @ApiResponse({ status: 404 }) @ApiResponse({ status: 503 })
+  async get(@CurrentPrincipal() viewer: Principal | undefined, @Param('id') id: string): Promise<PropertyView> {
+    const property = await this.getProperty.execute(parseUuid(id, 'id'), viewer);
+    return presentProperty(property, viewer);
   }
 }

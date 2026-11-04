@@ -166,3 +166,35 @@ Durante la implementación falló el validador de esquemas de prueba (no el serv
 - `basePrice.amount` se devuelve normalizado a dos decimales (`"120000.5"` → `"120000.50"`), coherente con `Decimal(12,2)` y con el patrón del contrato.
 - Los campos opcionales de `Location` no enviados se omiten en la respuesta (no se devuelven como `null`, porque el esquema no los declara `nullable`).
 - Cualquier rechazo del parser JSON (sintaxis, tamaño, charset) se mapea a `400 VALIDATION_ERROR` en `body`: `POST`/`PUT` no documentan 413/415. El JSON mal formado se rechaza antes de autenticar, porque el parser corre como middleware antes de los guards.
+
+## Fase 5 — `GET /properties/{id}` (2026-11-04)
+
+**Tareas cerradas**: ninguna.
+**Implementadas localmente, bloqueadas**: ACC-020 (`Depends on: ACC-002–ACC-003`), ACC-021 (depende de ACC-020), ACC-022 y ACC-023 (dependen de ACC-020–ACC-021). ACC-023 no modifica el contrato (la implementación coincide con él) ni código de Gateway.
+
+### Prueba primero
+
+| Comando (con `ACCOMMODATIONS_TEST_DATABASE_URL`) | Exit | Resultado |
+|---|---|---|
+| `npx jest --selectProjects unit contract security integration --runInBand --testPathPattern "property-read\|property-visibility\|optional-bearer"` | 1 | 5 suites fallidas; 24 pruebas fallidas, 2 pasadas (lectura del contrato y una igualdad de 404 que también se cumple con la ruta inexistente). `TS2307` en la unitaria (caso de uso ausente); el resto recibe 404 de ruta inexistente. |
+
+### Verificación tras implementar
+
+| Comando | Exit | Suites | Pruebas |
+|---|---|---|---|
+| mismo comando | 0 | 5 passed | 44 passed |
+| `npm run typecheck` | 0 | — | — |
+| `npm run lint` | 0 | — | — |
+
+`test/security/optional-bearer.spec.ts` (ACC-015), rojo desde la Fase 3, pasa ahora a verde.
+
+### Entregables
+
+- ACC-020: `test/contract/property-read.contract.spec.ts` (seguridad `bearerAuth` o `{}`, PUBLISHED anónimo sin `ownerId` ni internos de foto, DRAFT/UNPUBLISHED al dueño, 404 idéntico para oculta e inexistente, 400 en `id`, 401 con bearer inválido).
+- ACC-021: `test/unit/property-visibility.spec.ts`, `test/security/property-read-authorization.spec.ts`, `test/integration/property-read.spec.ts`.
+- ACC-022: `src/application/properties/get-property.use-case.ts`, `src/interfaces/http/auth/optional-jwt.guard.ts`, `GET /properties/{id}` en `properties.controller.ts` (`operationId: getProperty`). La proyección agregada ya estaba en `property.repository.ts` (Fase 2).
+
+### Decisiones de implementación
+
+- La autenticación opcional corre antes de validar el `id`: un bearer inválido con un `id` mal formado devuelve 401.
+- El `id` de la ruta se acepta sin distinguir mayúsculas y se normaliza a minúsculas; `ADMIN` y `GUEST` no ven `ownerId` aunque su `sub` coincida con el dueño.
