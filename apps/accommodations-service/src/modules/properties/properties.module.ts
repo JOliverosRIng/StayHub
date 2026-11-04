@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PROPERTY_REPOSITORY, type PropertyRepository } from '@accommodations/application/ports/property.repository';
 import { CreatePropertyUseCase } from '@accommodations/application/properties/create-property.use-case';
 import { GetPropertyUseCase } from '@accommodations/application/properties/get-property.use-case';
+import { ReplacePropertyUseCase } from '@accommodations/application/properties/replace-property.use-case';
 import { PropertiesController } from '@accommodations/interfaces/http/properties/properties.controller';
 import { AuthModule } from '../auth/auth.module';
 
@@ -11,6 +12,7 @@ import { AuthModule } from '../auth/auth.module';
   providers: [
     { provide: CreatePropertyUseCase, useFactory: (properties: PropertyRepository): CreatePropertyUseCase => new CreatePropertyUseCase(properties), inject: [PROPERTY_REPOSITORY] },
     { provide: GetPropertyUseCase, useFactory: (properties: PropertyRepository): GetPropertyUseCase => new GetPropertyUseCase(properties), inject: [PROPERTY_REPOSITORY] },
+    { provide: ReplacePropertyUseCase, useFactory: (properties: PropertyRepository): ReplacePropertyUseCase => new ReplacePropertyUseCase(properties), inject: [PROPERTY_REPOSITORY] },
   ],
 })
 export class PropertiesModule {}

@@ -198,3 +198,35 @@ Durante la implementación falló el validador de esquemas de prueba (no el serv
 
 - La autenticación opcional corre antes de validar el `id`: un bearer inválido con un `id` mal formado devuelve 401.
 - El `id` de la ruta se acepta sin distinguir mayúsculas y se normaliza a minúsculas; `ADMIN` y `GUEST` no ven `ownerId` aunque su `sub` coincida con el dueño.
+
+## Fase 6 — `PUT /properties/{id}` reemplazo y publicación (2026-11-04)
+
+**Tareas cerradas**: ninguna.
+**Implementadas localmente, bloqueadas**: ACC-024 (`Depends on: ACC-001–ACC-004`), ACC-025 (depende de ACC-024), ACC-026 (depende de ACC-024), ACC-027 y ACC-028 (dependen de ACC-024–ACC-026). ACC-028 no modifica el contrato.
+
+### Prueba primero
+
+| Comando (con `ACCOMMODATIONS_TEST_DATABASE_URL`) | Exit | Resultado |
+|---|---|---|
+| `npx jest --selectProjects unit contract security integration --runInBand --testPathPattern "property-replace\|property-ownership\|publication-policy\|property-publication"` | 1 | 6 suites fallidas; 17 pruebas fallidas, 3 pasadas (lectura del contrato). `TS2307` en unitarias (DTO/caso de uso ausentes); HTTP recibe 404 de ruta inexistente. |
+
+### Verificación tras implementar
+
+| Comando | Exit | Suites | Pruebas |
+|---|---|---|---|
+| mismo comando | 0 | 6 passed | 38 passed |
+| `npm run typecheck` | 0 | — | — |
+| `npm run lint` | 0 | — | — |
+
+### Entregables
+
+- ACC-024: `test/contract/property-replace.contract.spec.ts`.
+- ACC-025: `test/unit/property-replace.spec.ts`, `test/security/property-ownership.spec.ts`, `test/integration/property-replace.spec.ts`.
+- ACC-026: `test/unit/publication-policy.spec.ts`, `test/integration/property-publication.spec.ts`, `test/fixtures/property-publication.fixture.ts` (inserta PNG en disco y metadata, sin `POST /photos`).
+- ACC-027: `src/application/properties/replace-property.use-case.ts` (`planReplacement`), `src/interfaces/http/properties/replace-property.dto.ts`, `PUT /properties/{id}` (`operationId: replaceProperty`). `publication.policy.ts` ya existía desde ACC-011.
+
+### Decisiones de implementación
+
+- Orden de comprobación dentro del bloqueo: 404 de ownership → `VERSION_CONFLICT` → `rooms[i].id` desconocido/ajeno → `STATE_CONFLICT` → `PUBLICATION_INCOMPLETE`. Un extraño con versión o rooms inválidos sigue recibiendo 404.
+- `PUBLICATION_INCOMPLETE` solo se evalúa cuando el estado resultante es `PUBLISHED` (incluye republicar desde `UNPUBLISHED`); editar un `DRAFT` incompleto está permitido.
+- La foto de las pruebas de publicación se inserta por fixture, no por el endpoint de la Fase 7.

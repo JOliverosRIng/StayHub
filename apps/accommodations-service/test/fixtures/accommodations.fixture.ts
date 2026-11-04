@@ -21,6 +21,26 @@ export function createBody(overrides: Partial<CreateBody> = {}): CreateBody {
   };
 }
 
+export interface ReplaceBody extends CreateBody { status: string; version: number }
+
+export function replaceBody(overrides: Partial<ReplaceBody> = {}): ReplaceBody {
+  return { ...createBody(), status: 'DRAFT', version: 1, ...overrides };
+}
+
+/** Builds a PUT body from a persisted Property view, omitting null description so the closed DTO clears it. */
+export function replaceFrom(property: {
+  type: string; name: string; description: string | null; location: Record<string, unknown>; status: string; version: number;
+  features: { code: string }[]; rooms: { id: string; name: string; capacity: number; basePrice: { amount: string; currency: string } | null }[];
+}, overrides: Partial<ReplaceBody> = {}): ReplaceBody {
+  const body: ReplaceBody = {
+    type: property.type, name: property.name, location: property.location, featureCodes: property.features.map((feature) => feature.code),
+    status: property.status, version: property.version,
+    rooms: property.rooms.map(({ id, name, capacity, basePrice }) => ({ id, name, capacity, ...(basePrice ? { basePrice } : {}) })),
+  };
+  if (property.description !== null) body.description = property.description;
+  return { ...body, ...overrides };
+}
+
 export function newProperty(ownerId: string = randomUUID(), overrides: Partial<NewProperty> = {}): NewProperty {
   return {
     id: randomUUID(), ownerId, type: 'APARTMENT', name: 'Apartamento sintético', description: 'Vista a la montaña',
