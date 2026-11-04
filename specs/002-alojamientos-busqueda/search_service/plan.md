@@ -8,6 +8,17 @@
 
 Construir `search-service` como microservicio NestJS independiente para buscar una proyección propia de alojamientos publicados mediante ubicación textual, precio, fechas proyectadas, capacidad, amenidades y palabras clave, con relevancia determinista y sugerencias. La solución usa PostgreSQL 16 + PostGIS + Full Text Search + `pg_trgm`, Prisma 6.19 con SQL especializado encapsulado, Redis best-effort y contratos RabbitMQ versionados verificables con fixtures. No usa Elasticsearch, `pgvector`, la base de Accommodations ni una dependencia runtime del servicio todavía inexistente.
 
+### Estado de implementación — 2026-11-04
+
+Primera entrega implementada y validada: **36 de 70 tareas**.
+
+- Completadas: `T001–T018`, `T022–T038` y `T040`.
+- Incluye workspace NestJS, configuración, modelo Prisma/PostGIS, migración inicial, capas base, service JWT, Problem Details, Docker Compose, fixtures, dominio de búsqueda, adaptador PostgreSQL parametrizado, caché Redis fail-open, caso de uso, DTO, controller y módulo del MVP.
+- Verificación ejecutada: lint, TypeScript y build correctos; 15 pruebas unitarias, 6 contractuales, 2 de seguridad y 5 de integración PostgreSQL/PostGIS/Redis aprobadas.
+- La migración `001_search_projection` fue aplicada desde cero sobre PostgreSQL 16 + PostGIS real. La primera ejecución detectó que `array_to_string()` no era válida en una columna generada inmutable; se sustituyó por una columna `tsvector` mantenida mediante trigger, preservando los pesos A/B/C y los índices GIN.
+- Permanecen abiertas `T019–T021`, `T039` y `T041–T070`; en particular, observabilidad completa, readiness del broker, shutdown con gracia, cierre de Swagger/drift, sugerencias y proyección por RabbitMQ.
+- La implementación no modifica Gateway, frontend ni Accommodations y no declara todavía RQ-04 como validado end-to-end.
+
 ### Requisitos cumplidos por este desarrollo
 
 | Requisito | Responsabilidad de Search | Declaración de cumplimiento |

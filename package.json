@@ -4,7 +4,8 @@
   "private": true,
   "workspaces": [
     "apps/auth-service",
-    "apps/users-service"
+    "apps/users-service",
+    "apps/search-service"
   ],
   "engines": {
     "node": ">=20 <21"
@@ -39,9 +40,25 @@
     "prisma:users:generate": "npm run prisma:generate --workspace @stayhub/users-service",
     "prisma:users:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/users-service",
     "prisma:users:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/users-service",
-    "build": "npm run build:auth && npm run build:users",
-    "lint": "npm run lint:auth && npm run lint:users",
-    "typecheck": "npm run typecheck:auth && npm run typecheck:users",
-    "test": "npm run test:auth && npm run test:users"
+    "build:search": "npm run build --workspace @stayhub/search-service",
+    "lint:search": "npm run lint --workspace @stayhub/search-service",
+    "typecheck:search": "npm run typecheck --workspace @stayhub/search-service",
+    "test:search": "npm run test --workspace @stayhub/search-service",
+    "test:search:unit": "npm run test:unit --workspace @stayhub/search-service",
+    "test:search:integration": "npm run test:integration --workspace @stayhub/search-service",
+    "test:search:contract": "npm run test:contract --workspace @stayhub/search-service",
+    "test:search:security": "npm run test:security --workspace @stayhub/search-service",
+    "test:search:performance": "npm run test:performance --workspace @stayhub/search-service",
+    "prisma:search:generate": "npm run prisma:generate --workspace @stayhub/search-service",
+    "prisma:search:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/search-service",
+    "prisma:search:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/search-service",
+    "build": "npm run build:auth && npm run build:users && npm run build:search",
+    "lint": "npm run lint:auth && npm run lint:users && npm run lint:search",
+    "typecheck": "npm run typecheck:auth && npm run typecheck:users && npm run typecheck:search",
+    "test": "npm run test:auth && npm run test:users && npm run test:search"
+  },
+  "devDependencies": {
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.18"
   }
 }
