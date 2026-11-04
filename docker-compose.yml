@@ -198,6 +198,9 @@ services:
       SEARCH_DATABASE_URL: ${SEARCH_DATABASE_URL:?required}
       SEARCH_REDIS_URL: ${SEARCH_REDIS_URL:?required}
       SEARCH_RABBITMQ_URL: ${SEARCH_RABBITMQ_URL:?required}
+      SEARCH_RABBITMQ_EXCHANGE: ${SEARCH_RABBITMQ_EXCHANGE:-stayhub.search.v1}
+      SEARCH_RABBITMQ_QUEUE: ${SEARCH_RABBITMQ_QUEUE:-stayhub.search.projection.v1}
+      SEARCH_RABBITMQ_DLQ: ${SEARCH_RABBITMQ_DLQ:-stayhub.search.projection.v1.dlq}
       SEARCH_SERVICE_JWT_PUBLIC_KEYS_JSON: ${SEARCH_SERVICE_JWT_PUBLIC_KEYS_JSON:?required}
       SEARCH_SERVICE_JWT_ISSUER: ${SEARCH_SERVICE_JWT_ISSUER:?required}
       SEARCH_SERVICE_JWT_AUDIENCE: ${SEARCH_SERVICE_JWT_AUDIENCE:?required}
@@ -209,11 +212,17 @@ services:
       SEARCH_SIMILARITY_THRESHOLD: ${SEARCH_SIMILARITY_THRESHOLD:-0.3}
       SEARCH_DEPENDENCY_TIMEOUT_MS: ${SEARCH_DEPENDENCY_TIMEOUT_MS:-3000}
       SEARCH_RABBITMQ_PREFETCH: ${SEARCH_RABBITMQ_PREFETCH:-10}
+      SEARCH_RABBITMQ_MAX_RETRIES: ${SEARCH_RABBITMQ_MAX_RETRIES:-3}
+      SEARCH_RABBITMQ_RETRY_BASE_MS: ${SEARCH_RABBITMQ_RETRY_BASE_MS:-250}
       SEARCH_SHUTDOWN_GRACE_MS: ${SEARCH_SHUTDOWN_GRACE_MS:-10000}
+      SEARCH_OTEL_SERVICE_NAME: ${SEARCH_OTEL_SERVICE_NAME:-stayhub-search-service}
+      SEARCH_LOG_LEVEL: ${SEARCH_LOG_LEVEL:-info}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:?required}
     networks: [search-internal, services]
     read_only: true
     tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3004/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]

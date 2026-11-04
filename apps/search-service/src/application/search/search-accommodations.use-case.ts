@@ -1,9 +1,13 @@
-import type { SearchIndexPort } from '../ports/search-index.port';
-import type { SearchCachePort } from '../ports/search-cache.port';
-import type { SearchQuery } from '@search/domain/search-query';
-import type { SearchPage } from '@search/domain/search-result';
+import type { SearchIndexPort } from "../ports/search-index.port";
+import type { SearchCachePort } from "../ports/search-cache.port";
+import type { SearchQuery } from "@search/domain/search-query";
+import type { SearchPage } from "@search/domain/search-result";
+
 export class SearchAccommodations {
-  public constructor(private readonly index: SearchIndexPort, private readonly cache: SearchCachePort) {}
+  public constructor(
+    private readonly index: SearchIndexPort,
+    private readonly cache: SearchCachePort,
+  ) {}
   public async execute(query: SearchQuery): Promise<SearchPage> {
     const generation = await this.index.cacheGeneration();
     const key = this.cache.key(generation, query);

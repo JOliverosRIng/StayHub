@@ -10,13 +10,17 @@ Construir `search-service` como microservicio NestJS independiente para buscar u
 
 ### Estado de implementación — 2026-11-04
 
-Primera entrega implementada y validada: **36 de 70 tareas**.
+Estado acumulado implementado y validado: **40 de 70 tareas**.
 
-- Completadas: `T001–T018`, `T022–T038` y `T040`.
+- Completadas: `T001–T040`.
 - Incluye workspace NestJS, configuración, modelo Prisma/PostGIS, migración inicial, capas base, service JWT, Problem Details, Docker Compose, fixtures, dominio de búsqueda, adaptador PostgreSQL parametrizado, caché Redis fail-open, caso de uso, DTO, controller y módulo del MVP.
-- Verificación ejecutada: lint, TypeScript y build correctos; 15 pruebas unitarias, 6 contractuales, 2 de seguridad y 5 de integración PostgreSQL/PostGIS/Redis aprobadas.
+- Verificación actual: lint, TypeScript y build correctos; 59 pruebas aprobadas en 18 suites de unidad, integración, contrato y seguridad. PostgreSQL 16/PostGIS y Redis 7 reales aislados mediante Podman. Cobertura: statements 89.89 %, branches 83.62 %, functions 84.34 % y lines 90.65 %.
 - La migración `001_search_projection` fue aplicada desde cero sobre PostgreSQL 16 + PostGIS real. La primera ejecución detectó que `array_to_string()` no era válida en una columna generada inmutable; se sustituyó por una columna `tsvector` mantenida mediante trigger, preservando los pesos A/B/C y los índices GIN.
-- Permanecen abiertas `T019–T021`, `T039` y `T041–T070`; en particular, observabilidad completa, readiness del broker, shutdown con gracia, cierre de Swagger/drift, sugerencias y proyección por RabbitMQ.
+- Segunda entrega (`T019–T021`, `T039`): logger JSON con redacción recursiva, SDK OTLP de trazas/métricas, trazas HTTP/PostgreSQL/Redis y helper para RabbitMQ; readiness verifica metadatos de migración y estado del índice, y reporta Redis/RabbitMQ degradados sin bloquear lecturas. Shutdown drena HTTP antes de liberar Prisma/Redis y tolera colector OTLP apagado.
+- Swagger de búsqueda en OpenAPI 3.1 incluye parámetros, límites, service JWT, resumen, disponibilidad proyectada y Problem Details. Se compara con el contrato fuente en pruebas; el drift de sugerencias/eventos sigue pendiente de T063.
+- El cliente Prisma se genera bajo `src/infrastructure/persistence/generated/client` y se copia como asset de Nest. Los scripts build/dev se ejecutan desde la raíz y start resuelve el dist desde el workspace. Se verificó el proceso compilado: readiness 200, Redis sano/RabbitMQ degradado, `/docs-json` 3.1 y SIGTERM con salida 0 incluso sin colector OTLP.
+- Permanecen abiertas `T041–T070`: sugerencias, proyección por RabbitMQ, instrumentación específica del consumidor, métricas restantes, contratos completos, rendimiento y validación operativa final. El probe de RabbitMQ se prueba con mocks AMQP y conexión rechazada; el consumidor real corresponde a T060.
+- Entorno de esta validación: Node.js 26.13.0 y npm 12.2.1. El objetivo Node.js 20 del Dockerfile se conserva; la comprobación del contenedor con ese runtime sigue dentro de T068.
 - La implementación no modifica Gateway, frontend ni Accommodations y no declara todavía RQ-04 como validado end-to-end.
 
 ### Requisitos cumplidos por este desarrollo

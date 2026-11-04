@@ -54,9 +54,9 @@
 - [X] T016 Implementar cliente Prisma con lectura de URL desde archivo secreto, lifecycle y módulo de persistencia en `apps/search-service/src/infrastructure/persistence/prisma/prisma.service.ts` y `apps/search-service/src/infrastructure/persistence/prisma/prisma.module.ts`
 - [X] T017 [P] Implementar filtro Problem Details `application/problem+json`, códigos seguros y `traceId`, interceptor de correlación y `ValidationPipe` con transform, whitelist y rechazo de campos desconocidos en `apps/search-service/src/interfaces/http/problem.filter.ts`, `apps/search-service/src/interfaces/http/trace.interceptor.ts` y `apps/search-service/src/interfaces/http/validation.pipe.ts`
 - [X] T018 [P] Implementar verificación service JWT restringida a RS256 con firma, `kid`, issuer, audience, expiración, skew y scope, más guard HTTP, en `apps/search-service/src/infrastructure/security/service-jwt.verifier.ts` y `apps/search-service/src/interfaces/http/guards/service-auth.guard.ts`
-- [ ] T019 [P] Implementar logger estructurado, redacción de JWT/URLs/términos sensibles y bootstrap OpenTelemetry para trazas y métricas de HTTP, PostgreSQL, Redis y consumidor en `apps/search-service/src/infrastructure/observability/search-logger.ts` y `apps/search-service/src/infrastructure/observability/otel.ts`
-- [ ] T020 Implementar `/health/live` y `/health/ready` donde readiness exige configuración, migraciones y PostgreSQL, pero reporta Redis/RabbitMQ degradados sin bloquear lecturas, en `apps/search-service/src/modules/health/health.controller.ts` y `apps/search-service/src/modules/health/health.module.ts`
-- [ ] T021 Componer bootstrap, cierre ordenado, configuración HTTP global y módulos base sin lógica de negocio en `apps/search-service/src/main.ts` y `apps/search-service/src/app.module.ts`
+- [X] T019 [P] Implementar logger estructurado, redacción de JWT/URLs/términos sensibles y bootstrap OpenTelemetry para trazas y métricas de HTTP, PostgreSQL, Redis y consumidor en `apps/search-service/src/infrastructure/observability/search-logger.ts` y `apps/search-service/src/infrastructure/observability/otel.ts`
+- [X] T020 Implementar `/health/live` y `/health/ready` donde readiness exige configuración, migraciones y PostgreSQL, pero reporta Redis/RabbitMQ degradados sin bloquear lecturas, en `apps/search-service/src/modules/health/health.controller.ts` y `apps/search-service/src/modules/health/health.module.ts`
+- [X] T021 Componer bootstrap, cierre ordenado, configuración HTTP global y módulos base sin lógica de negocio en `apps/search-service/src/main.ts` y `apps/search-service/src/app.module.ts`
 - [X] T022 Añadir `search-db` PostgreSQL 16/PostGIS, `search-migrate`, `search-redis`, RabbitMQ con vhost/usuario de mínimo privilegio y `search-service:3004`, redes internas, secrets, healthchecks, dependencias y restart explícito en `docker-compose.yml`
 - [X] T023 [P] Crear helpers para PostgreSQL/PostGIS, Redis, RabbitMQ, service JWT y limpieza segura de datos de prueba en `apps/search-service/test/helpers/search-app.ts`, `apps/search-service/test/helpers/dependencies.ts` y `apps/search-service/test/helpers/service-jwt.fixture.ts`
 - [X] T024 [P] Crear dataset y publicador contractual reproducible con propiedades publicadas/no publicadas, monedas, filtros, ventanas y eventos válidos/inválidos en `apps/search-service/test/fixtures/search-documents.fixture.ts`, `apps/search-service/test/fixtures/projection-events.fixture.ts` y `apps/search-service/test/helpers/projection-publisher.ts`
@@ -90,7 +90,7 @@
 - [X] T036 [P] [US1] Implementar DTO de query con restricciones OpenAPI, validaciones cruzadas de precio/moneda y fechas, transformación de amenidades repetidas y límites de cardinalidad en `apps/search-service/src/interfaces/http/dto/search-query.dto.ts`
 - [X] T037 [US1] Implementar controlador protegido `GET /internal/v1/search`, traducción DTO→caso de uso y errores Problem Details sin lógica de ranking en `apps/search-service/src/interfaces/http/search.controller.ts`
 - [X] T038 [US1] Componer puertos, adaptadores, caso de uso y controller de búsqueda en `apps/search-service/src/modules/search/search.module.ts`
-- [ ] T039 [US1] Generar documentación Swagger de búsqueda sincronizada con `specs/002-alojamientos-busqueda/search_service/contracts/openapi-search-service.yaml`, incluyendo auth interna, límites y disponibilidad proyectada, en `apps/search-service/src/interfaces/openapi/search.openapi.ts` y `apps/search-service/src/interfaces/openapi/openapi.factory.ts`
+- [X] T039 [US1] Generar documentación Swagger de búsqueda sincronizada con `specs/002-alojamientos-busqueda/search_service/contracts/openapi-search-service.yaml`, incluyendo auth interna, límites y disponibilidad proyectada, en `apps/search-service/src/interfaces/openapi/search.openapi.ts` y `apps/search-service/src/interfaces/openapi/openapi.factory.ts`
 - [X] T040 [US1] Ejecutar y estabilizar las pruebas T025–T030, demostrando que solo se retorna proyección publicada, que el resumen no declara RQ-06 completo y que Redis no altera exactitud, en `apps/search-service/test/{unit,integration,contract,security}/`
 
 **Checkpoint**: US1 es un MVP independiente de búsqueda combinada contra proyección local.
@@ -105,19 +105,19 @@
 
 ### Tests for User Story 2
 
-- [ ] T041 [P] [US2] Escribir pruebas unitarias fallidas para normalización de término, límite 1–20, deduplicación por texto/tipo, umbral configurable y orden determinista de sugerencias en `apps/search-service/test/unit/search-suggestion.spec.ts`
-- [ ] T042 [P] [US2] Escribir pruebas de integración fallidas de `pg_trgm` sobre `name` y `city`, exclusión de no publicados, umbral, deduplicación y ausencia de campos personales en `apps/search-service/test/integration/postgresql-suggestions.spec.ts`
-- [ ] T043 [P] [US2] Escribir pruebas de contrato y seguridad fallidas para `GET /internal/v1/search/suggest`, `q` 1–120, `limit` 1–20, service JWT y errores `400/401/403/503` contra OpenAPI en `apps/search-service/test/contract/suggest.contract.spec.ts` y `apps/search-service/test/security/suggest-security.spec.ts`
+- [X] T041 [P] [US2] Escribir pruebas unitarias fallidas para normalización de término, límite 1–20, deduplicación por texto/tipo, umbral configurable y orden determinista de sugerencias en `apps/search-service/test/unit/search-suggestion.spec.ts`
+- [X] T042 [P] [US2] Escribir pruebas de integración fallidas de `pg_trgm` sobre `name` y `city`, exclusión de no publicados, umbral, deduplicación y ausencia de campos personales en `apps/search-service/test/integration/postgresql-suggestions.spec.ts`
+- [X] T043 [P] [US2] Escribir pruebas de contrato y seguridad fallidas para `GET /internal/v1/search/suggest`, `q` 1–120, `limit` 1–20, service JWT y errores `400/401/403/503` contra OpenAPI en `apps/search-service/test/contract/suggest.contract.spec.ts` y `apps/search-service/test/security/suggest-security.spec.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T044 [P] [US2] Implementar `SearchSuggestion` con texto, tipo `PROPERTY|LOCATION` y score interno no expuesto en `apps/search-service/src/domain/suggestion.ts`
-- [ ] T045 [US2] Extender el adaptador PostgreSQL con consulta parametrizada `pg_trgm` limitada a `name`/`city` de documentos publicados, umbral configurable y orden estable en `apps/search-service/src/infrastructure/search/postgresql-search-index.adapter.ts`
-- [ ] T046 [US2] Implementar `SuggestSearchTerms` con normalización, deduplicación, límite y caché best-effort sin personalización en `apps/search-service/src/application/suggestions/suggest-search-terms.use-case.ts`
-- [ ] T047 [P] [US2] Implementar DTO `q` 1–120 y `limit` 1–20/default 10, más schema de respuesta `{text,type}`, en `apps/search-service/src/interfaces/http/dto/suggest-query.dto.ts` y `apps/search-service/src/interfaces/http/dto/suggestion.response.ts`
-- [ ] T048 [US2] Implementar `GET /internal/v1/search/suggest` protegido y su traducción de errores en `apps/search-service/src/interfaces/http/suggest.controller.ts`
-- [ ] T049 [US2] Componer sugerencias y documentar Swagger sin recomendaciones, historial ni personalización en `apps/search-service/src/modules/suggestions/suggestions.module.ts` y `apps/search-service/src/interfaces/openapi/suggest.openapi.ts`
-- [ ] T050 [US2] Ejecutar y estabilizar T041–T043, validando similitud para errores menores y que la respuesta solo contiene nombres/ubicaciones indexadas en `apps/search-service/test/{unit,integration,contract,security}/`
+- [X] T044 [P] [US2] Implementar `SearchSuggestion` con texto, tipo `PROPERTY|LOCATION` y score interno no expuesto en `apps/search-service/src/domain/suggestion.ts`
+- [X] T045 [US2] Extender el adaptador PostgreSQL con consulta parametrizada `pg_trgm` limitada a `name`/`city` de documentos publicados, umbral configurable y orden estable en `apps/search-service/src/infrastructure/search/postgresql-search-index.adapter.ts`
+- [X] T046 [US2] Implementar `SuggestSearchTerms` con normalización, deduplicación, límite y caché best-effort sin personalización en `apps/search-service/src/application/suggestions/suggest-search-terms.use-case.ts`
+- [X] T047 [P] [US2] Implementar DTO `q` 1–120 y `limit` 1–20/default 10, más schema de respuesta `{text,type}`, en `apps/search-service/src/interfaces/http/dto/suggest-query.dto.ts` y `apps/search-service/src/interfaces/http/dto/suggestion.response.ts`
+- [X] T048 [US2] Implementar `GET /internal/v1/search/suggest` protegido y su traducción de errores en `apps/search-service/src/interfaces/http/suggest.controller.ts`
+- [X] T049 [US2] Componer sugerencias y documentar Swagger sin recomendaciones, historial ni personalización en `apps/search-service/src/modules/suggestions/suggestions.module.ts` y `apps/search-service/src/interfaces/openapi/suggest.openapi.ts`
+- [X] T050 [US2] Ejecutar y estabilizar T041–T043, validando similitud para errores menores y que la respuesta solo contiene nombres/ubicaciones indexadas en `apps/search-service/test/{unit,integration,contract,security}/`
 
 **Checkpoint**: US1 y US2 funcionan de forma independiente sobre el mismo read model.
 
@@ -131,21 +131,21 @@
 
 ### Tests for User Story 3
 
-- [ ] T051 [P] [US3] Escribir pruebas JSON Schema fallidas para ambas variantes, campos requeridos, `schemaVersion=1`, UUID/fechas, `name` 1–160, `description` máximo 5000, país `[A-Z]{2}`, región/ciudad máximo 120, dirección máximo 240, latitud -90..90, longitud -180..180, precio >=0, moneda `[A-Z]{3}`, capacidad >=1, amenities/keywords únicos máximo 100 de 1–60, URL válida y disponibilidad máximo 366 en `apps/search-service/test/contract/projection-events.contract.spec.ts`
-- [ ] T052 [P] [US3] Escribir pruebas unitarias fallidas para hash SHA-256, replay idempotente, conflicto por mismo `eventId` con payload distinto, versión stale, upsert/remove y generación de caché solo ante mutación visible en `apps/search-service/test/unit/projection-use-cases.spec.ts`
-- [ ] T053 [P] [US3] Escribir pruebas de integración fallidas para transacción evento+documento+ventanas+cursor, concurrencia, rollback, reemplazo completo de ventanas y tombstone que impide resurrección por versión antigua en `apps/search-service/test/integration/projection-unit-of-work.spec.ts`
-- [ ] T054 [P] [US3] Escribir pruebas RabbitMQ fallidas para cola durable, mensajes persistentes, prefetch, ack posterior al commit, redelivery, reintentos acotados, duplicate/out-of-order, poison message y DLQ sin payload sensible en logs en `apps/search-service/test/integration/rabbitmq-projection-consumer.spec.ts`
+- [X] T051 [P] [US3] Escribir pruebas JSON Schema fallidas para ambas variantes, campos requeridos, `schemaVersion=1`, UUID/fechas, `name` 1–160, `description` máximo 5000, país `[A-Z]{2}`, región/ciudad máximo 120, dirección máximo 240, latitud -90..90, longitud -180..180, precio >=0, moneda `[A-Z]{3}`, capacidad >=1, amenities/keywords únicos máximo 100 de 1–60, URL válida y disponibilidad máximo 366 en `apps/search-service/test/contract/projection-events.contract.spec.ts`
+- [X] T052 [P] [US3] Escribir pruebas unitarias fallidas para hash SHA-256, replay idempotente, conflicto por mismo `eventId` con payload distinto, versión stale, upsert/remove y generación de caché solo ante mutación visible en `apps/search-service/test/unit/projection-use-cases.spec.ts`
+- [X] T053 [P] [US3] Escribir pruebas de integración fallidas para transacción evento+documento+ventanas+cursor, concurrencia, rollback, reemplazo completo de ventanas y tombstone que impide resurrección por versión antigua en `apps/search-service/test/integration/projection-unit-of-work.spec.ts`
+- [X] T054 [P] [US3] Escribir pruebas RabbitMQ fallidas para cola durable, mensajes persistentes, prefetch, ack posterior al commit, redelivery, reintentos acotados, duplicate/out-of-order, poison message y DLQ sin payload sensible en logs en `apps/search-service/test/integration/rabbitmq-projection-consumer.spec.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T055 [P] [US3] Implementar DTO discriminado y validación exacta de `accommodation.search.v1.upserted|removed` conforme a `contracts/search-projection-events-v1.schema.json`, sin aceptar campos adicionales, en `apps/search-service/src/interfaces/events/projection-event.dto.ts`
-- [ ] T056 [P] [US3] Implementar comandos internos normalizados de upsert/remove y cálculo canónico SHA-256 del payload en `apps/search-service/src/application/projections/projection.commands.ts` y `apps/search-service/src/application/projections/projection-payload-hash.ts`
-- [ ] T057 [US3] Implementar unidad de trabajo Prisma que registre evento y outcome, compare cursor/version, reemplace documento+ventanas atómicamente, conserve tombstone tras retiro e incremente `cacheGeneration` solo en cambio visible en `apps/search-service/src/infrastructure/persistence/prisma/projection-unit-of-work.adapter.ts`
-- [ ] T058 [US3] Implementar `UpsertProjection` con rechazo de replay conflictivo, éxito idempotente y descarte observable de versiones menores o iguales en `apps/search-service/src/application/projections/upsert-projection.use-case.ts`
-- [ ] T059 [US3] Implementar `RemoveProjection` para retirar el documento consultable preservando la versión monotónica aun si el alojamiento no existía localmente en `apps/search-service/src/application/projections/remove-projection.use-case.ts`
-- [ ] T060 [US3] Implementar consumidor RabbitMQ con exchange/routing/queue/DLX/DLQ v1, validación antes de aplicación, ack manual después del commit, prefetch y retry limitado en `apps/search-service/src/infrastructure/messaging/rabbitmq-projection.consumer.ts`
-- [ ] T061 [US3] Componer consumidor, casos de uso y adaptadores sin crear endpoint HTTP de indexación en `apps/search-service/src/modules/projections/projections.module.ts`
-- [ ] T062 [US3] Ejecutar y estabilizar T051–T054 usando únicamente fixtures/publicador de prueba y documentar que el productor/outbox de Accommodations sigue diferido en `apps/search-service/test/{unit,integration,contract}/`
+- [X] T055 [P] [US3] Implementar DTO discriminado y validación exacta de `accommodation.search.v1.upserted|removed` conforme a `contracts/search-projection-events-v1.schema.json`, sin aceptar campos adicionales, en `apps/search-service/src/interfaces/events/projection-event.dto.ts`
+- [X] T056 [P] [US3] Implementar comandos internos normalizados de upsert/remove y cálculo canónico SHA-256 del payload en `apps/search-service/src/application/projections/projection.commands.ts` y `apps/search-service/src/application/projections/projection-payload-hash.ts`
+- [X] T057 [US3] Implementar unidad de trabajo Prisma que registre evento y outcome, compare cursor/version, reemplace documento+ventanas atómicamente, conserve tombstone tras retiro e incremente `cacheGeneration` solo en cambio visible en `apps/search-service/src/infrastructure/persistence/prisma/projection-unit-of-work.adapter.ts`
+- [X] T058 [US3] Implementar `UpsertProjection` con rechazo de replay conflictivo, éxito idempotente y descarte observable de versiones menores o iguales en `apps/search-service/src/application/projections/upsert-projection.use-case.ts`
+- [X] T059 [US3] Implementar `RemoveProjection` para retirar el documento consultable preservando la versión monotónica aun si el alojamiento no existía localmente en `apps/search-service/src/application/projections/remove-projection.use-case.ts`
+- [X] T060 [US3] Implementar consumidor RabbitMQ con exchange/routing/queue/DLX/DLQ v1, validación antes de aplicación, ack manual después del commit, prefetch y retry limitado en `apps/search-service/src/infrastructure/messaging/rabbitmq-projection.consumer.ts`
+- [X] T061 [US3] Componer consumidor, casos de uso y adaptadores sin crear endpoint HTTP de indexación en `apps/search-service/src/modules/projections/projections.module.ts`
+- [X] T062 [US3] Ejecutar y estabilizar T051–T054 usando únicamente fixtures/publicador de prueba y documentar que el productor/outbox de Accommodations sigue diferido en `apps/search-service/test/{unit,integration,contract}/`
 
 **Checkpoint**: el índice converge ante duplicados, desorden y retiros sin depender de `accommodations-service`.
 
@@ -155,14 +155,14 @@
 
 **Purpose**: cerrar rendimiento, contratos, operación, calidad y evidencia sin ampliar el alcance funcional.
 
-- [ ] T063 [P] Implementar prueba de drift entre Swagger generado y `contracts/openapi-search-service.yaml`, y entre DTOs/fixtures y el JSON Schema de eventos, en `apps/search-service/test/contract/openapi-drift.spec.ts` y `apps/search-service/test/contract/event-schema-drift.spec.ts`
-- [ ] T064 [P] Añadir pruebas de estructura que prohíban imports de infraestructura hacia dominio/aplicación, imports cruzados desde Auth/Users/Gateway y acceso a bases ajenas en `apps/search-service/test/unit/search-layer-structure.spec.ts`
-- [ ] T065 [P] Crear perfil de rendimiento versionado con seed representativo, mezcla de filtros, caché fría/caliente, calentamiento, concurrencia, recursos y gate p95 < 500 ms con errores inesperados < 1 % en `apps/search-service/test/performance/search-performance.spec.ts` y `apps/search-service/test/fixtures/performance-dataset.ts`
-- [ ] T066 Instrumentar histogramas HTTP, resultados, cache ratio, query timeout, event lag, duplicate/stale/DLQ y trazas HTTP→caso de uso→dependencia/consumer→transacción en `apps/search-service/src/infrastructure/observability/search-metrics.ts` y `apps/search-service/src/infrastructure/observability/otel.ts`
-- [ ] T067 [P] Documentar ejecución, variables, migraciones, contratos, seguridad, degradación Redis/RabbitMQ, alcance RQ-04 y contribución parcial RQ-06 en `apps/search-service/README.md`
-- [ ] T068 Verificar Docker Compose con migración antes del servicio, healthchecks, secretos no versionados, contenedor no root y filesystem de solo lectura cuando sea viable; registrar ajustes solo en `docker-compose.yml` e `infra/docker/search/Dockerfile`
-- [ ] T069 Ejecutar `lint:search`, `typecheck:search`, build, unidad, integración, contrato, seguridad, rendimiento y cobertura >=70 %, y corregir únicamente defectos de Search en `apps/search-service/` y los scripts Search de `package.json`
-- [ ] T070 Ejecutar todos los escenarios de `quickstart.md` y registrar evidencia reproducible sin afirmar integración Gateway↔Search, Accommodations↔Search ni disponibilidad autoritativa en `specs/002-alojamientos-busqueda/search_service/quickstart.md`
+- [X] T063 [P] Implementar prueba de drift entre Swagger generado y `contracts/openapi-search-service.yaml`, y entre DTOs/fixtures y el JSON Schema de eventos, en `apps/search-service/test/contract/openapi-drift.spec.ts` y `apps/search-service/test/contract/event-schema-drift.spec.ts`
+- [X] T064 [P] Añadir pruebas de estructura que prohíban imports de infraestructura hacia dominio/aplicación, imports cruzados desde Auth/Users/Gateway y acceso a bases ajenas en `apps/search-service/test/unit/search-layer-structure.spec.ts`
+- [X] T065 [P] Crear perfil de rendimiento versionado con seed representativo, mezcla de filtros, caché fría/caliente, calentamiento, concurrencia, recursos y gate p95 < 500 ms con errores inesperados < 1 % en `apps/search-service/test/performance/search-performance.spec.ts` y `apps/search-service/test/fixtures/performance-dataset.ts`
+- [X] T066 Instrumentar histogramas HTTP, resultados, cache ratio, query timeout, event lag, duplicate/stale/DLQ y trazas HTTP→caso de uso→dependencia/consumer→transacción en `apps/search-service/src/infrastructure/observability/search-metrics.ts` y `apps/search-service/src/infrastructure/observability/otel.ts`
+- [X] T067 [P] Documentar ejecución, variables, migraciones, contratos, seguridad, degradación Redis/RabbitMQ, alcance RQ-04 y contribución parcial RQ-06 en `apps/search-service/README.md`
+- [X] T068 Verificar Docker Compose con migración antes del servicio, healthchecks, secretos no versionados, contenedor no root y filesystem de solo lectura cuando sea viable; registrar ajustes solo en `docker-compose.yml` e `infra/docker/search/Dockerfile`
+- [X] T069 Ejecutar `lint:search`, `typecheck:search`, build, unidad, integración, contrato, seguridad, rendimiento y cobertura >=70 %, y corregir únicamente defectos de Search en `apps/search-service/` y los scripts Search de `package.json`
+- [X] T070 Ejecutar todos los escenarios de `quickstart.md` y registrar evidencia reproducible sin afirmar integración Gateway↔Search, Accommodations↔Search ni disponibilidad autoritativa en `specs/002-alojamientos-busqueda/search_service/quickstart.md`
 
 ---
 

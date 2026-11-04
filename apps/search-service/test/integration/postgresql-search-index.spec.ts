@@ -1,4 +1,4 @@
-import { PrismaClient } from '../../generated/client';
+import { PrismaClient } from '../../src/infrastructure/persistence/generated/client';
 import { PostgreSqlSearchIndexAdapter } from '../../src/infrastructure/search/postgresql-search-index.adapter';
 import { createSearchQuery } from '../../src/domain/search-query';
 import { describeWithPostgres, searchTestDatabaseUrl } from '../helpers/dependencies';

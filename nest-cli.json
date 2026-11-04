@@ -43,7 +43,13 @@
       "entryFile": "main",
       "sourceRoot": "apps/search-service/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/search-service/tsconfig.build.json"
+        "tsConfigPath": "apps/search-service/tsconfig.build.json",
+        "assets": [
+          {
+            "include": "infrastructure/persistence/generated/client/**/*",
+            "outDir": "dist/apps/search-service"
+          }
+        ]
       }
     }
   }
