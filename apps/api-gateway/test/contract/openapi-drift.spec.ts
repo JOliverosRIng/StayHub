@@ -32,7 +32,7 @@ import {
  * GW-055 — Deriva del contrato público (constitución §V seguridad, §VII contratos).
  *
  * Comprueba que `openapi-public.yaml` y los `*.openapi.ts` (register/session/profile) coinciden 1:1
- * para las 7 operaciones del Sprint 1, que cada estado de error es Problem Details, que el límite de
+ * para las 8 operaciones del Sprint 1, que cada estado de error es Problem Details, que el límite de
  * la foto es el único valor decimal 5.000.000 y que no hay secretos. Además ejerce el validador
  * `scripts/validate-public-openapi.mjs`: aprueba el contrato publicado y FALLA ante cualquier
  * divergencia introducida (operación ausente, operationId cambiado, error sin Problem Details,
@@ -73,6 +73,7 @@ interface ExpectedOperation {
 }
 
 const EXPECTED: readonly ExpectedOperation[] = [
+  { path: '/auth/logout', method: 'post', operationId: 'logout', codes: [204] },
   { path: '/auth/register', method: 'post', operationId: REGISTER_OPERATION_ID, codes: REGISTER_RESPONSE_CODES },
   { path: '/auth/login', method: 'post', operationId: LOGIN_OPERATION_ID, codes: LOGIN_RESPONSE_CODES },
   { path: '/auth/refresh', method: 'post', operationId: REFRESH_OPERATION_ID, codes: REFRESH_RESPONSE_CODES },
@@ -148,12 +149,12 @@ describe('Deriva del contrato público (GW-055)', () => {
   it('el validador aprueba el contrato publicado', () => {
     const result = runValidator(RAW);
     expect(result.ok).toBe(true);
-    expect(result.output).toContain('7 operations');
+    expect(result.output).toContain('8 operations');
   });
 
-  it('están presentes exactamente las 7 operaciones del Sprint 1', () => {
+  it('están presentes exactamente las 8 operaciones del Sprint 1', () => {
     const present = EXPECTED.filter((op) => operationOf(doc, op) !== undefined);
-    expect(present).toHaveLength(7);
+    expect(present).toHaveLength(8);
   });
 
   describe('cada operación coincide 1:1 con su *.openapi.ts', () => {

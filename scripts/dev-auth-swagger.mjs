@@ -83,7 +83,12 @@ function compose(args, extra = {}) {
 }
 
 function run(program, args, extra = {}) {
-  const result = spawnSync(program, args, { stdio: 'inherit', cwd: ROOT, ...extra });
+  // npm/npx are .cmd wrappers on Windows: invoke the current npm CLI without a shell.
+  const npmCli = process.env.npm_execpath;
+  const isNpm = (program === 'npm' || program === 'npx') && npmCli;
+  const executable = isNpm ? process.execPath : program;
+  const commandArgs = isNpm ? [npmCli, ...(program === 'npx' ? ['exec', '--'] : []), ...args] : args;
+  const result = spawnSync(executable, commandArgs, { stdio: 'inherit', cwd: ROOT, ...extra });
   if (result.status !== 0) throw new Error(`${program} ${args.join(' ')} failed with status ${result.status}`);
 }
 

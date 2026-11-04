@@ -94,7 +94,7 @@ const RETRY_AFTER_HEADER = {
 export function LoginApiDocs(): MethodDecorator & ClassDecorator {
   return applyDecorators(
     ApiTags(SESSION_TAG),
-    ApiOperation({ operationId: LOGIN_OPERATION_ID, summary: 'Authenticate and open a session' }),
+    ApiOperation({ operationId: LOGIN_OPERATION_ID, security: [], summary: 'Authenticate and open a session' }),
     ApiBody({ schema: LOGIN_REQUEST_SCHEMA as SchemaObject }),
     ApiResponse({
       status: 200,

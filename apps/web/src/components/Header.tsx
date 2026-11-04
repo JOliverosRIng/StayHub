@@ -24,7 +24,7 @@ const Logo = ({ onClick }: { onClick: () => void }) => (
 );
 
 export function Header({ onNavigate, showSearch, searchValue, onSearchChange }: HeaderProps) {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, profileUnavailable, retryProfile, error, logoutFailed } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -40,6 +40,8 @@ export function Header({ onNavigate, showSearch, searchValue, onSearchChange }: 
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
+      {profileUnavailable && <p role="status" className="px-6 py-2">No pudimos cargar tu nombre. <button onClick={() => { void retryProfile(); }}>Reintentar</button></p>}
+      {error && <p role="alert" className="px-6 py-2">{error} {logoutFailed && <button onClick={() => { void logout(); }}>Reintentar cierre</button>}</p>}
       <div className="max-w-screen-xl mx-auto px-6 py-3 flex items-center gap-4">
         <Logo onClick={() => onNavigate('home')} />
 
@@ -101,7 +103,7 @@ export function Header({ onNavigate, showSearch, searchValue, onSearchChange }: 
                     Mis reservas
                   </button>
                   <button
-                    onClick={() => { logout(); setMenuOpen(false); onNavigate('home'); }}
+                    onClick={() => { void logout(); setMenuOpen(false); onNavigate('home'); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
                   >
                     <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2}>

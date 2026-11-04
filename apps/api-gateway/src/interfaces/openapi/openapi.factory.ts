@@ -160,10 +160,11 @@ export function mountPublicSwagger(
 ): OpenAPIObject {
   const base = buildPublicOpenApi(config);
   if (environment !== 'development') return base;
-  const generated = SwaggerModule.createDocument(app, new DocumentBuilder().build());
+  const generated = SwaggerModule.createDocument(app, new DocumentBuilder().build(), { ignoreGlobalPrefix: true });
   const document: OpenAPIObject = {
     ...generated,
     ...base,
+    paths: generated.paths,
     components: { ...generated.components, ...base.components },
     servers: base.servers ?? [],
     security: base.security ?? [],

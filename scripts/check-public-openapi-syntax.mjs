@@ -19,6 +19,7 @@ if (servers.length !== 1 || servers[0].url !== 'https://localhost:8080/api/v1') 
 const requiredOperations = [
   ['/auth/register', 'post'],
   ['/auth/login', 'post'],
+  ['/auth/logout', 'post'],
   ['/auth/refresh', 'post'],
   ['/auth/validate', 'get'],
   ['/users/{userId}/profile', 'get'],
