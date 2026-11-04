@@ -23,6 +23,7 @@ realmente, con su exit code, suites y pruebas. La integración con G1 (Gateway) 
 - **ACC-002, ACC-003 y ACC-004** (G1/G3) siguen abiertas. Una tarea con `Depends on` sobre ellas no se marca aunque su implementación local esté completa y probada; se documenta aquí como *implementada localmente, bloqueada*.
 - Las anotaciones `External dependency` (sin `Depends on` externo) se registran como integración pendiente y no impiden marcar la parte local.
 - ACC-007 depende de ACC-006, que solo puede cerrarse en su parte local. Se marca por indicación explícita del usuario (consideraba ACC-005 y ACC-007 completas); el registro en manifiestos raíz queda pendiente.
+- Por la misma razón, cuando una tarea depende de ACC-006 (p. ej. ACC-013 vía ACC-005–ACC-007) se considera satisfecha por su parte local: el usuario exigió que el servicio instale, compile y pruebe de forma autónoma sin registrarse en workspaces. ACC-006 en sí sigue sin marcar.
 
 ## Fase 1 — Esqueleto y runtime aislado (2026-11-04)
 
@@ -97,3 +98,36 @@ La primera ejecución de lint falló (exit 1) por una aserción de tipo innecesa
 
 - Las rooms se devuelven ordenadas por `(createdAt, id)`; no se conserva el orden de la solicitud (el contrato no lo exige).
 - Catálogo Feature: `WIFI`, `PARKING`, `POOL`, `AIR_CONDITIONING`, `KITCHEN`, `PETS_ALLOWED`, `BREAKFAST_INCLUDED`, cargado por migración versionada y re-aplicable con `npm run prisma:seed`.
+
+## Fase 3 — JWT RS256, roles OWNER y bearer opcional (2026-11-04)
+
+**Tareas cerradas**: ACC-013, ACC-014, ACC-015 (parte local). La confirmación de claims y la forma de entregar la clave pública/JWKS siguen pendientes de G3 (ACC-003); el forwarding del bearer por Gateway sigue pendiente de G1 (ACC-002). Todas las pruebas usan claves RSA sintéticas generadas en memoria.
+
+### Prueba primero
+
+| Comando (desde `apps/accommodations-service`, con `ACCOMMODATIONS_TEST_DATABASE_URL`) | Exit | Resultado |
+|---|---|---|
+| `npx jest --selectProjects unit security --runInBand test/unit/roles.spec.ts test/security` | 1 | 4 suites fallidas, 11 pruebas fallidas: `TS2307` en `jwt-hardening`, `roles-guard` y `roles` (guards/verifier ausentes); `optional-bearer` ejecuta 11 pruebas y todas fallan porque `GET /properties/{id}` responde 404 de ruta inexistente. |
+
+### Verificación tras implementar
+
+| Comando | Exit | Suites | Pruebas |
+|---|---|---|---|
+| `npx jest --selectProjects unit security --testPathIgnorePatterns optional-bearer` | 0 | 8 passed | 215 passed |
+| `npx jest --selectProjects unit security test/unit/roles.spec.ts test/security/...` (incluye `optional-bearer`) | 1 | 1 failed, 8 passed | 11 failed, 215 passed |
+| `npm run typecheck` | 0 | — | — |
+| `npm run lint` | 0 | — | — |
+
+`test/security/optional-bearer.spec.ts` (ACC-015) queda **rojo a propósito** en este commit: es la prueba primero de la lectura y pasará a verde cuando ACC-022 (Fase 5) implemente `GET /properties/{id}` y el guard de bearer opcional. La primera ejecución de lint falló por tipos de retorno en la propia prueba; se corrigió sin cambiar expectativas.
+
+### Entregables
+
+- ACC-013: `test/security/jwt-hardening.spec.ts` (32 rechazos: `kid` ausente/incorrecto/no string, `alg` none/HS256 con la clave pública, firma vacía o ajena, `exp`/`iat` ausentes, no enteros, como string, futuros o vencidos, `exp ≤ iat`, issuer/audience ausentes o distintos, `sub` no UUID o no canónico, `role` ausente/desconocido/en minúsculas, esquemas no bearer), `test/security/roles-guard.spec.ts`, `test/unit/roles.spec.ts`, y los fixtures `test/fixtures/auth-app.fixture.ts` y `forgeToken` en `config.fixture.ts`.
+- ACC-014: `src/infrastructure/security/jwt.verifier.ts` (RS256 fail-closed: `alg` y `kid` de cabecera, firma, `iss`, `aud`, `iat`/`exp` enteros con `iat ≤ ahora < exp` y `exp > iat`, `sub` UUID, `role` ∈ GUEST/OWNER/ADMIN), `src/interfaces/http/auth/jwt.strategy.ts` (`JwtAuthGuard` sin passport, `bearerToken`, `authenticate`), `principal.decorator.ts`, `src/interfaces/http/guards/roles.guard.ts` (rol no permitido → `FORBIDDEN` 403) y `roles.decorator.ts`; `src/modules/auth/auth.module.ts`. La configuración obligatoria ya existía desde ACC-007.
+- ACC-015: `test/security/optional-bearer.spec.ts`.
+
+### Decisiones de implementación
+
+- Sin tolerancia de reloj y sin límite de vida máxima del token: la spec no los fija y G3 aún no confirma los claims temporales.
+- No se exigen `sid`/`jti` (la spec solo lista `sub`, `role`, `iss`, `aud`, `kid`, `iat`, `exp`); claims adicionales se ignoran y nunca se exponen.
+- Rechazos de autenticación: `401` con `code: HTTP_401`, sin detalle del motivo. Rechazos de rol: `403` con `code: FORBIDDEN`.
