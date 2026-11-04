@@ -2,7 +2,7 @@ import { Inject, Injectable, type OnModuleInit, type OnModuleDestroy } from '@ne
 import { Prisma, PrismaClient } from '../generated/prisma';
 import { ACCOMMODATIONS_CONFIG, type AccommodationsConfig } from '../../config/accommodations-config';
 
-export const REQUIRED_MIGRATIONS: readonly string[] = [];
+export const REQUIRED_MIGRATIONS: readonly string[] = ['202611040001_create_accommodations', '202611040002_seed_feature_catalog'];
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
@@ -11,7 +11,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   async onModuleDestroy(): Promise<void> { await this.$disconnect(); }
   async ready(): Promise<boolean> {
     try {
-      if (REQUIRED_MIGRATIONS.length === 0) { await this.$queryRaw`SELECT 1`; return true; }
       const rows = await this.$queryRaw<{ count: bigint }[]>`SELECT count(*) FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL AND migration_name IN (${Prisma.join([...REQUIRED_MIGRATIONS])})`;
       return Number(rows[0]?.count) === REQUIRED_MIGRATIONS.length;
     } catch { return false; }

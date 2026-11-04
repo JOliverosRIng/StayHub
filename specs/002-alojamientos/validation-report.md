@@ -61,3 +61,39 @@ Durante la implementación dos ejecuciones fallaron y se corrigieron sin cambiar
 
 - ACC-006: registrar el workspace y scripts en `package.json`/`package-lock.json` raíz, `nest-cli.json` y alias en `tsconfig.base.json` (archivos compartidos, fuera de alcance).
 - ACC-008: servicio, base, red interna y volumen en `docker-compose.yml` (archivo compartido). La imagen no se construyó en esta fase.
+
+## Fase 2 — Dominio, Prisma, migraciones, semilla y repositorio (2026-11-04)
+
+**Tareas cerradas**: ACC-009, ACC-010, ACC-011, ACC-012 (dependen solo de ACC-001, aprobada por el usuario).
+
+### Prueba primero
+
+| Comando (desde `apps/accommodations-service`) | Exit | Resultado |
+|---|---|---|
+| `npx jest --selectProjects unit --runInBand` (ACC-009, antes de ACC-011) | -1 (fallo reportado por la terminal) | 3 suites nuevas fallidas por `TS2307` sobre `src/domain/...` (conducta ausente). |
+| `npx jest --selectProjects integration --runInBand` (ACC-010, antes de ACC-012) | 1 | 3 suites nuevas fallidas por `TS2307` (`prisma/seed`, puerto/repositorio ausentes); `health.spec.ts` pasa. |
+
+### Verificación tras implementar
+
+| Comando | Exit | Suites | Pruebas |
+|---|---|---|---|
+| `npx prisma generate --schema prisma/schema.prisma` | 0 | — | — |
+| `npx jest --selectProjects unit` | 0 | 5 passed | 171 passed |
+| `npx jest --selectProjects integration --runInBand` (PostgreSQL 16.15 real, esquema aislado por suite) | 0 | 4 passed | 38 passed |
+| `npm run typecheck` | 0 | — | — |
+| `npm run lint` | 0 | — | — |
+| `npm run build` | 0 | — | — |
+
+La primera ejecución de lint falló (exit 1) por una aserción de tipo innecesaria en `property.repository.spec.ts`; se sustituyó por un type guard sin cambiar la expectativa.
+
+### Entregables
+
+- ACC-009: `test/unit/property-policy.spec.ts`, `room-policy.spec.ts`, `location-validation.spec.ts`.
+- ACC-010: `test/integration/migrations-health.spec.ts` (lista exacta de migraciones, readiness 503 sin semilla, CHECKs, `Decimal(12,2)`, unicidad, cascadas), `feature-seed.spec.ts` (idempotencia), `property.repository.spec.ts` (create, findById, reemplazo de rooms, version+1, rollback, feature desconocida, concurrencia con un único `VERSION_CONFLICT`, foto sin incrementar versión) y `test/fixtures/accommodations.fixture.ts`.
+- ACC-011: `src/domain/{shared,properties,rooms,features,photos}` sin imports de Nest/Prisma (regla de capas en ESLint local).
+- ACC-012: `prisma/schema.prisma`, migraciones `202611040001_create_accommodations` (con CHECKs) y `202611040002_seed_feature_catalog`, `prisma/seed.ts` (upsert idempotente), `src/infrastructure/persistence/prisma/property.repository.ts` (transacciones interactivas con `SELECT ... FOR UPDATE`, decisión dentro del bloqueo, `updateMany` condicionado por `version` como respaldo optimista) y `PROPERTY_REPOSITORY` en `PrismaModule`; readiness exige ambas migraciones.
+
+### Decisiones de implementación
+
+- Las rooms se devuelven ordenadas por `(createdAt, id)`; no se conserva el orden de la solicitud (el contrato no lo exige).
+- Catálogo Feature: `WIFI`, `PARKING`, `POOL`, `AIR_CONDITIONING`, `KITCHEN`, `PETS_ALLOWED`, `BREAKFAST_INCLUDED`, cargado por migración versionada y re-aplicable con `npm run prisma:seed`.
