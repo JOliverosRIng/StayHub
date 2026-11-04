@@ -12,8 +12,9 @@ const titles: Record<number, string> = {
 };
 export interface Problem { type: string; title: string; status: number; detail: string; instance: string; code: string; traceId: string; errors: readonly FieldError[] }
 
+const BODY_PARSER_ERRORS = ['entity.parse.failed', 'entity.too.large', 'encoding.unsupported', 'charset.unsupported', 'request.size.invalid', 'request.aborted'];
 function isBodyParseError(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && (error as { type?: unknown }).type === 'entity.parse.failed';
+  return typeof error === 'object' && error !== null && BODY_PARSER_ERRORS.includes(String((error as { type?: unknown }).type));
 }
 
 function classify(error: unknown): { status: number; code: string; errors: readonly FieldError[] } {

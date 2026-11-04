@@ -131,3 +131,38 @@ La primera ejecución de lint falló (exit 1) por una aserción de tipo innecesa
 - Sin tolerancia de reloj y sin límite de vida máxima del token: la spec no los fija y G3 aún no confirma los claims temporales.
 - No se exigen `sid`/`jti` (la spec solo lista `sub`, `role`, `iss`, `aud`, `kid`, `iat`, `exp`); claims adicionales se ignoran y nunca se exponen.
 - Rechazos de autenticación: `401` con `code: HTTP_401`, sin detalle del motivo. Rechazos de rol: `403` con `code: FORBIDDEN`.
+
+## Fase 4 — `POST /properties` (2026-11-04)
+
+**Tareas cerradas**: ACC-017.
+**Implementadas localmente, bloqueadas**: ACC-016 (`Depends on: ACC-001–ACC-004`), ACC-018 y ACC-019 (dependen de ACC-016). ACC-019 además lista el contrato OpenAPI como entregable; no se modificó porque la implementación coincide con él y el contrato no es editable sin autorización.
+
+### Prueba primero
+
+| Comando (con `ACCOMMODATIONS_TEST_DATABASE_URL`) | Exit | Resultado |
+|---|---|---|
+| `npx jest --selectProjects unit contract security integration --runInBand property-create property-authorization` | 1 | 4 suites fallidas; 23 pruebas fallidas, 2 pasadas (las que solo leen el contrato). `TS2307` en la unitaria (DTO/caso de uso ausentes); contrato, seguridad e integración reciben 404 de ruta inexistente. |
+
+### Verificación tras implementar
+
+| Comando | Exit | Suites | Pruebas |
+|---|---|---|---|
+| `npx jest --selectProjects unit contract security integration --runInBand --testPathPattern "property-create\|property-authorization"` | 0 | 4 passed | 43 passed |
+| `npx jest --selectProjects unit` | 0 | 7 passed | 198 passed |
+| `npm run typecheck` | 0 | — | — |
+| `npm run lint` | 0 | — | — |
+
+Durante la implementación falló el validador de esquemas de prueba (no el servicio): ignoraba `pattern` dentro de un `not` sin `type`, y daba por inválido todo `amount`. Se corrigió aplicando las palabras clave según el tipo real del valor. Un error de lint en la propia prueba también se corrigió sin cambiar expectativas.
+
+### Entregables
+
+- ACC-016: `test/contract/property-create.contract.spec.ts` y el helper `test/contract/openapi-contract.ts`, que lee el YAML de `specs/002-alojamientos/contracts/` y valida status documentado, `Content-Type` y cuerpo (`type`, `required`, `additionalProperties`, `enum`, `pattern`, `not`, `allOf`, `nullable`, longitudes, rangos, `uniqueItems`, `format uuid/date-time`).
+- ACC-017: `test/unit/property-create.spec.ts`, `test/security/property-authorization.spec.ts` (401 antes de validar, 403 antes de validar, `ownerId` suplantado → 400 sin persistir), `test/integration/property-create.spec.ts` (agregado completo, `featureCodes` desconocido → 400 con rollback total, sin internos de almacenamiento).
+- ACC-018: `src/interfaces/http/properties/create-property.dto.ts` (cuerpo cerrado), `src/application/properties/create-property.use-case.ts` (ids y `ownerId` del servidor), `property.presenter.ts` (`ownerId` solo al dueño; fotos sin `storageKey`), `properties.controller.ts` con `operationId: createProperty`, y `src/modules/properties/properties.module.ts`.
+
+### Decisiones de implementación
+
+- Claves desconocidas en la raíz del cuerpo (incluidas `ownerId`, `status`, `version`, `id`) devuelven `VALIDATION_ERROR` con `errors[].field = body`.
+- `basePrice.amount` se devuelve normalizado a dos decimales (`"120000.5"` → `"120000.50"`), coherente con `Decimal(12,2)` y con el patrón del contrato.
+- Los campos opcionales de `Location` no enviados se omiten en la respuesta (no se devuelven como `null`, porque el esquema no los declara `nullable`).
+- Cualquier rechazo del parser JSON (sintaxis, tamaño, charset) se mapea a `400 VALIDATION_ERROR` en `body`: `POST`/`PUT` no documentan 413/415. El JSON mal formado se rechaza antes de autenticar, porque el parser corre como middleware antes de los guards.

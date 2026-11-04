@@ -36,6 +36,10 @@ describe('ACC-005/007 Problem Details mapping', () => {
     expect(problem).toMatchObject({ status: 400, code: 'VALIDATION_ERROR', errors: [{ field: 'body', code: 'INVALID_VALUE' }] });
     expect(JSON.stringify(problem)).not.toContain('secret');
   });
+
+  it.each([['entity.too.large', 413], ['charset.unsupported', 415], ['encoding.unsupported', 415]])('maps JSON body-parser rejection %s to VALIDATION_ERROR on body', (type, status) => {
+    expect(mapProblem(Object.assign(new Error('rejected'), { type, status }), trace)).toMatchObject({ status: 400, code: 'VALIDATION_ERROR', errors: [{ field: 'body', code: 'INVALID_VALUE' }] });
+  });
 });
 
 describe('ACC-005/007 HTTP bootstrap, health and tracing (unit)', () => {
