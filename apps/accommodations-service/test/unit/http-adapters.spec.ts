@@ -37,6 +37,11 @@ describe('ACC-005/007 Problem Details mapping', () => {
     expect(JSON.stringify(problem)).not.toContain('secret');
   });
 
+  it('maps multer LIMIT_FILE_SIZE and framework 413 to PHOTO_TOO_LARGE', () => {
+    expect(mapProblem(Object.assign(new Error('File too large'), { code: 'LIMIT_FILE_SIZE' }), trace)).toMatchObject({ status: 413, code: 'PHOTO_TOO_LARGE' });
+    expect(mapProblem(new HttpException('File too large', 413), trace)).toMatchObject({ status: 413, code: 'PHOTO_TOO_LARGE' });
+  });
+
   it.each([['entity.too.large', 413], ['charset.unsupported', 415], ['encoding.unsupported', 415]])('maps JSON body-parser rejection %s to VALIDATION_ERROR on body', (type, status) => {
     expect(mapProblem(Object.assign(new Error('rejected'), { type, status }), trace)).toMatchObject({ status: 400, code: 'VALIDATION_ERROR', errors: [{ field: 'body', code: 'INVALID_VALUE' }] });
   });

@@ -19,6 +19,9 @@ function isBodyParseError(error: unknown): boolean {
 
 function classify(error: unknown): { status: number; code: string; errors: readonly FieldError[] } {
   if (error instanceof DomainError) return { status: statuses[error.code], code: error.code, errors: error.errors };
+  if ((error as { code?: unknown } | null)?.code === 'LIMIT_FILE_SIZE' || (error instanceof HttpException && error.getStatus() === 413)) {
+    return { status: 413, code: 'PHOTO_TOO_LARGE', errors: [] };
+  }
   if (isBodyParseError(error) || (error instanceof HttpException && error.getStatus() === 400)) return { status: 400, code: 'VALIDATION_ERROR', errors: [{ field: 'body', code: 'INVALID_VALUE' }] };
   if (error instanceof HttpException) return { status: error.getStatus(), code: `HTTP_${error.getStatus()}`, errors: [] };
   if (isDatabaseUnavailable(error)) return { status: 503, code: 'UNAVAILABLE', errors: [] };

@@ -1,5 +1,6 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Put, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, Param, Post, Put, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiParam, ApiResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { AddPropertyPhotoUseCase } from '@accommodations/application/photos/add-property-photo.use-case';
 import { CreatePropertyUseCase } from '@accommodations/application/properties/create-property.use-case';
 import { GetPropertyUseCase } from '@accommodations/application/properties/get-property.use-case';
 import { ReplacePropertyUseCase } from '@accommodations/application/properties/replace-property.use-case';
@@ -11,8 +12,10 @@ import { CurrentPrincipal } from '../auth/principal.decorator';
 import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../guards/roles.decorator';
 import { parseCreateProperty } from './create-property.dto';
+import { parsePhotoFile } from './photo-upload.dto';
+import { PhotoUploadInterceptor } from './photo-upload.interceptor';
 import { parseReplaceProperty } from './replace-property.dto';
-import { presentProperty, type PropertyView } from './property.presenter';
+import { presentPhoto, presentProperty, type PhotoView, type PropertyView } from './property.presenter';
 
 @ApiTags('Properties')
 @Controller('properties')
@@ -21,6 +24,7 @@ export class PropertiesController {
     private readonly createProperty: CreatePropertyUseCase,
     private readonly getProperty: GetPropertyUseCase,
     private readonly replaceProperty: ReplacePropertyUseCase,
+    private readonly addPropertyPhoto: AddPropertyPhotoUseCase,
   ) {}
 
   @Post()
@@ -57,5 +61,20 @@ export class PropertiesController {
   async replace(@CurrentPrincipal() principal: Principal, @Param('id') id: string, @Body() body: unknown): Promise<PropertyView> {
     const property = await this.replaceProperty.execute(parseUuid(id, 'id'), principal, parseReplaceProperty(body));
     return presentProperty(property, principal);
+  }
+
+  @Post(':id/photos')
+  @HttpCode(201)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('OWNER')
+  @UseInterceptors(PhotoUploadInterceptor)
+  @ApiBearerAuth('bearerAuth')
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOperation({ operationId: 'addPropertyPhoto', summary: 'Agregar una foto a una propiedad' })
+  @ApiResponse({ status: 201 }) @ApiResponse({ status: 400 }) @ApiResponse({ status: 401 }) @ApiResponse({ status: 403 }) @ApiResponse({ status: 404 }) @ApiResponse({ status: 409 }) @ApiResponse({ status: 413 }) @ApiResponse({ status: 415 }) @ApiResponse({ status: 503 })
+  async addPhoto(@CurrentPrincipal() principal: Principal, @Param('id') id: string, @UploadedFile() file: { buffer?: Uint8Array } | undefined): Promise<PhotoView> {
+    const photo = await this.addPropertyPhoto.execute(parseUuid(id, 'id'), principal, parsePhotoFile(file));
+    return presentPhoto(photo);
   }
 }

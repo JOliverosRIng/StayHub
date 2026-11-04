@@ -230,3 +230,39 @@ Durante la implementación falló el validador de esquemas de prueba (no el serv
 - Orden de comprobación dentro del bloqueo: 404 de ownership → `VERSION_CONFLICT` → `rooms[i].id` desconocido/ajeno → `STATE_CONFLICT` → `PUBLICATION_INCOMPLETE`. Un extraño con versión o rooms inválidos sigue recibiendo 404.
 - `PUBLICATION_INCOMPLETE` solo se evalúa cuando el estado resultante es `PUBLISHED` (incluye republicar desde `UNPUBLISHED`); editar un `DRAFT` incompleto está permitido.
 - La foto de las pruebas de publicación se inserta por fixture, no por el endpoint de la Fase 7.
+
+## Fase 7 — Fotos y StoragePort (2026-11-04)
+
+**Tareas cerradas**: ninguna.
+**Implementadas localmente, bloqueadas**: ACC-029 (`Depends on: ACC-002–ACC-004`), ACC-030 (depende de ACC-029), ACC-031 (depende de ACC-030), ACC-032 (depende de ACC-030–ACC-031), ACC-033 (depende de ACC-029–ACC-032; no se modifica el contrato).
+
+### Prueba primero
+
+| Comando (con `ACCOMMODATIONS_TEST_DATABASE_URL`) | Exit | Resultado |
+|---|---|---|
+| `npx jest --selectProjects unit contract security integration --runInBand --testPathPattern "photo-policy\|local-storage\|add-property-photo\|property-photo\|photo-upload\|no-photo-leakage"` | 1 | 6 suites fallidas, 1 pasada (`photo-policy`, dominio ya existía en ACC-011); 13 pruebas fallidas, 13 pasadas. `TS2307` en adapter/caso de uso; HTTP 404 de ruta inexistente. |
+
+### Verificación tras implementar
+
+| Comando | Exit | Suites | Pruebas |
+|---|---|---|---|
+| mismo patrón + `http-adapters` | 0 | 8 passed | 54 passed |
+| `npm run typecheck` | 0 | — | — |
+| `npm run lint` | 0 | — | — |
+
+La primera ejecución verde falló en 413: Nest transforma `LIMIT_FILE_SIZE` en `PayloadTooLargeException` (HTTP_413). Se mapea a `PHOTO_TOO_LARGE` en el interceptor y en `problem.mapper`. Un mock de `addPhoto` se ajustó al tipo `Photo \| null` sin cambiar expectativas.
+
+### Entregables
+
+- ACC-029: `test/contract/property-photo.contract.spec.ts`.
+- ACC-030: `test/unit/photo-policy.spec.ts`, `test/unit/add-property-photo.spec.ts` (compensación), `test/security/photo-upload.spec.ts`, `test/integration/property-photo.spec.ts`.
+- ACC-031: `src/application/ports/storage.port.ts`, `src/infrastructure/files/local-storage.adapter.ts` (temp + rename, clave de 64 hex, rechazo de paths), `test/unit/local-storage.spec.ts`.
+- ACC-032: `src/application/photos/add-property-photo.use-case.ts` (capacidad y ownership dentro del bloqueo, store, metadata, compensación), `photo-upload.dto.ts`, `photo-upload.interceptor.ts`, `POST /properties/{id}/photos` (`operationId: addPropertyPhoto`).
+- ACC-033: `test/security/no-photo-leakage.spec.ts`.
+
+### Decisiones de implementación
+
+- Magic bytes únicamente; el `Content-Type` declarado se ignora.
+- Archivo vacío o ausente: `400 VALIDATION_ERROR` en `file`. Tamaño > 5.000.000: `413 PHOTO_TOO_LARGE`. Tipo no JPEG/PNG/WebP: `415 PHOTO_MEDIA_TYPE`. Onceava foto: `409 PHOTO_LIMIT_REACHED` sin escribir objeto.
+- Fallo de almacenamiento o de metadata tras un `store` exitoso: compensación con `remove` y `503 UNAVAILABLE` si el error no es de dominio.
+- La foto no incrementa `version`. No hay URL pública ni `storageKey` en respuestas.
