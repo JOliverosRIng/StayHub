@@ -1,0 +1,238 @@
+openapi: 3.1.0
+info:
+  title: StayHub Search Service Internal API
+  version: 1.0.0
+  description: API interna de búsqueda sobre una proyección local. No representa detalle ni disponibilidad autoritativa.
+servers:
+  - url: http://search-service:3004
+paths:
+  /internal/v1/search:
+    get:
+      operationId: searchAccommodations
+      summary: Buscar alojamientos publicados
+      security:
+        - serviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Location'
+        - $ref: '#/components/parameters/MinPrice'
+        - $ref: '#/components/parameters/MaxPrice'
+        - $ref: '#/components/parameters/Currency'
+        - $ref: '#/components/parameters/CheckIn'
+        - $ref: '#/components/parameters/CheckOut'
+        - $ref: '#/components/parameters/Guests'
+        - name: amenities
+          in: query
+          description: Amenidades normalizadas; el alojamiento debe contener todas.
+          schema:
+            type: array
+            maxItems: 20
+            uniqueItems: true
+            items:
+              type: string
+              minLength: 1
+              maxLength: 60
+          style: form
+          explode: true
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de resultados resumidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /internal/v1/search/suggest:
+    get:
+      operationId: suggestSearchTerms
+      summary: Sugerir nombres y ubicaciones indexadas
+      security:
+        - serviceAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 120
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        '200':
+          description: Sugerencias no personalizadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchSuggestion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /health/live:
+    get:
+      operationId: searchLiveness
+      responses:
+        '200':
+          description: Proceso vivo.
+  /health/ready:
+    get:
+      operationId: searchReadiness
+      responses:
+        '200':
+          description: Configuración, migraciones y PostgreSQL listos.
+        '503':
+          description: Dependencia autoritativa no disponible.
+components:
+  securitySchemes:
+    serviceAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Service-JWT
+  parameters:
+    Query:
+      name: q
+      in: query
+      schema: { type: string, minLength: 1, maxLength: 200 }
+    Location:
+      name: location
+      in: query
+      schema: { type: string, minLength: 1, maxLength: 120 }
+    MinPrice:
+      name: minPrice
+      in: query
+      schema: { type: number, minimum: 0 }
+    MaxPrice:
+      name: maxPrice
+      in: query
+      schema: { type: number, minimum: 0 }
+    Currency:
+      name: currency
+      in: query
+      description: Requerida cuando se envía minPrice o maxPrice.
+      schema: { type: string, pattern: '^[A-Z]{3}$' }
+    CheckIn:
+      name: checkIn
+      in: query
+      schema: { type: string, format: date }
+    CheckOut:
+      name: checkOut
+      in: query
+      schema: { type: string, format: date }
+    Guests:
+      name: guests
+      in: query
+      schema: { type: integer, minimum: 1 }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+  schemas:
+    SearchItem:
+      type: object
+      required: [accommodationId, name, location, minNightlyPrice, currency, capacity, amenities, relevance]
+      properties:
+        accommodationId: { type: string, format: uuid }
+        name: { type: string }
+        location: { type: string }
+        minNightlyPrice: { type: number }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        capacity: { type: integer, minimum: 1 }
+        amenities:
+          type: array
+          items: { type: string }
+        primaryPhotoUrl:
+          type: [string, 'null']
+          format: uri
+        relevance: { type: number }
+    SearchResponse:
+      type: object
+      required: [items, page, pageSize, total, hasNext]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchItem'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+        total: { type: integer, minimum: 0 }
+        hasNext: { type: boolean }
+        availabilityKind:
+          type: [string, 'null']
+          enum: [PROJECTED, null]
+    SearchSuggestion:
+      type: object
+      required: [text, type]
+      properties:
+        text: { type: string }
+        type: { type: string, enum: [PROPERTY, LOCATION] }
+    FieldError:
+      type: object
+      required: [field, code]
+      properties:
+        field: { type: string }
+        code: { type: string }
+    Problem:
+      type: object
+      required: [type, title, status, detail, instance, code, traceId, errors]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        code: { type: string }
+        traceId: { type: string }
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+  responses:
+    BadRequest:
+      description: Solicitud inválida.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unauthorized:
+      description: Service JWT ausente o inválido.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Scope de servicio insuficiente.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unavailable:
+      description: PostgreSQL u otra dependencia autoritativa no disponible.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
