@@ -1,0 +1,9 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/infrastructure/persistence/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("ACCOMMODATIONS_DATABASE_URL")
+}
