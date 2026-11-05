@@ -1,15 +1,5 @@
 name: stayhub
 
-secrets:
-  gateway_tls_cert:
-    file: ${GATEWAY_TLS_CERT_SOURCE:-./.artifacts/gateway/tls_cert.pem}
-  gateway_tls_key:
-    file: ${GATEWAY_TLS_KEY_SOURCE:-./.artifacts/gateway/tls_key.pem}
-  gateway_redis_password:
-    file: ${GATEWAY_REDIS_PASSWORD_SOURCE:-./.artifacts/gateway/redis_password.txt}
-  gateway_service_private_key:
-    file: ${GATEWAY_SERVICE_PRIVATE_KEY_SOURCE:-./.artifacts/gateway/service_private_key.pem}
-
 services:
   gateway-redis:
     image: redis:7-alpine
@@ -145,10 +135,111 @@ services:
     depends_on:
       users-migrate: { condition: service_completed_successfully }
 
+  search-db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: search_db
+      POSTGRES_USER: stayhub_search
+      POSTGRES_PASSWORD: ${SEARCH_DB_PASSWORD:?required}
+    volumes: [search_db_data:/var/lib/postgresql/data]
+    networks: [search-internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stayhub_search -d search_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  search-redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${SEARCH_REDIS_PASSWORD:?required}"]
+    networks: [search-internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a '${SEARCH_REDIS_PASSWORD}' ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: stayhub_search
+      RABBITMQ_DEFAULT_PASS: ${SEARCH_RABBITMQ_PASSWORD:?required}
+      RABBITMQ_DEFAULT_VHOST: /search
+    networks: [search-internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  search-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/search/Dockerfile
+      target: migration
+    environment:
+      SEARCH_DATABASE_URL: ${SEARCH_DATABASE_URL:?required}
+    networks: [search-internal]
+    restart: "no"
+    depends_on:
+      search-db: { condition: service_healthy }
+
+  search-service:
+    build:
+      context: .
+      dockerfile: infra/docker/search/Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: production
+      SEARCH_PORT: "3004"
+      SEARCH_DATABASE_URL: ${SEARCH_DATABASE_URL:?required}
+      SEARCH_REDIS_URL: ${SEARCH_REDIS_URL:?required}
+      SEARCH_RABBITMQ_URL: ${SEARCH_RABBITMQ_URL:?required}
+      SEARCH_RABBITMQ_EXCHANGE: ${SEARCH_RABBITMQ_EXCHANGE:-stayhub.search.v1}
+      SEARCH_RABBITMQ_QUEUE: ${SEARCH_RABBITMQ_QUEUE:-stayhub.search.projection.v1}
+      SEARCH_RABBITMQ_DLQ: ${SEARCH_RABBITMQ_DLQ:-stayhub.search.projection.v1.dlq}
+      SEARCH_SERVICE_JWT_PUBLIC_KEYS_JSON: ${SEARCH_SERVICE_JWT_PUBLIC_KEYS_JSON:?required}
+      SEARCH_SERVICE_JWT_ISSUER: ${SEARCH_SERVICE_JWT_ISSUER:?required}
+      SEARCH_SERVICE_JWT_AUDIENCE: ${SEARCH_SERVICE_JWT_AUDIENCE:?required}
+      SEARCH_SERVICE_JWT_SCOPE: ${SEARCH_SERVICE_JWT_SCOPE:-search:invoke}
+      SEARCH_CACHE_TTL_SECONDS: ${SEARCH_CACHE_TTL_SECONDS:-60}
+      SEARCH_CACHE_JITTER_SECONDS: ${SEARCH_CACHE_JITTER_SECONDS:-10}
+      SEARCH_PAGE_SIZE_MAX: ${SEARCH_PAGE_SIZE_MAX:-100}
+      SEARCH_SUGGEST_LIMIT_MAX: ${SEARCH_SUGGEST_LIMIT_MAX:-20}
+      SEARCH_SIMILARITY_THRESHOLD: ${SEARCH_SIMILARITY_THRESHOLD:-0.3}
+      SEARCH_DEPENDENCY_TIMEOUT_MS: ${SEARCH_DEPENDENCY_TIMEOUT_MS:-3000}
+      SEARCH_RABBITMQ_PREFETCH: ${SEARCH_RABBITMQ_PREFETCH:-10}
+      SEARCH_RABBITMQ_MAX_RETRIES: ${SEARCH_RABBITMQ_MAX_RETRIES:-3}
+      SEARCH_RABBITMQ_RETRY_BASE_MS: ${SEARCH_RABBITMQ_RETRY_BASE_MS:-250}
+      SEARCH_SHUTDOWN_GRACE_MS: ${SEARCH_SHUTDOWN_GRACE_MS:-10000}
+      SEARCH_OTEL_SERVICE_NAME: ${SEARCH_OTEL_SERVICE_NAME:-stayhub-search-service}
+      SEARCH_LOG_LEVEL: ${SEARCH_LOG_LEVEL:-info}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:?required}
+    networks: [search-internal, services]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3004/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      search-migrate: { condition: service_completed_successfully }
+      search-redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
 networks:
   stayhub-internal:
     internal: true
   users-internal:
+    internal: true
+  search-internal:
     internal: true
   services:
     internal: true
@@ -156,8 +247,17 @@ networks:
 volumes:
   auth-db-data:
   users_data:
+  search_db_data:
 
 secrets:
+  gateway_tls_cert:
+    file: ${GATEWAY_TLS_CERT_SOURCE:-./.artifacts/gateway/tls_cert.pem}
+  gateway_tls_key:
+    file: ${GATEWAY_TLS_KEY_SOURCE:-./.artifacts/gateway/tls_key.pem}
+  gateway_redis_password:
+    file: ${GATEWAY_REDIS_PASSWORD_SOURCE:-./.artifacts/gateway/redis_password.txt}
+  gateway_service_private_key:
+    file: ${GATEWAY_SERVICE_PRIVATE_KEY_SOURCE:-./.artifacts/gateway/service_private_key.pem}
   users_db_password:
     file: ${USERS_DB_PASSWORD_FILE:?required}
   users_database_url:

@@ -1,0 +1,97 @@
+name: stayhub-search-dev
+
+services:
+  search-db:
+    image: postgis/postgis:16-3.5
+    environment:
+      POSTGRES_DB: search_db
+      POSTGRES_USER: stayhub_search
+      POSTGRES_PASSWORD: ${SEARCH_DB_PASSWORD:?run npm run env:search:dev}
+    ports:
+      - "127.0.0.1:${SEARCH_DB_PORT:-55432}:5432"
+    volumes:
+      - search_dev_db_data:/var/lib/postgresql/data
+    networks: [search-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stayhub_search -d search_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  search-redis:
+    image: docker.io/library/redis:7-alpine
+    command: ["redis-server", "--requirepass", "${SEARCH_REDIS_PASSWORD:?run npm run env:search:dev}"]
+    ports:
+      - "127.0.0.1:${SEARCH_REDIS_PORT:-56379}:6379"
+    networks: [search-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a '${SEARCH_REDIS_PASSWORD}' ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rabbitmq:
+    image: docker.io/library/rabbitmq:3.13-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: stayhub_search
+      RABBITMQ_DEFAULT_PASS: ${SEARCH_RABBITMQ_PASSWORD:?run npm run env:search:dev}
+      RABBITMQ_DEFAULT_VHOST: /search
+      RABBITMQ_ERLANG_COOKIE: ${SEARCH_RABBITMQ_PASSWORD}
+      # podman-compose injects true and skips the image entrypoint ownership fix.
+      RUNNING_UNDER_SYSTEMD: "false"
+    ports:
+      - "127.0.0.1:${SEARCH_RABBITMQ_PORT:-55672}:5672"
+    # :U gives the rootless container user ownership of the broker data.
+    volumes:
+      - rabbitmq_dev_data:/var/lib/rabbitmq:U
+    networks: [search-internal]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  search-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/search/Dockerfile
+      target: migration
+    env_file: .env.search
+    networks: [search-internal]
+    restart: "no"
+    depends_on:
+      search-db: { condition: service_healthy }
+
+  search-service:
+    build:
+      context: .
+      dockerfile: infra/docker/search/Dockerfile
+      target: runtime
+    env_file: .env.search
+    environment:
+      NODE_ENV: development
+      SEARCH_PORT: "3004"
+    ports:
+      - "127.0.0.1:${SEARCH_HTTP_PORT:-3004}:3004"
+    networks: [search-internal]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3004/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      search-migrate: { condition: service_completed_successfully }
+      search-redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+networks:
+  search-internal:
+    internal: true
+
+volumes:
+  search_dev_db_data:
+  rabbitmq_dev_data:

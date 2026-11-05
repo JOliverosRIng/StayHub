@@ -29,7 +29,12 @@
       "@users/application/*": ["apps/users-service/src/application/*"],
       "@users/infrastructure/*": ["apps/users-service/src/infrastructure/*"],
       "@users/interfaces/*": ["apps/users-service/src/interfaces/*"],
-      "@users/modules/*": ["apps/users-service/src/modules/*"]
+      "@users/modules/*": ["apps/users-service/src/modules/*"],
+      "@search/domain/*": ["apps/search-service/src/domain/*"],
+      "@search/application/*": ["apps/search-service/src/application/*"],
+      "@search/infrastructure/*": ["apps/search-service/src/infrastructure/*"],
+      "@search/interfaces/*": ["apps/search-service/src/interfaces/*"],
+      "@search/modules/*": ["apps/search-service/src/modules/*"]
     }
   }
 }

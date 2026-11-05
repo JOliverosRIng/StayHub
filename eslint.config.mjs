@@ -36,6 +36,42 @@ export default tseslint.config(
     },
   },
   {
+    files: ['apps/search-service/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: './apps/search-service/tsconfig.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'error',
+      '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
+  {
+    files: [
+      'apps/search-service/src/domain/**/*.ts',
+      'apps/search-service/src/application/**/*.ts',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@nestjs/*', '@prisma/*', '.prisma/*', 'prisma'],
+              message: 'search domain and application layers must not depend on NestJS or Prisma.',
+            },
+            {
+              group: ['@search/infrastructure/*', '@search/interfaces/*', '@search/modules/*'],
+              message: 'search domain and application layers must not depend on outer layers.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: [
       'apps/users-service/src/domain/**/*.ts',
       'apps/users-service/src/application/**/*.ts',

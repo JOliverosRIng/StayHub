@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/infrastructure/persistence/generated/client"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("SEARCH_DATABASE_URL")
+}
+enum ProjectionOutcome {
+  APPLIED
+  IGNORED_STALE
+  REMOVED
+}
+model SearchDocument {
+  accommodationId String @id @db.Uuid
+  projectionVersion BigInt
+  published Boolean @default(false)
+  name String @db.VarChar(160)
+  description String @db.Text
+  countryCode String @db.Char(2)
+  region String? @db.VarChar(120)
+  city String @db.VarChar(120)
+  addressSummary String? @db.VarChar(240)
+  location Unsupported("geography(Point,4326)")?
+  minNightlyPrice Decimal @db.Decimal(12, 2)
+  currency String @db.Char(3)
+  capacity Int
+  amenities String[]
+  keywords String[]
+  primaryPhotoUrl String? @db.Text
+  searchVector Unsupported("tsvector")?
+  sourceUpdatedAt DateTime @db.Timestamptz(6)
+  indexedAt DateTime @default(now()) @db.Timestamptz(6)
+  availability AvailabilityWindow[]
+  @@map("search_documents")
+}
+model AvailabilityWindow {
+  id String @id @default(uuid()) @db.Uuid
+  accommodationId String @db.Uuid
+  startDate DateTime @db.Date
+  endDate DateTime @db.Date
+  availableCapacity Int
+  projectionVersion BigInt
+  document SearchDocument @relation(fields: [accommodationId], references: [accommodationId], onDelete: Cascade)
+  @@index([accommodationId, startDate, endDate])
+  @@index([startDate, endDate, availableCapacity])
+  @@map("availability_windows")
+}
+model ProcessedProjectionEvent {
+  eventId String @id @db.Uuid
+  eventType String @db.VarChar(100)
+  accommodationId String @db.Uuid
+  projectionVersion BigInt
+  payloadHash String @db.Char(64)
+  outcome ProjectionOutcome
+  processedAt DateTime @default(now()) @db.Timestamptz(6)
+  @@index([accommodationId, projectionVersion])
+  @@map("processed_projection_events")
+}
+model ProjectionCursor {
+  accommodationId String @id @db.Uuid
+  projectionVersion BigInt
+  removed Boolean @default(false)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  @@map("projection_cursors")
+}
+model SearchIndexState {
+  id Int @id @db.SmallInt
+  cacheGeneration BigInt @default(0)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  @@map("search_index_state")
+}

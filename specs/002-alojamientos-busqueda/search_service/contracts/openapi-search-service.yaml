@@ -63,7 +63,7 @@ paths:
           required: true
           schema:
             type: string
-            minLength: 2
+            minLength: 1
             maxLength: 120
         - name: limit
           in: query
@@ -117,31 +117,37 @@ components:
     Query:
       name: q
       in: query
+      description: Texto indexado; relevancia ponderada A/B/C y desempate por accommodationId.
       schema: { type: string, minLength: 1, maxLength: 200 }
     Location:
       name: location
       in: query
+      description: Ubicación textual; se combina con los demás filtros mediante AND.
       schema: { type: string, minLength: 1, maxLength: 120 }
     MinPrice:
       name: minPrice
       in: query
+      description: Requiere currency; debe ser menor o igual a maxPrice.
       schema: { type: number, minimum: 0 }
     MaxPrice:
       name: maxPrice
       in: query
+      description: Requiere currency; debe ser mayor o igual a minPrice.
       schema: { type: number, minimum: 0 }
     Currency:
       name: currency
       in: query
-      description: Requerida cuando se envía minPrice o maxPrice.
+      description: Requerida cuando se envía minPrice o maxPrice. Sin conversión de monedas.
       schema: { type: string, pattern: '^[A-Z]{3}$' }
     CheckIn:
       name: checkIn
       in: query
+      description: Enviar con checkOut; inicio inclusivo de disponibilidad proyectada.
       schema: { type: string, format: date }
     CheckOut:
       name: checkOut
       in: query
+      description: Enviar con checkIn y debe ser posterior; fin exclusivo, no confirma una reserva.
       schema: { type: string, format: date }
     Guests:
       name: guests
@@ -186,6 +192,7 @@ components:
         total: { type: integer, minimum: 0 }
         hasNext: { type: boolean }
         availabilityKind:
+          description: Snapshot [checkIn, checkOut); no es disponibilidad autoritativa ni confirmación de reserva.
           type: [string, 'null']
           enum: [PROJECTED, null]
     SearchSuggestion:
