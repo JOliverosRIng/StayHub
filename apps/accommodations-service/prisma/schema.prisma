@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/infrastructure/persistence/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("ACCOMMODATIONS_DATABASE_URL")
+}
+
+enum PropertyType {
+  HOTEL
+  APARTMENT
+  HOUSE
+  OTHER
+}
+
+enum PropertyStatus {
+  DRAFT
+  PUBLISHED
+  UNPUBLISHED
+}
+
+/// ownerId is the JWT `sub` of an OWNER; external reference without FK to users_db.
+model Property {
+  id          String            @id @db.Uuid
+  ownerId     String            @db.Uuid
+  type        PropertyType
+  name        String            @db.VarChar(120)
+  description String?           @db.VarChar(5000)
+  addressLine String            @db.VarChar(200)
+  city        String            @db.VarChar(100)
+  region      String            @db.VarChar(100)
+  country     String            @db.Char(2)
+  postalCode  String?           @db.VarChar(20)
+  latitude    Decimal?          @db.Decimal(9, 7)
+  longitude   Decimal?          @db.Decimal(10, 7)
+  status      PropertyStatus    @default(DRAFT)
+  version     Int               @default(1)
+  createdAt   DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @db.Timestamptz(6)
+  rooms       Room[]
+  features    PropertyFeature[]
+  photos      Photo[]
+
+  @@index([ownerId, status])
+}
+
+model Room {
+  id                String   @id @db.Uuid
+  propertyId        String   @db.Uuid
+  property          Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name              String   @db.VarChar(120)
+  capacity          Int
+  basePriceAmount   Decimal? @db.Decimal(12, 2)
+  basePriceCurrency String?  @db.Char(3)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([propertyId])
+}
+
+model Feature {
+  code       String            @id @db.VarChar(64)
+  name       String            @db.VarChar(100)
+  properties PropertyFeature[]
+}
+
+model PropertyFeature {
+  propertyId  String   @db.Uuid
+  featureCode String   @db.VarChar(64)
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  feature     Feature  @relation(fields: [featureCode], references: [code], onDelete: Restrict)
+
+  @@id([propertyId, featureCode])
+  @@index([featureCode])
+}
+
+/// Bytes live behind StoragePort; storageKey is an opaque reference, never a host path in the API.
+model Photo {
+  id         String   @id @db.Uuid
+  propertyId String   @db.Uuid
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  storageKey String   @unique @db.VarChar(64)
+  mediaType  String   @db.VarChar(10)
+  byteSize   Int
+  position   Int
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([propertyId, position])
+}
