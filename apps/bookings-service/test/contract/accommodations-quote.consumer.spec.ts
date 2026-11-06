@@ -1,0 +1,3 @@
+import { mapAccommodationQuote } from '@bookings/infrastructure/http/accommodations-quote.mapper';
+const quote={propertyId:'p',roomId:'r',ownerId:'o',propertyName:'P',roomName:'R',propertyStatus:'PUBLISHED',capacity:2,basePrice:{amount:'10.00',currency:'USD'},propertyVersion:1,roomUpdatedAt:'2030-01-01T00:00:00Z'};
+describe('accommodations quote contract',()=>{it('accepts an authoritative published quote',()=>expect(mapAccommodationQuote(quote)).toEqual(quote));it.each([{...quote,propertyStatus:'DRAFT'},{...quote,capacity:0},{...quote,propertyVersion:0}])('rejects invalid quote %#',(value)=>expect(()=>mapAccommodationQuote(value)).toThrow());});

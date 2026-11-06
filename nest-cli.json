@@ -51,6 +51,21 @@
           }
         ]
       }
+    },
+    "bookings-service": {
+      "type": "application",
+      "root": "apps/bookings-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/bookings-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/bookings-service/tsconfig.build.json",
+        "assets": [
+          {
+            "include": "infrastructure/persistence/generated/client/**/*",
+            "outDir": "dist/apps/bookings-service"
+          }
+        ]
+      }
     }
   }
 }

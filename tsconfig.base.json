@@ -34,7 +34,12 @@
       "@search/application/*": ["apps/search-service/src/application/*"],
       "@search/infrastructure/*": ["apps/search-service/src/infrastructure/*"],
       "@search/interfaces/*": ["apps/search-service/src/interfaces/*"],
-      "@search/modules/*": ["apps/search-service/src/modules/*"]
+      "@search/modules/*": ["apps/search-service/src/modules/*"],
+      "@bookings/domain/*": ["apps/bookings-service/src/domain/*"],
+      "@bookings/application/*": ["apps/bookings-service/src/application/*"],
+      "@bookings/infrastructure/*": ["apps/bookings-service/src/infrastructure/*"],
+      "@bookings/interfaces/*": ["apps/bookings-service/src/interfaces/*"],
+      "@bookings/modules/*": ["apps/bookings-service/src/modules/*"]
     }
   }
 }

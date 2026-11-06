@@ -1,0 +1,3 @@
+import { readFileSync } from 'node:fs'; import { resolve } from 'node:path'; import YAML from 'yaml';
+const dir=resolve(__dirname,'../../../../specs/003-reservas-pagos-resenas/booking_service/contracts');
+describe('design contracts',()=>{it.each(['openapi-bookings-service.yaml','openapi-accommodations-booking-quote-consumer.yaml','openapi-payments-consumer.yaml'])('parses %s',(name)=>expect(YAML.parse(readFileSync(resolve(dir,name),'utf8')).openapi).toMatch(/^3\./u));it('parses event schema',()=>expect(JSON.parse(readFileSync(resolve(dir,'booking-payment-events-v1.schema.json'),'utf8')).$defs).toBeDefined());});

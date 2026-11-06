@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stayhub.local/contracts/booking-payment-events-v1.schema.json",
+  "title": "StayHub Booking and Payment Events v1",
+  "oneOf": [
+    { "$ref": "#/$defs/bookingCreated" },
+    { "$ref": "#/$defs/bookingConfirmed" },
+    { "$ref": "#/$defs/bookingCancelled" },
+    { "$ref": "#/$defs/bookingCompleted" },
+    { "$ref": "#/$defs/paymentConfirmed" },
+    { "$ref": "#/$defs/paymentFailed" },
+    { "$ref": "#/$defs/refundCompleted" }
+  ],
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["eventId", "eventType", "schemaVersion", "occurredAt", "bookingId"],
+      "properties": {
+        "eventId": { "type": "string", "format": "uuid" },
+        "eventType": { "type": "string" },
+        "schemaVersion": { "const": 1 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "bookingId": { "type": "string", "format": "uuid" },
+        "traceId": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "money": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amount", "currency"],
+      "properties": {
+        "amount": { "type": "string", "pattern": "^\\d{1,10}(\\.\\d{2})$" },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+      }
+    },
+    "bookingCreated": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["eventId", "eventType", "schemaVersion", "occurredAt", "bookingId", "guestId", "ownerId", "propertyId", "roomId", "checkIn", "checkOut", "total", "status"],
+          "properties": {
+            "eventId": { "type": "string", "format": "uuid" },
+            "eventType": { "const": "booking.v1.created" },
+            "schemaVersion": { "const": 1 },
+            "occurredAt": { "type": "string", "format": "date-time" },
+            "bookingId": { "type": "string", "format": "uuid" },
+            "traceId": { "type": "string", "maxLength": 128 },
+            "guestId": { "type": "string", "format": "uuid" },
+            "ownerId": { "type": "string", "format": "uuid" },
+            "propertyId": { "type": "string", "format": "uuid" },
+            "roomId": { "type": "string", "format": "uuid" },
+            "checkIn": { "type": "string", "format": "date" },
+            "checkOut": { "type": "string", "format": "date" },
+            "total": { "$ref": "#/$defs/money" },
+            "status": { "const": "PENDING_PAYMENT" }
+          }
+        }
+      ]
+    },
+    "bookingConfirmed": { "$ref": "#/$defs/simpleBookingConfirmed" },
+    "bookingCancelled": { "$ref": "#/$defs/simpleBookingCancelled" },
+    "bookingCompleted": { "$ref": "#/$defs/simpleBookingCompleted" },
+    "paymentConfirmed": { "$ref": "#/$defs/simplePaymentConfirmed" },
+    "paymentFailed": { "$ref": "#/$defs/simplePaymentFailed" },
+    "refundCompleted": { "$ref": "#/$defs/simpleRefundCompleted" },
+    "simpleBookingConfirmed": {
+      "allOf": [ { "$ref": "#/$defs/base" }, { "type": "object", "required": ["eventType"], "properties": { "eventType": { "const": "booking.v1.confirmed" } } } ]
+    },
+    "simpleBookingCancelled": {
+      "allOf": [ { "$ref": "#/$defs/base" }, { "type": "object", "required": ["eventType", "cancelledBy"], "properties": { "eventType": { "const": "booking.v1.cancelled" }, "cancelledBy": { "enum": ["GUEST", "OWNER"] } } } ]
+    },
+    "simpleBookingCompleted": {
+      "allOf": [ { "$ref": "#/$defs/base" }, { "type": "object", "required": ["eventType", "guestId", "propertyId"], "properties": { "eventType": { "const": "booking.v1.completed" }, "guestId": { "type": "string", "format": "uuid" }, "propertyId": { "type": "string", "format": "uuid" } } } ]
+    },
+    "simplePaymentConfirmed": {
+      "allOf": [ { "$ref": "#/$defs/base" }, { "type": "object", "required": ["eventType", "paymentOrderId"], "properties": { "eventType": { "const": "payment.v1.confirmed" }, "paymentOrderId": { "type": "string", "format": "uuid" } } } ]
+    },
+    "simplePaymentFailed": {
+      "allOf": [ { "$ref": "#/$defs/base" }, { "type": "object", "required": ["eventType", "paymentOrderId", "reasonCode"], "properties": { "eventType": { "const": "payment.v1.failed" }, "paymentOrderId": { "type": "string", "format": "uuid" }, "reasonCode": { "type": "string", "maxLength": 80 } } } ]
+    },
+    "simpleRefundCompleted": {
+      "allOf": [ { "$ref": "#/$defs/base" }, { "type": "object", "required": ["eventType", "paymentOrderId", "refundId"], "properties": { "eventType": { "const": "payment.v1.refund-completed" }, "paymentOrderId": { "type": "string", "format": "uuid" }, "refundId": { "type": "string", "format": "uuid" } } } ]
+    }
+  }
+}

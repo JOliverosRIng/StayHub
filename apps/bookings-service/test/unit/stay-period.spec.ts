@@ -1,0 +1,2 @@
+import { StayPeriod } from '@bookings/domain/bookings/stay-period';
+describe('StayPeriod',()=>{ it('uses half-open nights',()=>{const p=StayPeriod.create('2030-01-01','2030-01-03','2029-12-31');expect(p.nights).toBe(2);expect(p.overlaps(StayPeriod.create('2030-01-03','2030-01-04'))).toBe(false);}); it.each([['2030-01-01','2030-01-01'],['2030-01-02','2030-01-01']])('rejects %s..%s',(a,b)=>expect(()=>StayPeriod.create(a,b)).toThrow('VALIDATION_ERROR')); it('rejects past check-in',()=>expect(()=>StayPeriod.create('2029-01-01','2029-01-02','2030-01-01')).toThrow()); });
