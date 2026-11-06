@@ -9,12 +9,18 @@ const enabled = Boolean(process.env.BOOKINGS_TEST_DATABASE_URL);
 const describeDb = enabled ? describe : describe.skip;
 
 describeDb('create idempotency', () => {
-  const prisma = new PrismaService({ datasources: { db: { url: process.env.BOOKINGS_TEST_DATABASE_URL! } } });
-  const uow = new PrismaCreateBookingUnitOfWork(prisma);
+  let prisma: PrismaService;
+  let uow: PrismaCreateBookingUnitOfWork;
   const guestId = randomUUID();
   const make = () => new Booking({ guestId, guests: 1, period: StayPeriod.create('2031-01-01','2031-01-02'), nightlyPrice: Money.parse('10.00','USD'), snapshot: { propertyId: randomUUID(), roomId: randomUUID(), ownerId: randomUUID(), propertyName: 'P', roomName: 'R', capacity: 1, propertyVersion: 1, roomUpdatedAt: new Date() }, holdExpiresAt: new Date(Date.now()+60000) });
 
+  beforeAll(() => {
+    prisma = new PrismaService({ datasources: { db: { url: process.env.BOOKINGS_TEST_DATABASE_URL! } } });
+    uow = new PrismaCreateBookingUnitOfWork(prisma);
+  });
+
   afterAll(async () => {
+    if (!prisma) return;
     const ids = (await prisma.booking.findMany({ where: { guestId }, select: { id: true } })).map((row) => row.id);
     await prisma.outboxEvent.deleteMany({ where: { aggregateId: { in: ids } } });
     await prisma.paymentWork.deleteMany({ where: { bookingId: { in: ids } } });

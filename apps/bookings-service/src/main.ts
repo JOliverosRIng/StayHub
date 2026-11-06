@@ -10,6 +10,7 @@ import { configureBookingsOpenApi } from '@bookings/interfaces/openapi/bookings.
 import { BookingsLogger } from '@bookings/infrastructure/observability/bookings-logger';
 import { startTelemetry, stopTelemetry } from '@bookings/infrastructure/observability/otel';
 import { loadBookingsConfig } from '@bookings/infrastructure/config/bookings-config';
+import { registerGracefulShutdown } from '@bookings/infrastructure/lifecycle/graceful-shutdown';
 
-async function bootstrap(): Promise<void> { startTelemetry(loadBookingsConfig()); const app = await NestFactory.create(AppModule, { bufferLogs: true }); const config = app.get<BookingsConfig>(BOOKINGS_CONFIG); app.useLogger(app.get(BookingsLogger)); app.useGlobalPipes(new ClosedValidationPipe()); app.useGlobalFilters(new ProblemDetailsFilter()); app.useGlobalInterceptors(new TraceInterceptor()); configureBookingsOpenApi(app); app.enableShutdownHooks(); await app.listen(config.port, '0.0.0.0'); process.once('beforeExit', () => { void stopTelemetry(); }); }
+async function bootstrap(): Promise<void> { startTelemetry(loadBookingsConfig()); const app = await NestFactory.create(AppModule, { bufferLogs: true }); const config = app.get<BookingsConfig>(BOOKINGS_CONFIG); app.useLogger(app.get(BookingsLogger)); app.useGlobalPipes(new ClosedValidationPipe()); app.useGlobalFilters(new ProblemDetailsFilter()); app.useGlobalInterceptors(new TraceInterceptor()); configureBookingsOpenApi(app); registerGracefulShutdown({ close: async () => { await app.close(); await stopTelemetry(); } }, config.shutdownGraceMs); await app.listen(config.port, '0.0.0.0'); }
 void bootstrap();

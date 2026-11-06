@@ -7,10 +7,10 @@
 
 ## Estado de implementación — corte 2026-11-05
 
-- Completadas y verificadas **T001–T054 (54/101)**: Setup, Foundation y US1/MVP de creación de reservas.
+- Completadas y verificadas **T001–T077, T079–T094 y T099 (94/101)**: Setup, Foundation, US1–US5, gates de contratos/seguridad/rendimiento, E2E aislado y shutdown ordenado.
 - Evidencia local: lint, typecheck y build; migración real PostgreSQL 16; concurrencia GiST, idempotencia y saga; 60 pruebas unitarias/contrato/seguridad/integración/concurrencia; arranque con readiness/liveness/Swagger; imagen Docker reproducible.
 - La integración real con `accommodations-service`, `payments-service`, Gateway y RabbitMQ compartido continúa explícitamente fuera de este corte y permanece en T095–T097/T100–T101. No se considera E2E externo completado.
-- Pendientes **T055–T101**: consulta, cancelaciones, historial, lifecycle/Reviews y gates finales.
+- Pendientes **T078, T095–T098 y T100–T101**: evidencia PostgreSQL real, integraciones externas (Accommodations, Payments, Gateway, Reviews), quickstart real y auditoría final con cobertura. Las integraciones PostgreSQL de US2–US5, E2E y rendimiento quedan escritas y se ejecutarán en CI con `BOOKINGS_TEST_DATABASE_URL`; el entorno local sin Docker las omitió. Ver `validation-report.md`.
 
 ## 1. Summary
 

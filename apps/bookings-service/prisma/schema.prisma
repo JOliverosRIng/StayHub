@@ -50,6 +50,12 @@ enum WorkStatus {
   DEAD
 }
 
+enum CancellationActor {
+  GUEST
+  OWNER
+  SYSTEM
+}
+
 model Booking {
   id                    String                 @id @db.Uuid
   guestId               String                 @db.Uuid
@@ -72,6 +78,12 @@ model Booking {
   paymentStatus         PaymentStatus          @default(ORDER_PENDING)
   paymentOrderId        String?                @unique @db.Uuid
   holdExpiresAt         DateTime?              @db.Timestamptz(6)
+  cancellationPolicyVersion String?           @db.VarChar(80)
+  cancelledBy           CancellationActor?
+  cancellationReason    String?                @db.VarChar(500)
+  cancelledAt           DateTime?              @db.Timestamptz(6)
+  checkedInAt           DateTime?              @db.Timestamptz(6)
+  checkedOutAt          DateTime?              @db.Timestamptz(6)
   version               Int                    @default(1)
   createdAt             DateTime               @default(now()) @db.Timestamptz(6)
   updatedAt             DateTime               @updatedAt @db.Timestamptz(6)

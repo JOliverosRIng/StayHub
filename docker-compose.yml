@@ -234,6 +234,95 @@ services:
       search-redis: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
 
+  bookings-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: bookings_db
+      POSTGRES_USER: stayhub_bookings
+      POSTGRES_PASSWORD_FILE: /run/secrets/bookings_db_password
+    secrets: [bookings_db_password]
+    volumes: [bookings_data:/var/lib/postgresql/data]
+    networks: [bookings-internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stayhub_bookings -d bookings_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  bookings-rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: stayhub_bookings
+      RABBITMQ_DEFAULT_PASS: ${BOOKINGS_RABBITMQ_PASSWORD:?required}
+      RABBITMQ_DEFAULT_VHOST: /bookings
+    networks: [bookings-internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  bookings-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/bookings/Dockerfile
+      target: migration
+    environment:
+      BOOKINGS_DATABASE_URL_FILE: /run/secrets/bookings_database_url
+    secrets: [bookings_database_url]
+    networks: [bookings-internal]
+    restart: "no"
+    depends_on:
+      bookings-db: { condition: service_healthy }
+
+  bookings-service:
+    build:
+      context: .
+      dockerfile: infra/docker/bookings/Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: production
+      BOOKINGS_PORT: "3005"
+      BOOKINGS_DATABASE_URL_FILE: /run/secrets/bookings_database_url
+      BOOKINGS_SERVICE_JWT_PUBLIC_KEYS_JSON: ${BOOKINGS_SERVICE_JWT_PUBLIC_KEYS_JSON:?required}
+      BOOKINGS_SERVICE_JWT_ISSUER: ${BOOKINGS_SERVICE_JWT_ISSUER:?required}
+      BOOKINGS_SERVICE_JWT_AUDIENCE: ${BOOKINGS_SERVICE_JWT_AUDIENCE:?required}
+      BOOKINGS_SERVICE_JWT_SCOPE: ${BOOKINGS_SERVICE_JWT_SCOPE:-bookings:invoke}
+      BOOKINGS_REVIEWS_JWT_SCOPE: ${BOOKINGS_REVIEWS_JWT_SCOPE:-reviews:eligibility}
+      BOOKINGS_REVIEWS_JWT_AUDIENCE: ${BOOKINGS_REVIEWS_JWT_AUDIENCE:-stayhub-bookings-service}
+      BOOKINGS_ACCOMMODATIONS_URL: ${BOOKINGS_ACCOMMODATIONS_URL:?required}
+      BOOKINGS_PAYMENTS_URL: ${BOOKINGS_PAYMENTS_URL:?required}
+      BOOKINGS_DEPENDENCY_TIMEOUT_MS: ${BOOKINGS_DEPENDENCY_TIMEOUT_MS:-3000}
+      BOOKINGS_PAYMENT_HOLD_MINUTES: ${BOOKINGS_PAYMENT_HOLD_MINUTES:?required}
+      BOOKINGS_CANCELLATION_POLICY_VERSION: ${BOOKINGS_CANCELLATION_POLICY_VERSION:?required}
+      BOOKINGS_CANCELLATION_POLICY_JSON: ${BOOKINGS_CANCELLATION_POLICY_JSON:?required}
+      BOOKINGS_RABBITMQ_URL_FILE: /run/secrets/bookings_rabbitmq_url
+      BOOKINGS_RABBITMQ_EXCHANGE: ${BOOKINGS_RABBITMQ_EXCHANGE:-stayhub.bookings.v1}
+      BOOKINGS_RABBITMQ_QUEUE: ${BOOKINGS_RABBITMQ_QUEUE:-stayhub.bookings.payment-events.v1}
+      BOOKINGS_RABBITMQ_DLQ: ${BOOKINGS_RABBITMQ_DLQ:-stayhub.bookings.payment-events.v1.dlq}
+      BOOKINGS_RABBITMQ_PREFETCH: ${BOOKINGS_RABBITMQ_PREFETCH:-10}
+      BOOKINGS_RABBITMQ_MAX_RETRIES: ${BOOKINGS_RABBITMQ_MAX_RETRIES:-3}
+      BOOKINGS_SHUTDOWN_GRACE_MS: ${BOOKINGS_SHUTDOWN_GRACE_MS:-10000}
+      BOOKINGS_LOG_LEVEL: ${BOOKINGS_LOG_LEVEL:-info}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:?required}
+    secrets: [bookings_database_url, bookings_rabbitmq_url]
+    networks: [bookings-internal, services]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: always
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3005/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      bookings-migrate: { condition: service_completed_successfully }
+      bookings-rabbitmq: { condition: service_healthy }
+
 networks:
   stayhub-internal:
     internal: true
@@ -243,11 +332,14 @@ networks:
     internal: true
   services:
     internal: true
+  bookings-internal:
+    internal: true
 
 volumes:
   auth-db-data:
   users_data:
   search_db_data:
+  bookings_data:
 
 secrets:
   gateway_tls_cert:
@@ -266,3 +358,9 @@ secrets:
     file: ${USERS_JWT_PUBLIC_KEY_FILE:?required}
   users_service_public:
     file: ${USERS_SERVICE_JWT_PUBLIC_KEY_FILE:?required}
+  bookings_db_password:
+    file: ${BOOKINGS_DB_PASSWORD_FILE:?required}
+  bookings_database_url:
+    file: ${BOOKINGS_DATABASE_URL_FILE:?required}
+  bookings_rabbitmq_url:
+    file: ${BOOKINGS_RABBITMQ_URL_FILE:?required}

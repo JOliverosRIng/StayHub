@@ -15,7 +15,10 @@ describe('booking/payment event contract',()=>{
     {...base,eventType:'booking.v1.confirmed'},
     {...base,eventType:'payment.v1.confirmed',paymentOrderId:uuid(7)},
     {...base,eventType:'payment.v1.failed',paymentOrderId:uuid(7),reasonCode:'DECLINED'},
+    {...base,eventType:'payment.v1.refund-completed',paymentOrderId:uuid(7),refundId:uuid(8)},
   ])('validates $eventType',(event)=>expect(validate(event)).toBe(true));
   it('parses strict payment events and hashes them',()=>expect(parsePaymentEvent({...base,eventType:'payment.v1.confirmed',paymentOrderId:uuid(7)}).hash).toHaveLength(64));
+  it('parses a refund completion event',()=>expect(parsePaymentEvent({...base,eventType:'payment.v1.refund-completed',paymentOrderId:uuid(7),refundId:uuid(8)}).event.eventType).toBe('payment.v1.refund-completed'));
+  it('rejects a refund event without refundId',()=>expect(()=>parsePaymentEvent({...base,eventType:'payment.v1.refund-completed',paymentOrderId:uuid(7)})).toThrow('INVALID_EVENT'));
   it('rejects unknown payment fields',()=>expect(()=>parsePaymentEvent({...base,eventType:'payment.v1.confirmed',paymentOrderId:uuid(7),secret:'x'})).toThrow('INVALID_EVENT'));
 });

@@ -3,7 +3,7 @@ import { trace } from '@opentelemetry/api';
 
 function safe(value: unknown): unknown {
   if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [/authorization|token|password|secret|email|phone/iu.test(key) ? [key, '[REDACTED]'] : [key, item]]));
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => (/authorization|token|password|secret|email|phone/iu.test(key) ? [key, '[REDACTED]'] : [key, item]) as [string, unknown]));
 }
 @Injectable()
 export class BookingsLogger implements LoggerService {

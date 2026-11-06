@@ -5,13 +5,10 @@ on:
     paths:
       - 'apps/api-gateway/**'
       - 'apps/auth-service/**'
-<<<<<<< HEAD
-      - 'infra/docker/gateway/**'
-=======
       - 'apps/users-service/**'
->>>>>>> origin
-      - 'infra/docker/auth/**'
-      - 'infra/docker/users/**'
+      - 'apps/search-service/**'
+      - 'apps/bookings-service/**'
+      - 'infra/docker/**'
       - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
@@ -19,9 +16,7 @@ on:
       - 'nest-cli.json'
       - 'eslint.config.mjs'
       - 'docker-compose.yml'
-      - 'specs/001-fundamentos-identidad/contracts/openapi-public.yaml'
-      - 'specs/001-fundamentos-identidad/contracts/openapi-auth-service.yaml'
-      - 'specs/001-fundamentos-identidad/contracts/openapi-users-service.yaml'
+      - 'specs/**'
   push:
     branches: [main]
 
@@ -46,7 +41,7 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      TEST_AUTH_DATABASE_URL: ******localhost:5432/auth_test?schema=public
+      TEST_AUTH_DATABASE_URL: postgresql://auth_test:auth_test@localhost:5432/auth_test?schema=public
       TEST_AUTH_REDIS_URL: redis://localhost:6379/15
     steps:
       - uses: actions/checkout@v4
@@ -61,18 +56,12 @@ jobs:
           AUTH_DATABASE_URL: ${{ env.TEST_AUTH_DATABASE_URL }}
       - run: npm run lint:auth
       - run: npm run typecheck:auth
-<<<<<<< HEAD
-      - run: npm run test:auth:coverage
-      - run: npm run openapi:check
-=======
       - run: npm run test:auth -- --coverage
       - run: npm run openapi:auth:check
->>>>>>> origin
       - run: npm run build:auth
       - run: docker build --target runtime -f infra/docker/auth/Dockerfile .
       - run: npm run test:auth:cross-service -- --runTestsByPath test/integration/auth-compose.spec.ts
 
-<<<<<<< HEAD
   gateway-quality:
     runs-on: ubuntu-latest
     services:
@@ -84,7 +73,19 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       GATEWAY_TEST_REDIS_URL: redis://localhost:6379/14
-=======
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint --workspace @stayhub/api-gateway
+      - run: npm run typecheck --workspace @stayhub/api-gateway
+      - run: npm run test:coverage --workspace @stayhub/api-gateway
+      - run: npm run build --workspace @stayhub/api-gateway
+      - run: docker build --target runtime -f infra/docker/gateway/Dockerfile .
+
   users-quality:
     runs-on: ubuntu-latest
     services:
@@ -99,24 +100,12 @@ jobs:
           --health-cmd "pg_isready -U users -d users_db"
           --health-interval 5s --health-timeout 3s --health-retries 20
     env:
-      USERS_DATABASE_URL: ******localhost:5432/users_db
-      USERS_TEST_DATABASE_URL: ******localhost:5432/users_db
->>>>>>> origin
+      USERS_DATABASE_URL: postgresql://users:users_test_only@localhost:5432/users_db
+      USERS_TEST_DATABASE_URL: postgresql://users:users_test_only@localhost:5432/users_db
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-<<<<<<< HEAD
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run lint:gateway
-      - run: npm run typecheck:gateway
-      - run: npm run test:gateway:coverage
-      - run: npm run openapi:check:gateway
-      - run: npm run build:gateway
-      - run: docker build --target runtime -f infra/docker/gateway/Dockerfile .
-=======
           node-version: '20'
           cache: npm
       - run: npm ci
@@ -134,4 +123,41 @@ jobs:
         with:
           name: users-coverage
           path: coverage/users
->>>>>>> origin
+
+  bookings-quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: bookings_test
+          POSTGRES_USER: bookings_test
+          POSTGRES_PASSWORD: bookings_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U bookings_test -d bookings_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      BOOKINGS_DATABASE_URL: postgresql://bookings_test:bookings_test@localhost:5432/bookings_test?schema=public
+      BOOKINGS_TEST_DATABASE_URL: postgresql://bookings_test:bookings_test@localhost:5432/bookings_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:bookings:generate
+      - run: npm run prisma:bookings:migrate:deploy
+      - run: npm run lint:bookings
+      - run: npm run typecheck:bookings
+      - run: npm run test:bookings:unit
+      - run: npm run test:bookings:contract
+      - run: npm run test:bookings:security
+      - run: npm run test:bookings:concurrency
+      - run: npm run test:bookings:integration
+      - run: npm run test:e2e --workspace @stayhub/bookings-service
+      - run: npm run test:performance --workspace @stayhub/bookings-service
+      - run: npm run openapi:bookings:check
+      - run: npm run build:bookings
+      - run: docker build --target runtime -f infra/docker/bookings/Dockerfile .

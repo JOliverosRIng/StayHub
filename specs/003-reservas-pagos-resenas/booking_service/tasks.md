@@ -105,12 +105,12 @@
 
 **Independent Test**: una fixture persistida es visible para su GUEST y OWNER snapshot; otro actor recibe 404 y nunca owner/payment secrets.
 
-- [ ] T055 [P] [US2] Escribir pruebas fallidas de autorización GUEST/OWNER, no-disclosure 404 y presenter seguro en `apps/bookings-service/test/security/booking-read-authorization.spec.ts`
-- [ ] T056 [P] [US2] Escribir contrato fallido para `GET /bookings/{bookingId}` con UUID, 200/400/401/404 y schema Booking en `apps/bookings-service/test/contract/get-booking.contract.spec.ts`
-- [ ] T057 [P] [US2] Escribir integración de lectura del snapshot aun si el quote remoto ya no existe en `apps/bookings-service/test/integration/get-booking.spec.ts`
-- [ ] T058 [US2] Implementar `GetBookingUseCase` aplicando `guestId|ownerId` antes de mapear detalles en `apps/bookings-service/src/application/get-booking/get-booking.use-case.ts` (depends on T055,T057)
-- [ ] T059 [US2] Implementar GET/presenter omitiendo ownerId donde no corresponda y todo dato financiero sensible en `apps/bookings-service/src/interfaces/http/bookings/bookings.controller.ts` y `apps/bookings-service/src/interfaces/http/bookings/booking.presenter.ts` (depends on T056,T058)
-- [ ] T060 [US2] Sincronizar Swagger/drift y ejecutar pruebas US2 en `apps/bookings-service/src/interfaces/openapi/bookings.openapi.ts` y `apps/bookings-service/test/contract/openapi-drift.spec.ts` (depends on T059)
+- [x] T055 [P] [US2] Escribir pruebas fallidas de autorización GUEST/OWNER, no-disclosure 404 y presenter seguro en `apps/bookings-service/test/security/booking-read-authorization.spec.ts`
+- [x] T056 [P] [US2] Escribir contrato fallido para `GET /bookings/{bookingId}` con UUID, 200/400/401/404 y schema Booking en `apps/bookings-service/test/contract/get-booking.contract.spec.ts`
+- [x] T057 [P] [US2] Escribir integración de lectura del snapshot aun si el quote remoto ya no existe en `apps/bookings-service/test/integration/get-booking.spec.ts`
+- [x] T058 [US2] Implementar `GetBookingUseCase` aplicando `guestId|ownerId` antes de mapear detalles en `apps/bookings-service/src/application/get-booking/get-booking.use-case.ts` (depends on T055,T057)
+- [x] T059 [US2] Implementar GET/presenter omitiendo ownerId donde no corresponda y todo dato financiero sensible en `apps/bookings-service/src/interfaces/http/bookings/bookings.controller.ts` y `apps/bookings-service/src/interfaces/http/bookings/booking.presenter.ts` (depends on T056,T058)
+- [x] T060 [US2] Sincronizar Swagger/drift y ejecutar pruebas US2 en `apps/bookings-service/src/interfaces/openapi/bookings.openapi.ts` y `apps/bookings-service/test/contract/openapi-drift.spec.ts` (depends on T059)
 
 **Checkpoint**: detalle funcional e independiente sobre fixtures locales, sin dependencia runtime de Accommodations.
 
@@ -122,15 +122,15 @@
 
 **Independent Test**: GUEST propio elegible cancela y permite una nueva reserva superpuesta; ajeno obtiene 404 y policy ineligible obtiene 409 sin mutación.
 
-- [ ] T061 [P] [US3] Escribir pruebas fallidas de `CancellationPolicy` versionada, decisión eligible/ineligible y `refundMode NONE|POLICY` en `apps/bookings-service/test/unit/guest-cancellation-policy.spec.ts`
-- [ ] T062 [P] [US3] Escribir contrato fallido de `DELETE /bookings/{id}` como GUEST con 200/400/401/404/409/503 en `apps/bookings-service/test/contract/cancel-booking.contract.spec.ts`
-- [ ] T063 [P] [US3] Escribir integración de cancelación atómica, transición, CancellationDecision, liberación GiST y refund único en `apps/bookings-service/test/integration/guest-cancellation.spec.ts`
-- [ ] T064 [P] [US3] Implementar puerto/config adapter de policy que exige versión aprobada y no codifica plazos/porcentajes en `apps/bookings-service/src/application/ports/cancellation-policy.port.ts` y `apps/bookings-service/src/infrastructure/config/versioned-cancellation-policy.adapter.ts` (depends on T061)
-- [ ] T065 [US3] Implementar UoW de cancelación con lock/version, transición, decisión, PaymentWork y Outbox atómicos en `apps/bookings-service/src/infrastructure/persistence/prisma/cancel-booking.unit-of-work.ts` (depends on T019,T041,T063)
-- [ ] T066 [US3] Implementar `CancelGuestBookingUseCase` con ownership, estados cancelables y errores estables en `apps/bookings-service/src/application/cancel-booking/cancel-guest-booking.use-case.ts` (depends on T064–T065)
-- [ ] T067 [P] [US3] Extender Payments client para `POST /internal/v1/refunds` con key derivada, mode POLICY y retry seguro en `apps/bookings-service/src/infrastructure/http/payments-refunds.client.ts` (depends on T045; external dependency: payments-service contract provider)
-- [ ] T068 [US3] Extender PaymentWork worker/consumer para refund pending/completed sin reactivar disponibilidad en `apps/bookings-service/src/application/payments/request-refund.worker.ts` y `apps/bookings-service/src/application/payments/apply-refund-result.use-case.ts` (depends on T050,T067)
-- [ ] T069 [US3] Implementar DELETE para GUEST, Swagger y evidencia US3 en `apps/bookings-service/src/interfaces/http/bookings/bookings.controller.ts` y `apps/bookings-service/src/interfaces/openapi/bookings.openapi.ts` (depends on T062,T066,T068)
+- [x] T061 [P] [US3] Escribir pruebas fallidas de `CancellationPolicy` versionada, decisión eligible/ineligible y `refundMode NONE|POLICY` en `apps/bookings-service/test/unit/guest-cancellation-policy.spec.ts`
+- [x] T062 [P] [US3] Escribir contrato fallido de `DELETE /bookings/{id}` como GUEST con 200/400/401/404/409/503 en `apps/bookings-service/test/contract/cancel-booking.contract.spec.ts`
+- [x] T063 [P] [US3] Escribir integración de cancelación atómica, transición, CancellationDecision, liberación GiST y refund único en `apps/bookings-service/test/integration/guest-cancellation.spec.ts`
+- [x] T064 [P] [US3] Implementar puerto/config adapter de policy que exige versión aprobada y no codifica plazos/porcentajes en `apps/bookings-service/src/application/ports/cancellation-policy.port.ts` y `apps/bookings-service/src/infrastructure/config/versioned-cancellation-policy.adapter.ts` (depends on T061)
+- [x] T065 [US3] Implementar UoW de cancelación con lock/version, transición, decisión, PaymentWork y Outbox atómicos en `apps/bookings-service/src/infrastructure/persistence/prisma/cancel-booking.unit-of-work.ts` (depends on T019,T041,T063)
+- [x] T066 [US3] Implementar `CancelGuestBookingUseCase` con ownership, estados cancelables y errores estables en `apps/bookings-service/src/application/cancel-booking/cancel-guest-booking.use-case.ts` (depends on T064–T065)
+- [x] T067 [P] [US3] Extender Payments client para `POST /internal/v1/refunds` con key derivada, mode POLICY y retry seguro en `apps/bookings-service/src/infrastructure/http/payments-refunds.client.ts` (depends on T045; external dependency: payments-service contract provider)
+- [x] T068 [US3] Extender PaymentWork worker/consumer para refund pending/completed sin reactivar disponibilidad en `apps/bookings-service/src/application/payments/request-refund.worker.ts` y `apps/bookings-service/src/application/payments/apply-refund-result.use-case.ts` (depends on T050,T067)
+- [x] T069 [US3] Implementar DELETE para GUEST, Swagger y evidencia US3 en `apps/bookings-service/src/interfaces/http/bookings/bookings.controller.ts` y `apps/bookings-service/src/interfaces/openapi/bookings.openapi.ts` (depends on T062,T066,T068)
 
 **Checkpoint**: RQ-09 técnicamente listo contra policy fixture/Payments stub; política productiva y Payments real bloquean el cierre externo.
 
@@ -142,14 +142,14 @@
 
 **Independent Test**: dos owners con fixtures distintas solo ven/modifican las propias; filtros son deterministas y cancelación OWNER exige razón.
 
-- [ ] T070 [P] [US4] Escribir pruebas fallidas de query `ownerId=principal.sub`, filtros fecha/estado/guestId, page >=1, pageSize 1–100 y orden `createdAt DESC,id DESC` en `apps/bookings-service/test/integration/owner-history.spec.ts`
-- [ ] T071 [P] [US4] Escribir contratos fallidos de `GET /bookings/history` y DELETE OWNER con reason 1–500 en `apps/bookings-service/test/contract/owner-bookings.contract.spec.ts`
-- [ ] T072 [P] [US4] Escribir seguridad multi-owner: aislamiento, 404 ajeno, razón ausente 400 y ADMIN sin capacidad nueva en `apps/bookings-service/test/security/owner-bookings-authorization.spec.ts`
-- [ ] T073 [US4] Implementar query Prisma indexada y conteo/página determinista en `apps/bookings-service/src/infrastructure/persistence/prisma/owner-booking-history.query.ts` (depends on T019,T070)
-- [ ] T074 [US4] Implementar `GetOwnerBookingHistoryUseCase` sin consultar Accommodations en `apps/bookings-service/src/application/owner-history/get-owner-booking-history.use-case.ts` (depends on T073)
-- [ ] T075 [US4] Implementar `CancelOwnerBookingUseCase` con owner snapshot, reason obligatoria, policyVersion auditada y refundMode FULL en `apps/bookings-service/src/application/cancel-booking/cancel-owner-booking.use-case.ts` (depends on T065,T068,T072)
-- [ ] T076 [US4] Implementar endpoint history y selección GUEST/OWNER del comando DELETE en `apps/bookings-service/src/interfaces/http/bookings/bookings.controller.ts` (depends on T071,T074–T075)
-- [ ] T077 [US4] Sincronizar presenters/Swagger de historial/cancelación OWNER en `apps/bookings-service/src/interfaces/http/bookings/booking-page.presenter.ts` y `apps/bookings-service/src/interfaces/openapi/bookings.openapi.ts` (depends on T076)
+- [x] T070 [P] [US4] Escribir pruebas fallidas de query `ownerId=principal.sub`, filtros fecha/estado/guestId, page >=1, pageSize 1–100 y orden `createdAt DESC,id DESC` en `apps/bookings-service/test/integration/owner-history.spec.ts`
+- [x] T071 [P] [US4] Escribir contratos fallidos de `GET /bookings/history` y DELETE OWNER con reason 1–500 en `apps/bookings-service/test/contract/owner-bookings.contract.spec.ts`
+- [x] T072 [P] [US4] Escribir seguridad multi-owner: aislamiento, 404 ajeno, razón ausente 400 y ADMIN sin capacidad nueva en `apps/bookings-service/test/security/owner-bookings-authorization.spec.ts`
+- [x] T073 [US4] Implementar query Prisma indexada y conteo/página determinista en `apps/bookings-service/src/infrastructure/persistence/prisma/owner-booking-history.query.ts` (depends on T019,T070)
+- [x] T074 [US4] Implementar `GetOwnerBookingHistoryUseCase` sin consultar Accommodations en `apps/bookings-service/src/application/owner-history/get-owner-booking-history.use-case.ts` (depends on T073)
+- [x] T075 [US4] Implementar `CancelOwnerBookingUseCase` con owner snapshot, reason obligatoria, policyVersion auditada y refundMode FULL en `apps/bookings-service/src/application/cancel-booking/cancel-owner-booking.use-case.ts` (depends on T065,T068,T072)
+- [x] T076 [US4] Implementar endpoint history y selección GUEST/OWNER del comando DELETE en `apps/bookings-service/src/interfaces/http/bookings/bookings.controller.ts` (depends on T071,T074–T075)
+- [x] T077 [US4] Sincronizar presenters/Swagger de historial/cancelación OWNER en `apps/bookings-service/src/interfaces/http/bookings/booking-page.presenter.ts` y `apps/bookings-service/src/interfaces/openapi/bookings.openapi.ts` (depends on T076)
 - [ ] T078 [US4] Ejecutar suite RQ-08/RQ-10 con PostgreSQL real y registrar evidencia aislada en `specs/003-reservas-pagos-resenas/booking_service/quickstart.md` (depends on T070–T077)
 
 **Checkpoint**: RQ-08 y RQ-10 funcionan contra snapshots locales y Payments contractual.
@@ -162,16 +162,16 @@
 
 **Independent Test**: solo OWNER relacionado transiciona CONFIRMED→CHECKED_IN→COMPLETED; endpoint/evento responde elegible únicamente al GUEST/property correctos.
 
-- [ ] T079 [P] [US5] Escribir pruebas fallidas de estados/ownership/fechas para check-in y check-out básico en `apps/bookings-service/test/unit/stay-lifecycle.spec.ts`
-- [ ] T080 [P] [US5] Escribir contrato fallido para POST check-in/check-out y GET review-eligibility con service scope separado en `apps/bookings-service/test/contract/stay-review-eligibility.contract.spec.ts`
-- [ ] T081 [P] [US5] Crear fixture provider estable de `booking.v1.completed` y respuesta eligibility para entrega al equipo Reviews en `apps/bookings-service/test/fixtures/reviews-handoff.fixture.ts` y `apps/bookings-service/test/fixtures/REVIEWS-HANDOFF.md`
-- [ ] T082 [P] [US5] Escribir integración de transiciones, evento Outbox y elegibilidad positiva/negativa en `apps/bookings-service/test/integration/stay-lifecycle.spec.ts`
-- [ ] T083 [US5] Implementar `CheckInBookingUseCase` y `CheckOutBookingUseCase` con OWNER snapshot y máquina de estados en `apps/bookings-service/src/application/stay-lifecycle/check-in-booking.use-case.ts` y `apps/bookings-service/src/application/stay-lifecycle/check-out-booking.use-case.ts` (depends on T079,T082)
-- [ ] T084 [US5] Implementar controllers POST check-in/check-out sin no-show ni reglas avanzadas en `apps/bookings-service/src/interfaces/http/bookings/stay-lifecycle.controller.ts` (depends on T080,T083)
-- [ ] T085 [US5] Implementar `GetReviewEligibilityUseCase` que exige booking COMPLETED y coincidencia guestId en `apps/bookings-service/src/application/stay-lifecycle/get-review-eligibility.use-case.ts` (depends on T080,T082)
-- [ ] T086 [US5] Implementar controller interno con audience/scope de Reviews y no-disclosure 404 en `apps/bookings-service/src/interfaces/http/internal/review-eligibility.controller.ts` (depends on T023,T085)
-- [ ] T087 [US5] Publicar `booking.v1.completed` desde la misma UoW del check-out con payload mínimo bookingId/guestId/propertyId en `apps/bookings-service/src/infrastructure/persistence/prisma/stay-lifecycle.unit-of-work.ts` (depends on T049,T083)
-- [ ] T088 [US5] Sincronizar Swagger/JSON Schema, ejecutar provider tests y congelar handoff consumible sin cambios internos por Reviews en `apps/bookings-service/test/contract/reviews-provider.contract.spec.ts` y `specs/003-reservas-pagos-resenas/booking_service/contracts/booking-payment-events-v1.schema.json` (depends on T081,T084,T086–T087)
+- [x] T079 [P] [US5] Escribir pruebas fallidas de estados/ownership/fechas para check-in y check-out básico en `apps/bookings-service/test/unit/stay-lifecycle.spec.ts`
+- [x] T080 [P] [US5] Escribir contrato fallido para POST check-in/check-out y GET review-eligibility con service scope separado en `apps/bookings-service/test/contract/stay-review-eligibility.contract.spec.ts`
+- [x] T081 [P] [US5] Crear fixture provider estable de `booking.v1.completed` y respuesta eligibility para entrega al equipo Reviews en `apps/bookings-service/test/fixtures/reviews-handoff.fixture.ts` y `apps/bookings-service/test/fixtures/REVIEWS-HANDOFF.md`
+- [x] T082 [P] [US5] Escribir integración de transiciones, evento Outbox y elegibilidad positiva/negativa en `apps/bookings-service/test/integration/stay-lifecycle.spec.ts`
+- [x] T083 [US5] Implementar `CheckInBookingUseCase` y `CheckOutBookingUseCase` con OWNER snapshot y máquina de estados en `apps/bookings-service/src/application/stay-lifecycle/check-in-booking.use-case.ts` y `apps/bookings-service/src/application/stay-lifecycle/check-out-booking.use-case.ts` (depends on T079,T082)
+- [x] T084 [US5] Implementar controllers POST check-in/check-out sin no-show ni reglas avanzadas en `apps/bookings-service/src/interfaces/http/bookings/stay-lifecycle.controller.ts` (depends on T080,T083)
+- [x] T085 [US5] Implementar `GetReviewEligibilityUseCase` que exige booking COMPLETED y coincidencia guestId en `apps/bookings-service/src/application/stay-lifecycle/get-review-eligibility.use-case.ts` (depends on T080,T082)
+- [x] T086 [US5] Implementar controller interno con audience/scope de Reviews y no-disclosure 404 en `apps/bookings-service/src/interfaces/http/internal/review-eligibility.controller.ts` (depends on T023,T085)
+- [x] T087 [US5] Publicar `booking.v1.completed` desde la misma UoW del check-out con payload mínimo bookingId/guestId/propertyId en `apps/bookings-service/src/infrastructure/persistence/prisma/stay-lifecycle.unit-of-work.ts` (depends on T049,T083)
+- [x] T088 [US5] Sincronizar Swagger/JSON Schema, ejecutar provider tests y congelar handoff consumible sin cambios internos por Reviews en `apps/bookings-service/test/contract/reviews-provider.contract.spec.ts` y `specs/003-reservas-pagos-resenas/booking_service/contracts/booking-payment-events-v1.schema.json` (depends on T081,T084,T086–T087)
 
 **Checkpoint**: Reviews puede consumir contrato/fixtures en paralelo; integración real no requiere compartir tablas ni imports.
 
@@ -179,17 +179,17 @@
 
 ## Phase 8: Polish, integración y gates transversales
 
-- [ ] T089 [P] Añadir `bookings-db`, `bookings-migrate`, `bookings-service`, secretos, redes, healthchecks y `restart: always` en `docker-compose.yml` y `.env.example`
-- [ ] T090 [P] Añadir gates build/lint/typecheck/unit/integration/contract/security/concurrency/OpenAPI/imagen en `.github/workflows/ci.yml`
-- [ ] T091 [P] Implementar validador OpenAPI/JSON Schema y drift generado↔fuente en `scripts/validate-bookings-contracts.mjs` y `apps/bookings-service/test/contract/openapi-drift.spec.ts`
-- [ ] T092 [P] Ejecutar hardening de JWT, header spoofing, DTO cerrado, SQL injection, PII/log redaction y códigos seguros en `apps/bookings-service/test/security/bookings-security.spec.ts`
-- [ ] T093 [P] Crear dataset reproducible y gate p95 <500 ms para detalle/historial, registrando entorno y errores <1 %, en `apps/bookings-service/test/performance/bookings-performance.spec.ts` y `apps/bookings-service/test/fixtures/performance-dataset.ts`
-- [ ] T094 Crear E2E aislado create→payment.confirmed→check-in→check-out y cancelaciones/refunds con colaboradores contractuales en `apps/bookings-service/test/e2e/bookings-isolated.e2e-spec.ts` (depends on T054,T060,T069,T078,T088)
+- [x] T089 [P] Añadir `bookings-db`, `bookings-migrate`, `bookings-service`, secretos, redes, healthchecks y `restart: always` en `docker-compose.yml` y `.env.example`
+- [x] T090 [P] Añadir gates build/lint/typecheck/unit/integration/contract/security/concurrency/OpenAPI/imagen en `.github/workflows/ci.yml`
+- [x] T091 [P] Implementar validador OpenAPI/JSON Schema y drift generado↔fuente en `scripts/validate-bookings-contracts.mjs` y `apps/bookings-service/test/contract/openapi-drift.spec.ts`
+- [x] T092 [P] Ejecutar hardening de JWT, header spoofing, DTO cerrado, SQL injection, PII/log redaction y códigos seguros en `apps/bookings-service/test/security/bookings-security.spec.ts`
+- [x] T093 [P] Crear dataset reproducible y gate p95 <500 ms para detalle/historial, registrando entorno y errores <1 %, en `apps/bookings-service/test/performance/bookings-performance.spec.ts` y `apps/bookings-service/test/fixtures/performance-dataset.ts`
+- [x] T094 Crear E2E aislado create→payment.confirmed→check-in→check-out y cancelaciones/refunds con colaboradores contractuales en `apps/bookings-service/test/e2e/bookings-isolated.e2e-spec.ts` (depends on T054,T060,T069,T078,T088)
 - [ ] T095 Ejecutar provider-consumer e integración real Bookings→Accommodations quote en `apps/bookings-service/test/contract/accommodations-provider.contract.spec.ts` y `apps/bookings-service/test/e2e/bookings-accommodations.e2e-spec.ts` (depends on T040,T054; external dependency: endpoint quote y Compose de accommodations-service)
 - [ ] T096 Ejecutar integración real Bookings↔Payments para orden, confirmación, fallo y refund sin duplicados en `apps/bookings-service/test/contract/payments-provider.contract.spec.ts` y `apps/bookings-service/test/e2e/bookings-payments.e2e-spec.ts` (depends on T046–T052,T067–T068; external dependency: payments-service)
 - [ ] T097 Ejecutar integración Gateway↔Bookings para rutas, identidad, roles, rate limit y Problem Details en `apps/bookings-service/test/e2e/gateway-bookings.e2e-spec.ts` (depends on T054,T060,T069,T077,T084; external dependency: API Gateway routing)
 - [ ] T098 Ejecutar provider-consumer Bookings↔Reviews usando solo eligibility/evento y sin DB compartida en `apps/bookings-service/test/contract/reviews-provider.contract.spec.ts` y `apps/bookings-service/test/e2e/bookings-reviews.e2e-spec.ts` (depends on T088; external dependency: review_service consumer)
-- [ ] T099 [P] Implementar shutdown ordenado de HTTP/workers/RabbitMQ/Prisma y probar SIGTERM, no-root y filesystem read-only en `apps/bookings-service/src/infrastructure/lifecycle/graceful-shutdown.ts` y `apps/bookings-service/test/contract/shutdown.contract.spec.ts`
+- [x] T099 [P] Implementar shutdown ordenado de HTTP/workers/RabbitMQ/Prisma y probar SIGTERM, no-root y filesystem read-only en `apps/bookings-service/src/infrastructure/lifecycle/graceful-shutdown.ts` y `apps/bookings-service/test/contract/shutdown.contract.spec.ts`
 - [ ] T100 Ejecutar todos los escenarios de `quickstart.md` y registrar comandos/exit codes/evidencia real, distinguiendo stubs de integración, en `specs/003-reservas-pagos-resenas/booking_service/quickstart.md` (depends on T089–T099)
 - [ ] T101 Auditar trazabilidad RQ-07–RQ-10/RQ-11 parcial, cobertura >=70 %, contratos, Compose, CI, revisión humana y tareas externas no simuladas en `specs/003-reservas-pagos-resenas/booking_service/validation-report.md` (depends on T100)
 

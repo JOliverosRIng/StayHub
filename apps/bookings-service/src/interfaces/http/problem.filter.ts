@@ -2,7 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from
 import type { Response } from 'express';
 import { DomainError } from '@bookings/domain/shared/domain-error';
 
-const statusByCode: Readonly<Record<string, number>> = { VALIDATION_ERROR: 400, IDEMPOTENCY_CONFLICT: 409, IDEMPOTENCY_IN_PROGRESS: 409, BOOKING_CONFLICT: 409, ACCOMMODATION_CONFLICT: 409, DEPENDENCY_UNAVAILABLE: 503, SERVICE_CREDENTIALS_UNAVAILABLE: 503, STATE_CONFLICT: 409, NOT_FOUND: 404, ACCOMMODATION_NOT_FOUND: 404, FORBIDDEN: 403 };
+const statusByCode: Readonly<Record<string, number>> = { VALIDATION_ERROR: 400, IDEMPOTENCY_CONFLICT: 409, IDEMPOTENCY_IN_PROGRESS: 409, BOOKING_CONFLICT: 409, ACCOMMODATION_CONFLICT: 409, DEPENDENCY_UNAVAILABLE: 503, SERVICE_CREDENTIALS_UNAVAILABLE: 503, STATE_CONFLICT: 409, CANCELLATION_NOT_ALLOWED: 409, NOT_FOUND: 404, ACCOMMODATION_NOT_FOUND: 404, FORBIDDEN: 403 };
 export function domainProblemStatus(code: string): number { return statusByCode[code] ?? 400; }
 
 @Catch()
