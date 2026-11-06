@@ -6,7 +6,7 @@ import { parse } from 'yaml';
  * GW-055 — Validador de deriva (drift) del contrato público del Sprint 1.
  *
  * Verifica, sobre `openapi-public.yaml`, que:
- *  - Están presentes EXACTAMENTE las 7 operaciones públicas (register, login, refresh, validate,
+ *  - Están presentes EXACTAMENTE las 8 operaciones públicas (register, login, refresh, validate,
  *    GET/PATCH perfil, GET foto) con su `operationId` estable, y ninguna operación extra.
  *  - Toda operación está documentada: tiene al menos un estado 2xx y cada estado de error (>=400)
  *    se expresa como Problem Details (`application/problem+json`).
@@ -27,9 +27,10 @@ const DEFAULT_CONTRACT = new URL(
   import.meta.url,
 );
 
-/** Las 7 operaciones públicas del Sprint 1. El `operationId` es el identificador estable del contrato. */
+/** Las 8 operaciones públicas del Sprint 1. El `operationId` es el identificador estable del contrato. */
 export const PUBLIC_OPERATIONS = [
   { path: '/auth/register', method: 'post', operationId: 'register' },
+  { path: '/auth/logout', method: 'post', operationId: 'logout' },
   { path: '/auth/login', method: 'post', operationId: 'login' },
   { path: '/auth/refresh', method: 'post', operationId: 'refresh' },
   { path: '/auth/validate', method: 'get', operationId: 'validateAccess' },
@@ -82,7 +83,7 @@ export function validatePublicOpenApi(document, raw) {
 function validateOperations(document, problems) {
   const paths = document?.paths ?? {};
 
-  // No debe existir ninguna operación pública fuera de las 7 declaradas.
+  // No debe existir ninguna operación pública fuera de las 8 declaradas.
   const expected = new Set(PUBLIC_OPERATIONS.map((op) => `${op.method.toUpperCase()} ${op.path}`));
   for (const [path, item] of Object.entries(paths)) {
     for (const method of Object.keys(item ?? {})) {
@@ -168,7 +169,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  process.stdout.write('Public OpenAPI is consistent, documents the 7 operations and carries no secrets\n');
+  process.stdout.write('Public OpenAPI is consistent, documents the 8 operations and carries no secrets\n');
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

@@ -61,6 +61,7 @@ export function RegisterApiDocs(): MethodDecorator & ClassDecorator {
     ApiTags(REGISTER_TAG),
     ApiOperation({
       operationId: REGISTER_OPERATION_ID,
+      security: [],
       summary: 'Register a new GUEST or OWNER account',
     }),
     ApiHeader({

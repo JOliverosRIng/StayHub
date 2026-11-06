@@ -5,7 +5,9 @@
   "workspaces": [
     "apps/auth-service",
     "apps/users-service",
-    "apps/search-service"
+    "apps/search-service",
+    "apps/api-gateway",
+    "apps/web"
   ],
   "engines": {
     "node": ">=20 <21"
@@ -56,10 +58,20 @@
     "prisma:search:generate": "npm run prisma:generate --workspace @stayhub/search-service",
     "prisma:search:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/search-service",
     "prisma:search:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/search-service",
-    "build": "npm run build:auth && npm run build:users && npm run build:search",
-    "lint": "npm run lint:auth && npm run lint:users && npm run lint:search",
-    "typecheck": "npm run typecheck:auth && npm run typecheck:users && npm run typecheck:search",
-    "test": "npm run test:auth && npm run test:users && npm run test:search"
+    "build": "npm run build:auth && npm run build:users && npm run build:gateway && npm run build:web && npm run build:search",
+    "lint": "npm run lint:auth && npm run lint:users && npm run lint:gateway && npm run lint:web && npm run lint:search",
+    "typecheck": "npm run typecheck:auth && npm run typecheck:users && npm run typecheck:gateway && npm run typecheck:web && npm run typecheck:search",
+    "test": "npm run test:auth && npm run test:users && npm run test:gateway && npm run test:web && npm run test:search",
+    "build:gateway": "npm run build --workspace @stayhub/api-gateway",
+    "lint:gateway": "npm run lint --workspace @stayhub/api-gateway",
+    "typecheck:gateway": "npm run typecheck --workspace @stayhub/api-gateway",
+    "test:gateway": "npm run test --workspace @stayhub/api-gateway",
+    "build:web": "npm run build --workspace @stayhub/web",
+    "lint:web": "npm run lint --workspace @stayhub/web",
+    "typecheck:web": "npm run typecheck --workspace @stayhub/web",
+    "test:web": "npm run test --workspace @stayhub/web",
+    "dev:gateway": "node scripts/dev-gateway.mjs",
+    "env:web:https": "node scripts/setup-web-https.mjs"
   },
   "devDependencies": {
     "eslint-plugin-react-hooks": "^5.2.0",

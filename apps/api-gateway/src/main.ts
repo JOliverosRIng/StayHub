@@ -6,6 +6,7 @@ import { Logger, type INestApplication, type Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module';
+import { mountPublicSwagger } from './interfaces/openapi/openapi.factory';
 import { loadGatewayConfig, type GatewayConfig } from './infrastructure/config/gateway-config';
 import { GatewayLogger } from './infrastructure/observability/gateway-logger';
 import { startTelemetry } from './infrastructure/observability/otel';
@@ -35,6 +36,7 @@ export async function createGatewayApp(
   });
   app.useLogger(new GatewayLogger());
   app.setGlobalPrefix(config.apiPrefix, { exclude: [...HEALTH_PREFIX_EXCLUDE] });
+  mountPublicSwagger(app, config, config.environment);
   return app;
 }
 

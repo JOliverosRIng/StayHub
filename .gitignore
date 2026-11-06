@@ -16,6 +16,6 @@ Thumbs.db
 apps/*/prisma/*.db
 apps/*/generated/
 apps/*/src/infrastructure/persistence/generated/
-secrets/
+dsecrets/
 .artifacts/
 AGENT.md

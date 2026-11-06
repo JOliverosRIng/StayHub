@@ -56,6 +56,19 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '503': { $ref: '#/components/responses/Unavailable' }
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      operationId: logout
+      security: []
+      description: Clears browser refresh cookie. Does not revoke issued tokens or the Auth session.
+      responses:
+        '204':
+          description: Refresh cookie removed, including when already absent.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: Expired Secure HttpOnly refresh cookie with the original path and SameSite policy.
   /auth/refresh:
     post:
       tags: [Authentication]

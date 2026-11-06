@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Button } from '../components/Button';
+import { ApiError, type RegisterRequest } from '../api/identity';
 import { useAuth } from '../context/AuthContext';
 
 interface RegisterProps {
   onNavigate: (page: string) => void;
-  onSuccess: () => void;
+  onSuccess: (email: string) => void;
 }
 
 interface FormErrors {
@@ -12,15 +13,19 @@ interface FormErrors {
   email?: string;
   password?: string;
   confirm?: string;
+  role?: string;
   general?: string;
 }
 
-function validate(name: string, email: string, password: string, confirm: string): FormErrors {
+function validate(name: string, email: string, password: string, confirm: string, role: string): FormErrors {
   const errs: FormErrors = {};
-  if (!name.trim()) errs.name = 'El nombre es obligatorio';
-  if (!email) errs.email = 'El correo es obligatorio';
+  if (name.trim().length < 2 || name.trim().length > 100) errs.name = 'El nombre debe tener entre 2 y 100 caracteres';
+  if (!['GUEST', 'OWNER'].includes(role)) errs.role = 'Selecciona huésped o propietario';
+  if (email.length > 254) errs.email = 'El correo admite hasta 254 caracteres';
+  else if (!email) errs.email = 'El correo es obligatorio';
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = 'Ingresa un correo válido';
   if (!password) errs.password = 'La contraseña es obligatoria';
+  else if (password.length > 128) errs.password = 'La contraseña admite hasta 128 caracteres';
   else if (password.length < 8) errs.password = 'La contraseña debe tener mínimo 8 caracteres';
   if (!confirm) errs.confirm = 'Confirma tu contraseña';
   else if (confirm !== password) errs.confirm = 'Las contraseñas no coinciden';
@@ -29,29 +34,33 @@ function validate(name: string, email: string, password: string, confirm: string
 
 export function Register({ onNavigate, onSuccess }: RegisterProps) {
   const { register } = useAuth();
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '', role: '' });
   const [showPass, setShowPass] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    attempt.current = undefined;
     setForm((f) => ({ ...f, [k]: e.target.value }));
     setErrors((p) => ({ ...p, [k]: undefined, general: undefined }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const submitting = useRef(false);
+  const attempt = useRef<string>();
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errs = validate(form.name, form.email, form.password, form.confirm);
+    if (submitting.current) return;
+    const errs = validate(form.name, form.email.trim(), form.password, form.confirm, form.role);
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
-    setLoading(true);
-    const result = register(form.name, form.email, form.password);
-    setLoading(false);
-    if (!result.success) {
-      setErrors({ general: result.error });
-    } else {
-      onSuccess();
-    }
+    submitting.current = true; setLoading(true);
+    attempt.current ??= crypto.randomUUID();
+    try {
+      await register({ name: form.name.trim(), email: form.email.trim(), password: form.password, role: form.role as RegisterRequest['role'] }, attempt.current);
+      onSuccess(form.email.trim());
+    } catch (error) {
+      setErrors({ general: error instanceof ApiError ? error.message : 'No pudimos crear la cuenta.' });
+    } finally { submitting.current = false; setLoading(false); }
   };
 
   const field = (id: keyof typeof form) =>
@@ -82,82 +91,72 @@ export function Register({ onNavigate, onSuccess }: RegisterProps) {
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Crea tu cuenta en StayHub</h1>
           <p className="text-sm text-gray-500 mb-7">Todo destino que sueñas comienza con una sola búsqueda.</p>
 
-          <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
+          <form aria-busy={loading} className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
             {errors.general && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">
+              <div role="alert" className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">
                 {errors.general}
               </div>
             )}
 
             {/* Name */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">Nombre completo</label>
-              <input type="text" value={form.name} onChange={set('name')} placeholder="Carlos Martínez" className={field('name')} />
-              {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
+              <label htmlFor="register-name" className="text-sm font-medium text-gray-700">Nombre completo</label>
+              <input type="text" id="register-name" disabled={loading} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'error-name' : undefined} value={form.name} onChange={set('name')} placeholder="Carlos Martínez" className={field('name')} />
+              {errors.name && <p id="error-name" role="alert" className="text-xs text-red-500">{errors.name}</p>}
             </div>
 
             {/* Email */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">Correo electrónico</label>
-              <input type="email" value={form.email} onChange={set('email')} placeholder="carlos@email.com" className={field('email')} />
-              {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
+              <label htmlFor="register-email" className="text-sm font-medium text-gray-700">Correo electrónico</label>
+              <input type="email" id="register-email" disabled={loading} aria-invalid={!!errors.email} aria-describedby={errors.email ? 'error-email' : undefined} value={form.email} onChange={set('email')} placeholder="carlos@email.com" className={field('email')} />
+              {errors.email && <p id="error-email" role="alert" className="text-xs text-red-500">{errors.email}</p>}
             </div>
 
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="register-role" className="text-sm font-medium text-gray-700">Tipo de cuenta</label>
+              <select id="register-role" value={form.role} onChange={set('role')} disabled={loading} aria-invalid={!!errors.role} aria-describedby={errors.role ? 'error-role' : undefined} className={field('role')}>
+                <option value="">Selecciona una opción</option><option value="GUEST">Huésped</option><option value="OWNER">Propietario</option>
+              </select>
+              {errors.role && <p id="error-role" role="alert" className="text-xs text-red-500">{errors.role}</p>}
+            </div>
             {/* Password */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">Contraseña</label>
+              <label htmlFor="register-password" className="text-sm font-medium text-gray-700">Contraseña</label>
               <div className="relative">
                 <input
                   type={showPass ? 'text' : 'password'}
-                  value={form.password}
+                  id="register-password" disabled={loading} aria-invalid={!!errors.password} aria-describedby={errors.password ? 'error-password' : undefined} value={form.password}
                   onChange={set('password')}
                   placeholder="Mínimo 8 caracteres"
                   className={field('password') + ' pr-11'}
                 />
-                <button type="button" onClick={() => setShowPass((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <button type="button" aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'} onClick={() => setShowPass((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                   {showPass
                     ? <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
                     : <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                   }
                 </button>
               </div>
-              {errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
+              {errors.password && <p id="error-password" role="alert" className="text-xs text-red-500">{errors.password}</p>}
             </div>
 
             {/* Confirm */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">Confirmar contraseña</label>
+              <label htmlFor="register-confirm" className="text-sm font-medium text-gray-700">Confirmar contraseña</label>
               <input
                 type={showPass ? 'text' : 'password'}
-                value={form.confirm}
+                id="register-confirm" disabled={loading} aria-invalid={!!errors.confirm} aria-describedby={errors.confirm ? 'error-confirm' : undefined} value={form.confirm}
                 onChange={set('confirm')}
                 placeholder="Repite tu contraseña"
                 className={field('confirm')}
               />
-              {errors.confirm && <p className="text-xs text-red-500">{errors.confirm}</p>}
+              {errors.confirm && <p id="error-confirm" role="alert" className="text-xs text-red-500">{errors.confirm}</p>}
             </div>
 
             <Button type="submit" variant="primary" size="lg" fullWidth loading={loading} className="mt-2">
               Crear cuenta en StayHub →
             </Button>
           </form>
-
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs text-gray-400 font-medium">O regístrate con</span>
-            <div className="flex-1 h-px bg-gray-200" />
-          </div>
-
-          <div className="flex gap-3">
-            <Button variant="social" size="md" fullWidth>
-              <svg viewBox="0 0 24 24" className="w-4 h-4"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
-              Google
-            </Button>
-            <Button variant="social" size="md" fullWidth>
-              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-gray-900"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" /></svg>
-              Apple
-            </Button>
-          </div>
 
           <p className="mt-6 text-center text-sm text-gray-500">
             Al registrarte aceptas nuestros{' '}
