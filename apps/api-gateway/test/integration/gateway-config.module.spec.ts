@@ -118,7 +118,7 @@ describe('GatewayConfigModule fail-fast (GW-009)', () => {
     apply();
     const module = await Test.createTestingModule({ imports: [GatewayConfigModule] }).compile();
     const config = module.get<GatewayConfig>(GATEWAY_CONFIG);
-    expect(config.tls.minVersion).toBe('TLSv1.3');
+    expect(config.tls?.minVersion).toBe('TLSv1.3');
     expect(config.serviceJwt.privateKey).toBe(
       '-----BEGIN PRIVATE KEY-----\nservice\n-----END PRIVATE KEY-----',
     );

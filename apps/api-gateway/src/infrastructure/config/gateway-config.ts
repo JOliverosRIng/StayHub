@@ -46,7 +46,7 @@ export interface GatewayConfig {
   readonly environment: 'development' | 'test' | 'production';
   readonly port: 8080;
   readonly apiPrefix: '/api/v1';
-  readonly tls: TlsConfig;
+  readonly tls: TlsConfig | null;
   readonly authBaseUrl: string;
   readonly usersBaseUrl: string;
   readonly userJwt: UserJwtConfig;
@@ -74,13 +74,17 @@ export function loadGatewayConfig(
   if (!['development', 'test', 'production'].includes(nodeEnvironment)) {
     throw new Error('NODE_ENV must be development, test, or production');
   }
+  const protocol = optional(environment, 'GATEWAY_PROTOCOL', 'https');
+  if (protocol !== 'https' && (protocol !== 'http' || nodeEnvironment !== 'development')) {
+    throw new Error('GATEWAY_PROTOCOL must be https or http in development');
+  }
   const swaggerServerUrl = optionalString(environment, 'GATEWAY_SWAGGER_SERVER_URL');
 
   return {
     environment: nodeEnvironment as GatewayConfig['environment'],
     port: exactInteger(environment, 'GATEWAY_PORT', 8080),
     apiPrefix: exactString(environment, 'GATEWAY_API_PREFIX', '/api/v1'),
-    tls: {
+    tls: protocol === 'http' ? null : {
       certFile: readableFile(environment, 'GATEWAY_TLS_CERT_FILE', readFile),
       keyFile: readableFile(environment, 'GATEWAY_TLS_KEY_FILE', readFile),
       minVersion: tlsMinVersion(environment, 'GATEWAY_TLS_MIN_VERSION'),

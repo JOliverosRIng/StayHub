@@ -6,8 +6,8 @@ import { GATEWAY_CONFIG, type GatewayConfig } from '@gateway/infrastructure/conf
 /**
  * GW-037 — Servicio de la cookie de refresh (FR-010, FR-024).
  *
- * Emite el refresh token como cookie `Secure`, `HttpOnly`, `SameSite=Strict` con path restringido
- * únicamente a la ruta de refresh, de modo que no viaja con el resto del sitio. Ofrece `set`,
+ * Emite el refresh token como cookie `HttpOnly`, `SameSite=Strict` con path restringido
+ * únicamente a la ruta de refresh, con `Secure` cuando el Gateway usa TLS, de modo que no viaja con el resto del sitio. Ofrece `set`,
  * `rotate` (nuevo valor que reemplaza al anterior en cada renovación) y `clear` (logout, rotación
  * o reutilización). El token viaja SOLO en la cookie: este servicio nunca lo escribe en el cuerpo
  * de la respuesta ni lo registra, respetando la redacción de GW-012 (que además redacta `cookie`,
@@ -21,8 +21,10 @@ const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // Límite absoluto de sesi�
 @Injectable()
 export class RefreshCookieService {
   private readonly path: string;
+  private readonly secure: boolean;
 
   public constructor(@Inject(GATEWAY_CONFIG) config: GatewayConfig) {
+    this.secure = config.tls !== null;
     this.path = `${config.apiPrefix}/auth/refresh`;
   }
 
@@ -44,7 +46,7 @@ export class RefreshCookieService {
   private attributes(maxAge?: number): CookieOptions {
     return {
       httpOnly: true,
-      secure: true,
+      secure: this.secure,
       sameSite: 'strict',
       path: this.path,
       ...(maxAge === undefined ? {} : { maxAge }),
