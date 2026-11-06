@@ -1,0 +1,10 @@
+const { readFileSync } = require('node:fs');
+const { resolve } = require('node:path');
+const { spawnSync } = require('node:child_process');
+const root = resolve(__dirname, '..');
+const env = { ...process.env };
+if (env.ACCOMMODATIONS_DATABASE_URL_FILE) env.ACCOMMODATIONS_DATABASE_URL = readFileSync(env.ACCOMMODATIONS_DATABASE_URL_FILE, 'utf8').trim();
+const url = new URL(env.ACCOMMODATIONS_DATABASE_URL);
+if (url.pathname !== '/accommodations_db') throw new Error('Accommodations migrations require accommodations_db');
+const result = spawnSync(process.execPath, [resolve(root, 'node_modules/prisma/build/index.js'), 'migrate', 'deploy', '--schema', resolve(root, 'prisma/schema.prisma')], { env, stdio: 'inherit' });
+process.exitCode = result.status ?? 1;

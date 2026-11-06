@@ -88,7 +88,10 @@ function run(program, args, extra = {}) {
   const isNpm = (program === 'npm' || program === 'npx') && npmCli;
   const executable = isNpm ? process.execPath : program;
   const commandArgs = isNpm ? [npmCli, ...(program === 'npx' ? ['exec', '--'] : []), ...args] : args;
-  const result = spawnSync(executable, commandArgs, { stdio: 'inherit', cwd: ROOT, ...extra });
+  const needsShell = process.platform === 'win32' && !isNpm &&
+    (program === 'npm' || program === 'npx' || /\.(cmd|bat)$/i.test(program));
+  const result = spawnSync(executable, commandArgs, { stdio: 'inherit', cwd: ROOT, shell: needsShell, ...extra });
+  if (result.error) throw new Error(`${program} ${args.join(' ')} failed: ${result.error.message}`);
   if (result.status !== 0) throw new Error(`${program} ${args.join(' ')} failed with status ${result.status}`);
 }
 

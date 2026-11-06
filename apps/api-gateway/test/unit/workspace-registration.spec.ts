@@ -20,8 +20,8 @@ const GATEWAY_LAYER_ALIASES = [
 ] as const;
 
 describe('Registro del workspace api-gateway (GW-001, GW-003)', () => {
-  it('el workspace raiz declara apps/* para que G2 entre sin editar package.json', () => {
-    expect(rootPackage.workspaces).toEqual(['apps/*']);
+  it('registra los servicios integrados y mantiene alojamientos como paquete independiente', () => {
+    expect(rootPackage.workspaces).toEqual(['apps/auth-service', 'apps/users-service', 'apps/search-service', 'apps/api-gateway', 'apps/web']);
   });
 
   it('expone scripts con espacio de nombres para el gateway', () => {
@@ -33,9 +33,9 @@ describe('Registro del workspace api-gateway (GW-001, GW-003)', () => {
   });
 
   it('los agregados de raiz ejecutan gateway y auth', () => {
-    expect(rootScripts.build).toBe('npm run build:auth && npm run build:users && npm run build:gateway && npm run build:web');
+    expect(rootScripts.build).toBe('npm run build:auth && npm run build:users && npm run build:gateway && npm run build:web && npm run build:search');
     expect(rootScripts.typecheck).toBe(
-      'npm run typecheck:auth && npm run typecheck:users && npm run typecheck:gateway && npm run typecheck:web',
+      'npm run typecheck:auth && npm run typecheck:users && npm run typecheck:gateway && npm run typecheck:web && npm run typecheck:search',
     );
   });
 
