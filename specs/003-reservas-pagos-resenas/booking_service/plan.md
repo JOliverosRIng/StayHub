@@ -7,10 +7,10 @@
 
 ## Estado de implementación — corte 2026-11-05
 
-- Completadas y verificadas **T001–T077, T079–T094 y T099 (94/101)**: Setup, Foundation, US1–US5, gates de contratos/seguridad/rendimiento, E2E aislado y shutdown ordenado.
+- Completadas y verificadas **T001–T078 y T079–T101 salvo integraciones externas (98/101)**: Setup, Foundation, US1–US5, evidencia PostgreSQL real, cobertura 74.32 %, contratos, Compose/CI, E2E aislado, rendimiento y shutdown ordenado.
 - Evidencia local: lint, typecheck y build; migración real PostgreSQL 16; concurrencia GiST, idempotencia y saga; 60 pruebas unitarias/contrato/seguridad/integración/concurrencia; arranque con readiness/liveness/Swagger; imagen Docker reproducible.
-- La integración real con `accommodations-service`, `payments-service`, Gateway y RabbitMQ compartido continúa explícitamente fuera de este corte y permanece en T095–T097/T100–T101. No se considera E2E externo completado.
-- Pendientes **T078, T095–T098 y T100–T101**: evidencia PostgreSQL real, integraciones externas (Accommodations, Payments, Gateway, Reviews), quickstart real y auditoría final con cobertura. Las integraciones PostgreSQL de US2–US5, E2E y rendimiento quedan escritas y se ejecutarán en CI con `BOOKINGS_TEST_DATABASE_URL`; el entorno local sin Docker las omitió. Ver `validation-report.md`.
+- La integración real con `accommodations-service`, `payments-service`, API Gateway y `review_service` continúa explícitamente fuera de este corte y permanece en T095–T098. No se considera E2E externo completado.
+- Pendientes **T095–T098**: solo integraciones externas reales (Accommodations, Payments, Gateway, Reviews). US2–US5, E2E y rendimiento se ejecutaron contra PostgreSQL 16 real con 184 pruebas aprobadas y cobertura 74.32 %. Ver `validation-report.md` y `quickstart.md`.
 
 ## 1. Summary
 

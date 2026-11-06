@@ -132,42 +132,52 @@ No cerrar integración total hasta probar:
 
 
 
-## 13. Evidencia US4 — RQ-08/RQ-10
+## 13. Evidencia real PostgreSQL — T078/T100
 
-Fecha: 2026-11-06.
-
-- `npm run lint:bookings`, `npm run typecheck:bookings` y `npm run build:bookings`: exit `0`.
-- `npm run test:bookings`: 141 pruebas aprobadas, 22 omitidas.
-- Cobertura local de US4: contrato `GET /bookings/history` y `DELETE` OWNER, aislamiento multi-owner, filtros, paginación, razón obligatoria y refund `FULL`.
-- T078 sigue pendiente porque el entorno local no tenía Docker/PostgreSQL. Para cerrarlo, ejecutar contra PostgreSQL 16 real:
+Fecha: 2026-11-06. Entorno: PostgreSQL 16.15 local efímero en `127.0.0.1:55433`, base `bookings_test`.
 
 ```powershell
-$env:BOOKINGS_TEST_DATABASE_URL = "postgresql://user:password@localhost:5432/bookings_test"
+$env:BOOKINGS_DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:55433/bookings_test?schema=public"
 npm run prisma:bookings:migrate:deploy
-npx jest --selectProjects integration --runInBand
+# Applied migration 001_bookings_core
+# Applied migration 002_booking_lifecycle_fields
+
+$env:BOOKINGS_TEST_DATABASE_URL = $env:BOOKINGS_DATABASE_URL
+npm run test:bookings:integration   # 7 suites, 26 tests passed
+npm run test:bookings:concurrency   # 1 suite, 2 tests passed
+npm run test:e2e --workspace @stayhub/bookings-service   # 1 suite, 2 tests passed
+npm run test:performance --workspace @stayhub/bookings-service  # 1 suite, 2 tests passed
+npm run test:bookings               # 35 suites, 184 tests passed
 ```
 
-Registrar aquí el commit, la versión de PostgreSQL, los exit codes y la salida de `owner-history.spec.ts` y `guest-cancellation.spec.ts`. No se declara RQ-08/RQ-10 cerrados end-to-end mientras esta evidencia siga ausente.
+- `owner-history.spec.ts`, `guest-cancellation.spec.ts` y `stay-lifecycle.spec.ts` pasaron contra PostgreSQL real.
+- Concurrencia GiST: exactamente una reserva superpuesta gana; intervalos contiguos permitidos.
+- E2E aislado: create → payment.confirmed → check-in → check-out → eligibility y create → cancel → refund → refund-completed.
+- Rendimiento: p95 historial 110 ms y detalle 45 ms, por debajo de 500 ms.
 
+## 14. Cobertura — T101
 
-## 14. Evidencia US5 — check-in/out y handoff Reviews
+```powershell
+npm run test:coverage --workspace @stayhub/bookings-service
+# All files: statements 74.32 %, branches 76.79 %, functions 75.82 %, lines 79.92 %
+```
 
-Fecha: 2026-11-06.
+Cumple el umbral global de 70 % con las integraciones PostgreSQL activas.
 
-- `typecheck`, `lint` y `build`: exit `0`.
-- Contratos verificados: `POST /bookings/{id}/check-in`, `POST /bookings/{id}/check-out` y `GET /internal/v1/bookings/{id}/review-eligibility` generados en Swagger sin drift.
-- Scope interno separado para Reviews (`reviews:eligibility`) y no-disclosure `404` para reservas ajenas o no completadas.
-- `booking.v1.completed` se publica desde la misma UoW del check-out con payload mínimo `bookingId/guestId/propertyId`.
-- Handoff congelado en `apps/bookings-service/test/fixtures/REVIEWS-HANDOFF.md` y `reviews-handoff.fixture.ts`; provider test en `reviews-provider.contract.spec.ts`.
-- La integración PostgreSQL de `stay-lifecycle.spec.ts` queda escrita; se ejecuta en CI con `BOOKINGS_TEST_DATABASE_URL` y sigue pendiente de evidencia real local (T078).
+## 15. Contratos, Compose y CI
 
+- `node scripts/validate-bookings-contracts.mjs`: OpenAPI válido, operaciones requeridas y JSON Schema válido.
+- `openapi-drift.spec.ts` sin drift generado↔fuente.
+- Compose y CI validados estáticamente (YAML parseable); contenedor no-root, read-only, `restart: always`, healthchecks y grace period.
+- No se ejecutó `docker compose` ni RabbitMQ real en este entorno por falta de Docker. Esos escenarios quedan explícitamente fuera de la evidencia local.
 
-## 15. Evidencia Phase 8 — gates locales
+## 16. Evidencia diferida — integraciones externas
 
-Fecha: 2026-11-06.
+Siguen pendientes y no se simulan como completadas:
 
-- `lint`, `typecheck`, `build` y `node scripts/validate-bookings-contracts.mjs`: exit `0`.
-- `npm run test:bookings`: 141 aprobadas, 22 omitidas por requerir PostgreSQL real.
-- Cobertura local: 53.14 % statements porque integración/E2E/rendimiento se omiten sin DB; el job CI `bookings-quality` ejecuta PostgreSQL 16 y esos proyectos.
-- Compose y CI revisados; contenedor no-root, filesystem read-only, `restart: always`, healthchecks y shutdown con grace period.
-- Auditoría y pendientes detallados en `specs/003-reservas-pagos-resenas/booking_service/validation-report.md`.
+- T095 Gateway ↔ Bookings.
+- T096 Bookings ↔ Accommodations quote real.
+- T097 Bookings ↔ Payments y eventos reales.
+- T098 Bookings ↔ review_service consumer.
+
+El handoff contractual de Reviews ya está congelado en `REVIEWS-HANDOFF.md`; solo falta la ejecución conjunta real.

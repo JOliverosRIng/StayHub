@@ -2,27 +2,31 @@
 
 **Fecha**: 2026-11-06
 **Alcance**: RQ-07, RQ-08, RQ-09, RQ-10 y contribución parcial a RQ-11.
-**Estado**: núcleo técnico implementado; cierre end-to-end y evidencia PostgreSQL real pendientes.
+**Estado**: núcleo técnico completo y validado con PostgreSQL real; solo quedan las integraciones externas reales.
 
 ## 1. Tareas
 
 | Rango | Estado | Nota |
 |---|---|---|
-| T001–T077 | Completadas | Setup, Foundation, US1–US4. |
-| T079–T094 | Completadas | US5, gates de contratos, seguridad, rendimiento y E2E aislado escritos. |
+| T001–T094 | Completadas | Setup, Foundation, US1–US5, gates de contratos/seguridad/rendimiento y E2E aislado. |
+| T078 | Completada | Evidencia PostgreSQL real de US4/US5 registrada en `quickstart.md`. |
 | T099 | Completada | Shutdown ordenado y contrato de contenedor. |
-| T078 | Pendiente | Evidencia PostgreSQL real de US4/US5; requiere DB. |
+| T100–T101 | Completadas | Quickstart ejecutado con PostgreSQL real y auditoría con cobertura 74.32 %. |
 | T095–T098 | Pendientes | Integraciones externas Accommodations, Payments, Gateway y Reviews. |
-| T100–T101 | Pendientes | Evidencia real de quickstart y auditoría final con cobertura. |
 
-## 2. Evidencia local ejecutada
+## 2. Evidencia real ejecutada
 
-- `npm run typecheck:bookings`: exit `0`.
-- `npm run lint:bookings`: exit `0`.
-- `npm run build:bookings`: exit `0`.
-- `node scripts/validate-bookings-contracts.mjs`: OpenAPI válido, operaciones requeridas y JSON Schema válido.
-- `npm run test:bookings`: 141 pruebas aprobadas, 22 omitidas (integración/E2E/rendimiento dependientes de PostgreSQL).
-- `npm run test:coverage --workspace @stayhub/bookings-service`: 53.14 % statements local porque las pruebas de integración/UoW se omiten sin `BOOKINGS_TEST_DATABASE_URL`; el job CI las ejecuta con PostgreSQL.
+Entorno: PostgreSQL 16.15 local efímero, base `bookings_test`.
+
+- `npm run prisma:bookings:migrate:deploy`: aplicadas `001_bookings_core` y `002_booking_lifecycle_fields`.
+- `npm run test:bookings:integration`: 7 suites, 26 pruebas aprobadas.
+- `npm run test:bookings:concurrency`: 1 suite, 2 pruebas aprobadas (GiST sin sobreventa).
+- `npm run test:e2e --workspace @stayhub/bookings-service`: 1 suite, 2 pruebas aprobadas.
+- `npm run test:performance --workspace @stayhub/bookings-service`: 1 suite, 2 pruebas aprobadas.
+- `npm run test:bookings`: 35 suites, 184 pruebas aprobadas, 0 fallidas.
+- `npm run test:coverage --workspace @stayhub/bookings-service`: statements 74.32 %, branches 76.79 %, functions 75.82 %, lines 79.92 % (umbral 70 % cumplido).
+- `node scripts/validate-bookings-contracts.mjs`: OpenAPI y JSON Schema válidos.
+- `typecheck`, `lint` y `build`: exit `0`.
 
 ## 3. Cobertura funcional
 
@@ -43,13 +47,15 @@
 
 - Se corrigió la redacción de logs (`BookingsLogger`): la implementación previa construía entradas inválidas y dejaba el payload vacío; ahora redacta `authorization/token/password/secret/email/phone`.
 - Migración `002_booking_lifecycle_fields` añade columnas de cancelación y check-in/out que faltaban del data model.
+- `jest.config.ts` reconoce `*.e2e-spec.ts` para ejecutar el E2E aislado.
 
-## 6. Pendientes antes de declarar Sprint 3 cerrado
+## 6. Pendiente antes de declarar Sprint 3 cerrado
 
-1. Ejecutar T078 con PostgreSQL 16 real y registrar salida de `owner-history.spec.ts`, `guest-cancellation.spec.ts` y `stay-lifecycle.spec.ts`.
-2. Ejecutar E2E aislado y rendimiento contra PostgreSQL real (CI o entorno local con Docker).
-3. Integrar Accommodations quote, Payments, Gateway y review_service reales (T095–T098).
-4. Ejecutar `quickstart.md` completo y registrar evidencia real (T100).
-5. Verificar cobertura >=70 % con integraciones activas y revisión humana (T101).
+Solo integraciones externas reales:
 
-No se declara integración end-to-end mientras estos puntos sigan abiertos.
+1. T095 Gateway ↔ Bookings.
+2. T096 Bookings ↔ Accommodations quote real.
+3. T097 Bookings ↔ Payments y eventos reales.
+4. T098 Bookings ↔ review_service consumer.
+
+No se ejecutó `docker compose` ni RabbitMQ real por falta de Docker en el entorno local; esa evidencia queda explícitamente diferida. El handoff contractual de Reviews está congelado y no requiere cambios internos de Bookings.

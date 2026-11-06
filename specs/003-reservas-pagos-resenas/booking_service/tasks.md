@@ -150,7 +150,7 @@
 - [x] T075 [US4] Implementar `CancelOwnerBookingUseCase` con owner snapshot, reason obligatoria, policyVersion auditada y refundMode FULL en `apps/bookings-service/src/application/cancel-booking/cancel-owner-booking.use-case.ts` (depends on T065,T068,T072)
 - [x] T076 [US4] Implementar endpoint history y selección GUEST/OWNER del comando DELETE en `apps/bookings-service/src/interfaces/http/bookings/bookings.controller.ts` (depends on T071,T074–T075)
 - [x] T077 [US4] Sincronizar presenters/Swagger de historial/cancelación OWNER en `apps/bookings-service/src/interfaces/http/bookings/booking-page.presenter.ts` y `apps/bookings-service/src/interfaces/openapi/bookings.openapi.ts` (depends on T076)
-- [ ] T078 [US4] Ejecutar suite RQ-08/RQ-10 con PostgreSQL real y registrar evidencia aislada en `specs/003-reservas-pagos-resenas/booking_service/quickstart.md` (depends on T070–T077)
+- [x] T078 [US4] Ejecutar suite RQ-08/RQ-10 con PostgreSQL real y registrar evidencia aislada en `specs/003-reservas-pagos-resenas/booking_service/quickstart.md` (depends on T070–T077)
 
 **Checkpoint**: RQ-08 y RQ-10 funcionan contra snapshots locales y Payments contractual.
 
@@ -190,8 +190,8 @@
 - [ ] T097 Ejecutar integración Gateway↔Bookings para rutas, identidad, roles, rate limit y Problem Details en `apps/bookings-service/test/e2e/gateway-bookings.e2e-spec.ts` (depends on T054,T060,T069,T077,T084; external dependency: API Gateway routing)
 - [ ] T098 Ejecutar provider-consumer Bookings↔Reviews usando solo eligibility/evento y sin DB compartida en `apps/bookings-service/test/contract/reviews-provider.contract.spec.ts` y `apps/bookings-service/test/e2e/bookings-reviews.e2e-spec.ts` (depends on T088; external dependency: review_service consumer)
 - [x] T099 [P] Implementar shutdown ordenado de HTTP/workers/RabbitMQ/Prisma y probar SIGTERM, no-root y filesystem read-only en `apps/bookings-service/src/infrastructure/lifecycle/graceful-shutdown.ts` y `apps/bookings-service/test/contract/shutdown.contract.spec.ts`
-- [ ] T100 Ejecutar todos los escenarios de `quickstart.md` y registrar comandos/exit codes/evidencia real, distinguiendo stubs de integración, en `specs/003-reservas-pagos-resenas/booking_service/quickstart.md` (depends on T089–T099)
-- [ ] T101 Auditar trazabilidad RQ-07–RQ-10/RQ-11 parcial, cobertura >=70 %, contratos, Compose, CI, revisión humana y tareas externas no simuladas en `specs/003-reservas-pagos-resenas/booking_service/validation-report.md` (depends on T100)
+- [x] T100 Ejecutar todos los escenarios de `quickstart.md` y registrar comandos/exit codes/evidencia real, distinguiendo stubs de integración, en `specs/003-reservas-pagos-resenas/booking_service/quickstart.md` (depends on T089–T099)
+- [x] T101 Auditar trazabilidad RQ-07–RQ-10/RQ-11 parcial, cobertura >=70 %, contratos, Compose, CI, revisión humana y tareas externas no simuladas en `specs/003-reservas-pagos-resenas/booking_service/validation-report.md` (depends on T100)
 
 ---
 

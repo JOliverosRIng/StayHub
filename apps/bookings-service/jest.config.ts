@@ -4,7 +4,7 @@ const config: Config = {
   rootDir: __dirname,
   projects: names.map((name) => ({
     displayName: name, rootDir: __dirname, testEnvironment: 'node',
-    testMatch: [`<rootDir>/test/${name}/**/*.spec.ts`],
+    testMatch: [`<rootDir>/test/${name}/**/*.spec.ts`, `<rootDir>/test/${name}/**/*.e2e-spec.ts`],
     setupFilesAfterEnv: [`<rootDir>/test/${name}/setup.ts`],
     transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }] },
     moduleNameMapper: { '^@bookings/(.*)$': '<rootDir>/src/$1' },
