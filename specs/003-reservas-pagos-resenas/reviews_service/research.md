@@ -34,7 +34,7 @@
 
 ## 5. Identidad y autorización
 
-**Decisión**: Gateway reenvía access bearer para creación/historial; Reviews lo revalida. Reviews usa service JWT propio al llamar Bookings. La consulta pública llega desde Gateway con service JWT.
+**Decisión**: Gateway reenvía access bearer para creación/historial; Reviews lo revalida. Al llamar Bookings, Reviews obtiene un service JWT corto desde un secret file mediante un puerto de token, igual que los clientes salientes actuales de Bookings. La emisión/firma ocurre fuera del microservicio. La consulta pública llega desde Gateway con service JWT.
 
 **Rationale**: coincide con el patrón real de perfil en Users y aplica mínimo privilegio.
 

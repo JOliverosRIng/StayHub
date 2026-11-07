@@ -6,7 +6,8 @@
     "apps/auth-service",
     "apps/users-service",
     "apps/search-service",
-    "apps/bookings-service"
+    "apps/bookings-service",
+    "apps/reviews-service"
   ],
   "engines": {
     "node": ">=20 <21"
@@ -69,10 +70,21 @@
     "test:bookings:concurrency": "npm run test:concurrency --workspace @stayhub/bookings-service",
     "prisma:bookings:generate": "npm run prisma:generate --workspace @stayhub/bookings-service",
     "prisma:bookings:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/bookings-service",
-    "build": "npm run build:auth && npm run build:users && npm run build:search && npm run build:bookings",
-    "lint": "npm run lint:auth && npm run lint:users && npm run lint:search && npm run lint:bookings",
-    "typecheck": "npm run typecheck:auth && npm run typecheck:users && npm run typecheck:search && npm run typecheck:bookings",
-    "test": "npm run test:auth && npm run test:users && npm run test:search && npm run test:bookings"
+    "build:reviews": "npm run build --workspace @stayhub/reviews-service",
+    "lint:reviews": "npm run lint --workspace @stayhub/reviews-service",
+    "typecheck:reviews": "npm run typecheck --workspace @stayhub/reviews-service",
+    "test:reviews": "npm run test --workspace @stayhub/reviews-service",
+    "test:reviews:unit": "npm run test:unit --workspace @stayhub/reviews-service",
+    "test:reviews:integration": "npm run test:integration --workspace @stayhub/reviews-service",
+    "test:reviews:contract": "npm run test:contract --workspace @stayhub/reviews-service",
+    "test:reviews:security": "npm run test:security --workspace @stayhub/reviews-service",
+    "test:reviews:concurrency": "npm run test:concurrency --workspace @stayhub/reviews-service",
+    "prisma:reviews:generate": "npm run prisma:generate --workspace @stayhub/reviews-service",
+    "prisma:reviews:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/reviews-service",
+    "build": "npm run build:auth && npm run build:users && npm run build:search && npm run build:bookings && npm run build:reviews",
+    "lint": "npm run lint:auth && npm run lint:users && npm run lint:search && npm run lint:bookings && npm run lint:reviews",
+    "typecheck": "npm run typecheck:auth && npm run typecheck:users && npm run typecheck:search && npm run typecheck:bookings && npm run typecheck:reviews",
+    "test": "npm run test:auth && npm run test:users && npm run test:search && npm run test:bookings && npm run test:reviews"
   },
   "devDependencies": {
     "eslint-plugin-react-hooks": "^5.2.0",

@@ -20,8 +20,7 @@ REVIEWS_BOOKINGS_BASE_URL=http://bookings-service:3005
 REVIEWS_BOOKINGS_TIMEOUT_MS=1500
 REVIEWS_USER_JWT_ISSUER=stayhub-auth
 REVIEWS_USER_JWT_AUDIENCE=stayhub-api
-REVIEWS_SERVICE_JWT_AUDIENCE=stayhub-bookings-service
-REVIEWS_SERVICE_JWT_SCOPE=bookings:review-eligibility
+REVIEWS_BOOKINGS_SERVICE_TOKEN_FILE=/run/secrets/reviews_bookings_service_token
 ```
 
 Los nombres definitivos se congelan al generar tareas y `.env.example`.

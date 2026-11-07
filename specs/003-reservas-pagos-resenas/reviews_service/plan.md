@@ -9,6 +9,13 @@
 
 Implementar `reviews-service` como microservicio NestJS en el puerto interno 3007, dueño exclusivo de reseñas en PostgreSQL mediante Prisma. Un huésped crea una reseña inmutable con calificación 1–5 y comentario después de que una llamada REST autenticada a `bookings-service` confirme que `bookingId + guestId` corresponde a una estadía `COMPLETED`. El servicio ofrece consultas paginadas por propiedad y por usuario propio, aplica unicidad por reserva, no accede a bases ajenas y no incorpora Redis ni RabbitMQ en este incremento.
 
+## Implementation Progress
+
+- **Corte implementado**: T001–T037 (37/74), correspondiente a Setup, Foundation y especificaciones TDD iniciales de US1.
+- **Validación verde del corte implementado**: lint, typecheck, build, 30 unitarias de Foundation, 7 de contrato, 3 de integración estructural/health y 5 de seguridad JWT.
+- **Estado TDD de US1**: seis pruebas permanecen rojas y 19 escenarios están pendientes hasta implementar T038–T045; RQ-11 todavía no se declara funcional.
+- **Límite de evidencia**: Compose valida sintácticamente, pero PostgreSQL/contenedores no se ejecutaron en este corte porque el daemon Docker no estaba disponible.
+
 ## Technical Context
 
 **Language/Version**: Node.js 20, TypeScript 5.7 estricto  
@@ -183,7 +190,7 @@ Consumer contract: `contracts/openapi-bookings-review-eligibility-consumer.yaml`
 ## 6. Seguridad
 
 - Bearer usuario: RS256, `kid`, issuer/audience, `iat/exp`, `sub/sid/jti` UUID y rol.
-- Service JWT Reviews→Bookings: sujeto `reviews-service`, audiencia Bookings, TTL corto y scope exclusivo.
+- Service JWT Reviews→Bookings: sujeto `reviews-service`, audiencia Bookings, TTL corto y scope exclusivo; se recibe por secret file mediante un `ServiceTokenPort`, siguiendo el patrón saliente actual de Bookings.
 - Cliente no suministra `guestId/propertyId`; se rechaza spoofing de identidad.
 - Precedencia 401 → 403 → existencia/conflicto.
 - DTO `additionalProperties: false`; rating entero y comentario acotado.
@@ -197,7 +204,7 @@ Variables mínimas:
 - `REVIEWS_PORT=3007`, entorno y nivel de log.
 - `REVIEWS_DATABASE_URL_FILE`.
 - claves/issuer/audience de JWT usuario y Gateway.
-- clave privada/kid/issuer/audience/scope/TTL del service JWT a Bookings.
+- `REVIEWS_BOOKINGS_SERVICE_TOKEN_FILE` para la credencial corta emitida externamente con audience/scope de Bookings; Reviews no conserva una clave privada de firma propia.
 - `REVIEWS_BOOKINGS_BASE_URL`, timeout/circuit breaker.
 - configuración OTEL.
 
