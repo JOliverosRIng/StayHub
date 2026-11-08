@@ -7,7 +7,8 @@
     "apps/users-service",
     "apps/search-service",
     "apps/api-gateway",
-    "apps/web"
+    "apps/web",
+    "apps/payments-service"
   ],
   "engines": {
     "node": ">=20 <21"
@@ -58,6 +59,19 @@
     "prisma:search:generate": "npm run prisma:generate --workspace @stayhub/search-service",
     "prisma:search:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/search-service",
     "prisma:search:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/search-service",
+    "build:payments": "npm run build --workspace @stayhub/payments-service",
+    "lint:payments": "npm run lint --workspace @stayhub/payments-service",
+    "typecheck:payments": "npm run typecheck --workspace @stayhub/payments-service",
+    "test:payments": "npm run test --workspace @stayhub/payments-service",
+    "test:payments:unit": "npm run test:unit --workspace @stayhub/payments-service",
+    "test:payments:integration": "npm run test:integration --workspace @stayhub/payments-service",
+    "test:payments:contract": "npm run test:contract --workspace @stayhub/payments-service",
+    "test:payments:security": "npm run test:security --workspace @stayhub/payments-service",
+    "test:payments:performance": "npm run test:performance --workspace @stayhub/payments-service",
+    "test:payments:coverage": "npm run test:coverage --workspace @stayhub/payments-service",
+    "prisma:payments:generate": "npm run prisma:generate --workspace @stayhub/payments-service",
+    "prisma:payments:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/payments-service",
+    "prisma:payments:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/payments-service",
     "build": "npm run build:auth && npm run build:users && npm run build:gateway && npm run build:web && npm run build:search",
     "lint": "npm run lint:auth && npm run lint:users && npm run lint:gateway && npm run lint:web && npm run lint:search",
     "typecheck": "npm run typecheck:auth && npm run typecheck:users && npm run typecheck:gateway && npm run typecheck:web && npm run typecheck:search",
