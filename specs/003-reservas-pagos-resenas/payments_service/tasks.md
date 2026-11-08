@@ -191,9 +191,9 @@
 
 **Purpose**: gates técnicos, evidencia y entrega.
 
-- [ ] PAY-064 [P] Escribir y ejecutar pruebas de rendimiento reproducibles de `GET /payments/{id}/status` y `POST /payments` con mock: p95 < 500 ms, con el perfil documentado en `apps/payments-service/test/performance/payments.performance.spec.ts`
+- [x] PAY-064 [P] Escribir y ejecutar pruebas de rendimiento reproducibles de `GET /payments/{id}/status` y `POST /payments` con mock: p95 < 500 ms, con el perfil documentado en `apps/payments-service/test/performance/payments.performance.spec.ts`
 - [ ] PAY-065 [compartido] Crear `scripts/validate-payments-openapi.mjs`, prueba de drift OpenAPI 3.1 y JSON Schema, y **añadir job `payments-quality` a `.github/workflows/ci.yml`** con filtro `apps/payments-service/**`, filtro `specs/003-reservas-pagos-resenas/payments_service/**`, ejecución de instalación/workspace y `lint`, `typecheck`, `test:coverage`, contrato, `build` (y PostgreSQL 16 real para integración), sin borrar jobs existentes. Antes de editar raíz/workflow, presentar diff propuesto y esperar aprobación del equipo
-- [ ] PAY-066 [P] Ejecutar un barrido de seguridad: correr todas las suites de integración capturando logs y comprobar que no aparecen tokens, claves de idempotencia, `Authorization` ni cadenas con forma de PAN en `apps/payments-service/test/security/log-sweep.spec.ts`
+- [x] PAY-066 [P] Ejecutar un barrido de seguridad: correr todas las suites de integración capturando logs y comprobar que no aparecen tokens, claves de idempotencia, `Authorization` ni cadenas con forma de PAN en `apps/payments-service/test/security/log-sweep.spec.ts`
 - [ ] PAY-067 Ejecutar `lint`, `typecheck`, `build` y `test:coverage` completos y confirmar cobertura global ≥ 70 % (statements, branches, functions, lines) sin suites omitidas
 - [ ] PAY-068 [compartido] Validar en Docker Compose desde cero: base+migración levantan, servicio `ready` sin RabbitMQ (`degraded`), reinicio automático (`restart: always`), pagos y ledger mock persisten; verificar que ninguna prueba usa dependencias falsas en vez de PostgreSQL/RabbitMQ cuando son necesarios, documentar resultados reales
 - [ ] PAY-069 [P] Crear `apps/payments-service/test/fixtures/CONSUMER-HANDOFF.md` con ejemplos de cobro, reembolso y eventos para Bookings y Notifications, scopes requeridos y semántica de reintento, como hace `users-service`

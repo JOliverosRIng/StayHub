@@ -11,12 +11,38 @@ const rabbitContainerName = `stayhub-payments-rabbit-test-${randomBytes(5).toStr
 const username = 'payments_test';
 const password = randomBytes(18).toString('hex');
 const database = 'payments_test';
+const projectFlagIndex = process.argv.indexOf('--project');
+const project = projectFlagIndex >= 0 ? process.argv[projectFlagIndex + 1] : 'integration';
+if (project !== 'integration' && project !== 'performance') throw new Error('Supported projects: integration, performance');
+const jestArguments = process.argv.slice(2).filter((argument, index, arguments_) =>
+  argument !== '--project' && arguments_[index - 1] !== '--project',
+);
+const useRabbit = project === 'integration';
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { cwd: serviceRoot, encoding: 'utf8', stdio: 'inherit', ...options });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${command} exited with code ${String(result.status)}`);
   return result.stdout?.trim() ?? '';
+}
+
+function runCaptured(command, args, options = {}) {
+  const result = spawnSync(command, args, { cwd: serviceRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 32 * 1024 * 1024, ...options });
+  if (result.error) throw result.error;
+  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+  process.stdout.write(output);
+  return { output, status: result.status };
+}
+
+function assertNoSensitiveLogs(logs) {
+  const patterns = [
+    /\bBearer\s+(?!\[REDACTED\])[A-Za-z0-9._~+/-]+=*/i,
+    /\btok_[A-Za-z0-9_-]{4,}\b/,
+    /(?<!\d)\d{13,19}(?!\d)/,
+    /\bAuthorization\b["']?\s*[:=]\s*["']?(?!["']?\[REDACTED\])[^,\s}\]]+/i,
+    /\b(?:Idempotency-Key|idempotencyKey)\b["']?\s*[:=]\s*["']?(?!["']?\[REDACTED\])(?:[0-9a-f-]{16,}|[^,\s}\]]+)/i,
+  ];
+  if (patterns.some((pattern) => pattern.test(logs))) throw new Error('Sensitive value detected in captured Payments integration logs');
 }
 
 function runDocker(args, options = {}) {
@@ -45,11 +71,13 @@ try {
     '--publish', '127.0.0.1::5432',
     'postgres:16-alpine',
   ]);
-  runDocker([
-    'run', '--rm', '--detach', '--name', rabbitContainerName,
-    '--publish', '127.0.0.1::5672',
-    'rabbitmq:3.13-alpine',
-  ]);
+  if (useRabbit) {
+    runDocker([
+      'run', '--rm', '--detach', '--name', rabbitContainerName,
+      '--publish', '127.0.0.1::5672',
+      'rabbitmq:3.13-alpine',
+    ]);
+  }
 
   let ready = false;
   for (let attempt = 0; attempt < 45; attempt += 1) {
@@ -69,30 +97,38 @@ try {
   const match = mapping.match(/127\.0\.0\.1:(\d+)/);
   if (!match) throw new Error('Could not resolve the temporary PostgreSQL port');
   const databaseUrl = `postgresql://${username}:${password}@127.0.0.1:${match[1]}/${database}?schema=public`;
-  const rabbitMapping = runDocker(['port', rabbitContainerName, '5672/tcp'], { stdio: ['ignore', 'pipe', 'inherit'] });
-  const rabbitMatch = rabbitMapping.match(/127\.0\.0\.1:(\d+)/);
-  if (!rabbitMatch) throw new Error('Could not resolve the temporary RabbitMQ port');
-  let rabbitReady = false;
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    if (await tcpReady(Number(rabbitMatch[1]))) {
-      rabbitReady = true;
-      break;
+  let rabbitUrl;
+  if (useRabbit) {
+    const rabbitMapping = runDocker(['port', rabbitContainerName, '5672/tcp'], { stdio: ['ignore', 'pipe', 'inherit'] });
+    const rabbitMatch = rabbitMapping.match(/127\.0\.0\.1:(\d+)/);
+    if (!rabbitMatch) throw new Error('Could not resolve the temporary RabbitMQ port');
+    let rabbitReady = false;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      if (await tcpReady(Number(rabbitMatch[1]))) {
+        rabbitReady = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    if (!rabbitReady) throw new Error('Temporary RabbitMQ did not open its AMQP listener');
+    rabbitUrl = `amqp://127.0.0.1:${rabbitMatch[1]}`;
   }
-  if (!rabbitReady) throw new Error('Temporary RabbitMQ did not open its AMQP listener');
   const environment = {
     ...process.env,
     PAYMENTS_DATABASE_URL: databaseUrl,
     PAYMENTS_TEST_DATABASE_URL: databaseUrl,
-    PAYMENTS_TEST_RABBITMQ_URL: `amqp://127.0.0.1:${rabbitMatch[1]}`,
+    ...(rabbitUrl ? { PAYMENTS_TEST_RABBITMQ_URL: rabbitUrl } : {}),
   };
 
   run(process.execPath, [path.join(repositoryRoot, 'node_modules/prisma/build/index.js'), 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'], { env: environment });
-  run(process.execPath, [path.join(repositoryRoot, 'node_modules/jest/bin/jest.js'), '--selectProjects', 'integration', '--runInBand', ...process.argv.slice(2)], { env: environment });
+  const testResult = runCaptured(process.execPath, [path.join(repositoryRoot, 'node_modules/jest/bin/jest.js'), '--selectProjects', project, '--runInBand', ...jestArguments], { env: environment });
+  if (project === 'integration') assertNoSensitiveLogs(testResult.output);
+  if (testResult.status !== 0) throw new Error(`Jest ${project} project exited with code ${String(testResult.status)}`);
 } finally {
   const stopped = spawnSync('docker', ['stop', containerName], { cwd: serviceRoot, stdio: 'ignore' });
   if (stopped.error && stopped.error.code !== 'ENOENT') throw stopped.error;
-  const rabbitStopped = spawnSync('docker', ['stop', rabbitContainerName], { cwd: serviceRoot, stdio: 'ignore' });
-  if (rabbitStopped.error && rabbitStopped.error.code !== 'ENOENT') throw rabbitStopped.error;
+  if (useRabbit) {
+    const rabbitStopped = spawnSync('docker', ['stop', rabbitContainerName], { cwd: serviceRoot, stdio: 'ignore' });
+    if (rabbitStopped.error && rabbitStopped.error.code !== 'ENOENT') throw rabbitStopped.error;
+  }
 }
