@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import type { INestApplication, Type } from '@nestjs/common';
 import type { Server } from 'node:http';
-import request from 'supertest';
+import request, { type Test as SupertestTest } from 'supertest';
 import { RefundsController } from '../../src/interfaces/http/refunds/refunds.controller';
 import { RefundPayment } from '../../src/application/refunds/refund-payment.use-case';
 import { ServiceAuthGuard } from '../../src/interfaces/http/guards/service-auth.guard';
@@ -14,6 +14,7 @@ const serviceJwt = createTestJwtFixture({ issuer: 'stayhub-bookings-service', au
 const userJwt = createTestJwtFixture({ issuer: 'stayhub-auth', audience: 'stayhub-api' });
 const config = {
   serviceJwt: serviceJwt.config,
+  userJwt: userJwt.config,
   refundScope: 'payments:refund',
 } as unknown as PaymentsConfig;
 const paymentA = '56ac8df3-4ab6-48d2-8248-37ec830c9131';
@@ -63,7 +64,7 @@ describe('POST /payments/:id/refund security', () => {
   afterAll(async () => { await app.close(); });
   beforeEach(() => { execute.mockClear(); reservations.clear(); });
 
-  const send = (paymentId: string, token: string, body: object = validBody, key = idempotencyKey) =>
+  const send = (paymentId: string, token: string, body: object = validBody, key = idempotencyKey): SupertestTest =>
     request(app.getHttpServer() as Server).post(`/payments/${paymentId}/refund`)
       .set('Authorization', `Bearer ${token}`)
       .set('Idempotency-Key', key)

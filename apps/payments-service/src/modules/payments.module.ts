@@ -56,6 +56,6 @@ export const PAYMENT_STATUS_READER = Symbol('PAYMENT_STATUS_READER');
       }),
     },
   ],
-  exports: [CreatePayment, GetPaymentStatus],
+  exports: [CreatePayment, GetPaymentStatus, PAYMENT_UNIT_OF_WORK, PAYMENT_GATEWAY],
 })
 export class PaymentsModule {}

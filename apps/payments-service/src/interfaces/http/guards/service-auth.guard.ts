@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   SetMetadata,
+  UnauthorizedException,
   type CanActivate,
   type ExecutionContext,
 } from '@nestjs/common';
@@ -11,6 +12,7 @@ import type { Request } from 'express';
 import { PAYMENTS_CONFIG, type PaymentsConfig } from '../../../infrastructure/config/payments-config';
 import { verifyServiceJwt } from '../../../infrastructure/security/jwt.verifier';
 import { bearer } from '../auth/bearer';
+import { verifyPaymentUserPrincipal } from '../auth/jwt.strategy';
 
 type ServiceOperation = 'charge' | 'refund' | 'read';
 const SERVICE_TOKEN_MAX_AGE_SECONDS = 300;
@@ -31,7 +33,21 @@ export class ServiceAuthGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<ServicePrincipalRequest>();
-    const payload = verifyServiceJwt(bearer(request), this.config.serviceJwt, SERVICE_TOKEN_MAX_AGE_SECONDS);
+    const token = bearer(request);
+    let payload: ReturnType<typeof verifyServiceJwt>;
+    try {
+      payload = verifyServiceJwt(token, this.config.serviceJwt, SERVICE_TOKEN_MAX_AGE_SECONDS);
+    } catch {
+      if (this.config.userJwt) {
+        try {
+          verifyPaymentUserPrincipal(token, this.config.userJwt);
+          throw new ForbiddenException();
+        } catch (error) {
+          if (error instanceof ForbiddenException) throw error;
+        }
+      }
+      throw new UnauthorizedException();
+    }
     if (typeof payload.sub !== 'string' || payload.sub.trim().length === 0) throw new ForbiddenException();
     const operation = this.reflector.getAllAndOverride<ServiceOperation>('payments:service-scope', [
       context.getHandler(),

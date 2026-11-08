@@ -8,9 +8,10 @@ import { ServiceAuthGuard } from './interfaces/http/guards/service-auth.guard';
 import { PaymentsLogger } from './infrastructure/logging/payments-logger';
 import { HealthModule } from './modules/health/health.module';
 import { PaymentsModule } from './modules/payments.module';
+import { RefundsModule } from './modules/refunds.module';
 
 @Module({
-  imports: [PaymentsConfigModule, PrismaModule, HealthModule, PaymentsModule, PassportModule.register({ defaultStrategy: 'jwt' })],
+  imports: [PaymentsConfigModule, PrismaModule, HealthModule, PaymentsModule, RefundsModule, PassportModule.register({ defaultStrategy: 'jwt' })],
   providers: [JwtStrategy, RolesGuard, ServiceAuthGuard, PaymentsLogger],
 })
 export class AppModule {}

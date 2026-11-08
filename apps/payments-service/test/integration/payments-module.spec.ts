@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { Server } from 'node:http';
 import request from 'supertest';
 import { PaymentsModule } from '../../src/modules/payments.module';
+import { RefundsModule } from '../../src/modules/refunds.module';
 import { PAYMENTS_CONFIG, type PaymentsConfig } from '../../src/infrastructure/config/payments-config';
 import { configureHttp } from '../../src/interfaces/http/configure-http';
 import { createTestJwtFixture } from '../fixtures/jwt.fixture';
@@ -50,7 +51,7 @@ describe('PaymentsModule registration', () => {
   } as PaymentsConfig;
 
   beforeAll(async () => {
-    const module = await Test.createTestingModule({ imports: [PaymentsModule] })
+    const module = await Test.createTestingModule({ imports: [PaymentsModule, RefundsModule] })
       .overrideProvider(PAYMENTS_CONFIG)
       .useValue(config)
       .compile();
@@ -125,5 +126,53 @@ describe('PaymentsModule registration', () => {
     expect(status.body).not.toHaveProperty('payerUserId');
     expect(status.body).not.toHaveProperty('gatewayReference');
     expect(status.body).not.toHaveProperty('paymentMethodFingerprint');
+  });
+
+  it('wires the service-authenticated refund endpoint through PostgreSQL and the mock gateway', async () => {
+    const bookingId = randomUUID();
+    const payerUserId = randomUUID();
+    const chargeToken = serviceJwt.signToken({ sub: 'booking-service', scope: 'payments:charge' });
+    const payment = await request(app.getHttpServer() as Server)
+      .post('/payments')
+      .set('Authorization', `Bearer ${chargeToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        bookingId,
+        payerUserId,
+        amountMinor: 125_000,
+        currency: 'COP',
+        paymentMethod: { type: 'CARD_TOKEN', token: MOCK_GATEWAY_TOKENS.approved },
+      })
+      .expect(201);
+    const paymentId = (payment.body as { readonly id: string }).id;
+    const refundToken = serviceJwt.signToken({ sub: 'booking-service', scope: 'payments:refund' });
+
+    const refund = await request(app.getHttpServer() as Server)
+      .post(`/payments/${paymentId}/refund`)
+      .set('Authorization', `Bearer ${refundToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ reason: 'GUEST_CANCELLATION' })
+      .expect(201);
+
+    expect(refund.body).toMatchObject({
+      paymentId,
+      amountMinor: 125_000,
+      currency: 'COP',
+      reason: 'GUEST_CANCELLATION',
+      status: 'COMPLETED',
+      failureCode: null,
+    });
+    expect(refund.body).not.toHaveProperty('gatewayReference');
+    const ownerToken = userJwt.signToken({
+      sub: payerUserId,
+      role: 'GUEST',
+      sid: randomUUID(),
+      jti: randomUUID(),
+    });
+    const status = await request(app.getHttpServer() as Server)
+      .get(`/payments/${paymentId}/status`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+    expect((status.body as { readonly status: string }).status).toBe('REFUNDED');
   });
 });
