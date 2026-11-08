@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "jest --runInBand",
     "test:unit": "jest --selectProjects unit --runInBand",
-    "test:integration": "jest --selectProjects integration --runInBand",
+    "test:integration": "node test/scripts/run-integration.mjs",
     "test:contract": "jest --selectProjects contract --runInBand",
     "test:security": "jest --selectProjects security --runInBand",
     "test:performance": "jest --selectProjects performance --runInBand",

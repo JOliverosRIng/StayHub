@@ -1,21 +1,13 @@
-import { generateKeyPairSync } from 'node:crypto';
 import { sign } from 'jsonwebtoken';
 import { UnauthorizedException } from '@nestjs/common';
 import { verifyServiceJwt, verifyUserJwt } from '../../src/infrastructure/security/jwt.verifier';
-import type { JwtConfig } from '../../src/infrastructure/config/payments-config';
+import { createTestJwtFixture } from '../fixtures/jwt.fixture';
 
-const keys = generateKeyPairSync('rsa', { modulusLength: 2048 });
-const config: JwtConfig = {
-  issuer: 'stayhub-auth',
-  audience: 'stayhub-payments',
-  kid: 'test-key-v1',
-  publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
-};
+const fixture = createTestJwtFixture({ issuer: 'stayhub-auth', audience: 'stayhub-payments', kid: 'test-key-v1' });
+const { config } = fixture;
 const now = 1_800_000_000;
 const makeToken = (claims: Record<string, unknown> = {}, options: Record<string, unknown> = {}): string =>
-  sign({ iss: config.issuer, aud: config.audience, iat: now, exp: now + 120, ...claims }, keys.privateKey, {
-    algorithm: 'RS256', keyid: config.kid, ...options,
-  });
+  fixture.signToken({ iat: now, exp: now + 120, ...claims }, options);
 
 describe('Payments JWT verifier', () => {
   it('verifies a service token with scope and RS256 claims', () => {

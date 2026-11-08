@@ -2,10 +2,10 @@ import { DomainError } from '../../../src/domain/shared/domain-error';
 import { Money } from '../../../src/domain/shared/money';
 import { Payment } from '../../../src/domain/payments/payment.entity';
 import type { PaymentStatusEvidence } from '../../../src/domain/payments/payment-status';
+import { createPaymentFixture } from '../../fixtures/payments.fixture';
 
 const evidence: PaymentStatusEvidence = { source: 'gateway', reference: 'operation-1' };
-const payment = (): Payment =>
-  Payment.create({ id: 'payment-1', amount: Money.fromMinor(1_000, 'COP') });
+const payment = (): Payment => createPaymentFixture(1_000);
 
 describe('Payment', () => {
   it('approves a pending payment with evidence', () => {

@@ -4,6 +4,7 @@ import { GatewayCircuitBreaker, GatewayCircuitOpenError, GatewayTimeoutError } f
 import type { PrismaService } from '../../src/infrastructure/persistence/prisma/prisma.service';
 import type { PaymentsConfig } from '../../src/infrastructure/config/payments-config';
 import type { ChargeCommand } from '../../src/application/ports/payment-gateway.port';
+import { MOCK_GATEWAY_TOKENS, TEST_TOKEN_HMAC_SECRET } from '../fixtures/mock-gateway.fixture';
 
 interface LedgerRow {
   operationRefHash: string;
@@ -14,7 +15,7 @@ interface LedgerRow {
   resolvedAt: Date | null;
 }
 
-const secret = 'test-secret-with-at-least-thirty-two-characters';
+const secret = TEST_TOKEN_HMAC_SECRET;
 const config = {
   tokenHmacSecret: secret,
   gatewayTimeoutMs: 100,
@@ -44,9 +45,9 @@ describe('MockPaymentGatewayAdapter', () => {
   it('stores approved and declined results idempotently without persisting tokens', async () => {
     const { prisma, rows } = inMemoryPrisma();
     const adapter = new MockPaymentGatewayAdapter(prisma, config);
-    const approved = await adapter.charge(charge('tok_approved'));
-    const retried = await adapter.charge(charge('tok_declined_funds'));
-    const declined = await adapter.charge(charge('tok_declined_fraud', 'opaque-charge-2'));
+    const approved = await adapter.charge(charge(MOCK_GATEWAY_TOKENS.approved));
+    const retried = await adapter.charge(charge(MOCK_GATEWAY_TOKENS.declinedFunds));
+    const declined = await adapter.charge(charge(MOCK_GATEWAY_TOKENS.declinedFraud, 'opaque-charge-2'));
 
     expect(approved.kind).toBe('approved');
     expect(retried).toEqual(approved);
@@ -61,7 +62,7 @@ describe('MockPaymentGatewayAdapter', () => {
   it('persists a timed-out approval and a fresh adapter can recover it', async () => {
     const { prisma, rows } = inMemoryPrisma();
     const firstInstance = new MockPaymentGatewayAdapter(prisma, config);
-    const result = await firstInstance.charge(charge('tok_gateway_timeout'));
+    const result = await firstInstance.charge(charge(MOCK_GATEWAY_TOKENS.gatewayTimeout));
     expect(result.kind).toBe('uncertain');
     expect(rows.size).toBe(1);
     const reference = result.kind === 'uncertain' ? result.reference : '';
@@ -72,12 +73,12 @@ describe('MockPaymentGatewayAdapter', () => {
   it('fails before dispatch for gateway_down and simulates refund rejection from the charge ledger', async () => {
     const { prisma, rows } = inMemoryPrisma();
     const adapter = new MockPaymentGatewayAdapter(prisma, config);
-    await expect(adapter.charge(charge('tok_gateway_down'))).resolves.toEqual({
+    await expect(adapter.charge(charge(MOCK_GATEWAY_TOKENS.gatewayDown))).resolves.toEqual({
       kind: 'not-dispatched', reason: 'GATEWAY_UNAVAILABLE',
     });
     expect(rows.size).toBe(0);
 
-    const approved = await adapter.charge(charge('tok_refund_fails'));
+    const approved = await adapter.charge(charge(MOCK_GATEWAY_TOKENS.refundFails));
     if (approved.kind !== 'approved') throw new Error('Fixture must approve charge');
     await expect(adapter.refund({
       refundId: 'refund-1', paymentReference: approved.reference, amountMinor: 1200,

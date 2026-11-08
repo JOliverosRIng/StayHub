@@ -3,12 +3,12 @@ import { PrismaClient } from '../../src/infrastructure/persistence/generated/cli
 import { MockPaymentGatewayAdapter } from '../../src/infrastructure/gateway/mock-payment-gateway.adapter';
 import type { PrismaService } from '../../src/infrastructure/persistence/prisma/prisma.service';
 import type { PaymentsConfig } from '../../src/infrastructure/config/payments-config';
+import { MOCK_GATEWAY_TOKENS, TEST_TOKEN_HMAC_SECRET } from '../fixtures/mock-gateway.fixture';
+import { createChargeCommandFixture } from '../fixtures/payments.fixture';
 
 const databaseUrl = process.env.PAYMENTS_TEST_DATABASE_URL ?? '';
-const integrationDescribe = databaseUrl.length > 0 ? describe : describe.skip;
-
-integrationDescribe('mock gateway durable ledger with PostgreSQL restart', () => {
-  const secret = 'integration-test-secret-with-at-least-thirty-two-characters';
+describe('mock gateway durable ledger with PostgreSQL restart', () => {
+  const secret = TEST_TOKEN_HMAC_SECRET;
   const config = {
     tokenHmacSecret: secret,
     gatewayTimeoutMs: 1_000,
@@ -29,13 +29,12 @@ integrationDescribe('mock gateway durable ledger with PostgreSQL restart', () =>
   it('recovers a persisted approval after the adapter and Prisma client restart', async () => {
     const idempotencyReference = `restart-${randomUUID()}`;
     const firstAdapter = new MockPaymentGatewayAdapter(prisma as unknown as PrismaService, config);
-    const dispatch = await firstAdapter.charge({
+    const dispatch = await firstAdapter.charge(createChargeCommandFixture({
       paymentId: randomUUID(),
-      token: 'tok_gateway_timeout',
+      token: MOCK_GATEWAY_TOKENS.gatewayTimeout,
       amountMinor: 125_000,
-      currency: 'COP',
       idempotencyReference,
-    });
+    }));
     expect(dispatch.kind).toBe('uncertain');
     if (dispatch.kind !== 'uncertain' || !dispatch.reference) throw new Error('Expected an opaque ledger reference');
     await prisma.$disconnect();
@@ -51,6 +50,6 @@ integrationDescribe('mock gateway durable ledger with PostgreSQL restart', () =>
       where: { operationRefHash: dispatch.reference },
     });
     expect(ledger).toMatchObject({ kind: 'CHARGE', result: 'APPROVED' });
-    expect(JSON.stringify(ledger)).not.toContain('tok_gateway_timeout');
+    expect(JSON.stringify(ledger)).not.toContain(MOCK_GATEWAY_TOKENS.gatewayTimeout);
   });
 });
