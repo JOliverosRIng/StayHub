@@ -16,6 +16,7 @@ import { observeDependency } from '../observability/otel';
 import { GatewayCircuitBreaker, GatewayCircuitOpenError, GatewayTimeoutError } from './gateway-circuit-breaker';
 
 const OPERATION_HASH = /^[0-9a-f]{64}$/;
+const PAYMENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class MockPaymentGatewayAdapter implements PaymentGatewayPort {
@@ -101,23 +102,28 @@ export class MockPaymentGatewayAdapter implements PaymentGatewayPort {
   }
 
   async getTransaction(reference: string): Promise<TransactionResult> {
-    if (!OPERATION_HASH.test(reference)) return { kind: 'unknown' };
+    const operationRefHash = OPERATION_HASH.test(reference)
+      ? reference
+      : PAYMENT_ID.test(reference)
+        ? this.operationHash(GatewayOperationKind.CHARGE, reference)
+        : null;
+    if (!operationRefHash) return { kind: 'unknown' };
     try {
-      const operation = await this.findOperation(reference);
+      const operation = await this.findOperation(operationRefHash);
       if (!operation || operation.result === GatewayOperationResult.UNKNOWN) return { kind: 'unknown' };
       if (operation.kind === GatewayOperationKind.CHARGE) {
-        if (operation.result === GatewayOperationResult.APPROVED) return { kind: 'approved', reference };
+        if (operation.result === GatewayOperationResult.APPROVED) return { kind: 'approved', reference: operationRefHash };
         if (operation.result === GatewayOperationResult.DECLINED) {
           return {
             kind: 'declined',
-            reference,
+            reference: operationRefHash,
             failureCode: this.chargeFailureCode(operation.failureCode),
           };
         }
       }
-      if (operation.result === GatewayOperationResult.REFUND_COMPLETED) return { kind: 'refund-completed', reference };
+      if (operation.result === GatewayOperationResult.REFUND_COMPLETED) return { kind: 'refund-completed', reference: operationRefHash };
       if (operation.result === GatewayOperationResult.REFUND_FAILED) {
-        return { kind: 'refund-failed', reference, failureCode: this.refundFailureCode(operation.failureCode) };
+        return { kind: 'refund-failed', reference: operationRefHash, failureCode: this.refundFailureCode(operation.failureCode) };
       }
       return { kind: 'unknown' };
     } catch {

@@ -109,7 +109,7 @@
 - [x] PAY-037 [GREEN] [US1] Implementar `CreatePayment` con transacciones separadas: reservar clave + PENDING → llamada a pasarela/ledger mock fuera de tx → resultado + historial + evento outbox en misma tx; timeout = PENDING con 202 y clave retenida; probar caída tras cargo antes del commit en `apps/payments-service/src/application/payments/create-payment.use-case.ts`
 - [x] PAY-038 [GREEN] [US1] Implementar DTO estricto, controlador `POST /payments`, cabeceras `Idempotent-Replay` y `Location`, y decoradores OpenAPI en `apps/payments-service/src/interfaces/http/payments/{create-payment.dto.ts,payments.controller.ts}` y `src/interfaces/openapi/payments.openapi.ts`
 - [x] PAY-039 [GREEN] [US1] Registrar `PaymentsModule` y conectarlo a `AppModule` con las dependencias de puertos en `apps/payments-service/src/modules/payments.module.ts`
-- [ ] PAY-040 [GREEN] [US1] Implementar `503` **solo con prueba de no despacho**: pago `FAILED/GATEWAY_UNAVAILABLE`, clave liberada, nuevo intento permitido; si existe posibilidad de despacho, `202 PENDING` con bloqueo y clave retenida. Añadir pruebas adversariales de caída de red después del cargo, en `apps/payments-service/src/application/payments/create-payment.use-case.ts`
+- [x] PAY-040 [GREEN] [US1] Implementar `503` **solo con prueba de no despacho**: pago `FAILED/GATEWAY_UNAVAILABLE`, clave liberada, nuevo intento permitido; si existe posibilidad de despacho, `202 PENDING` con bloqueo y clave retenida. Añadir pruebas adversariales de caída de red después del cargo, en `apps/payments-service/src/application/payments/create-payment.use-case.ts`
 
 **Checkpoint**: US1 funciona y se verifica de forma independiente.
 

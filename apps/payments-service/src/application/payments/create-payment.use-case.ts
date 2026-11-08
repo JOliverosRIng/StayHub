@@ -156,7 +156,7 @@ export class CreatePayment {
       const result: CreatePaymentResult = { statusCode: 202, payment: response, replayed: false };
       await unitOfWork.transaction(async ({ payments, idempotency }) => {
         await payments.save(payment, {
-          gatewayReference: gatewayResult.reference ?? null,
+          gatewayReference: gatewayResult.reference ?? payment.id,
           nextReconcileAt: new Date(occurredAt.getTime() + config.reconcilerIntervalMs),
         });
         await idempotency.complete(

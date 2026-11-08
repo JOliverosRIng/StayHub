@@ -115,4 +115,51 @@ describe('CreatePayment with PostgreSQL 16', () => {
     expect(retry).toMatchObject({ statusCode: 201, payment: { status: 'APPROVED' } });
     expect(await prisma.payment.count({ where: { bookingId: declinedInput.bookingId } })).toBe(2);
   });
+
+  it('releases a key only after confirmed pre-dispatch failure and permits a retry', async () => {
+    const useCase = createUseCase();
+    const preDispatch = input({ paymentMethod: { type: 'CARD_TOKEN', token: MOCK_GATEWAY_TOKENS.gatewayDown } });
+
+    await expect(useCase.execute(preDispatch)).rejects.toMatchObject({ code: 'UNAVAILABLE' });
+    await expect(prisma.payment.findFirst({ where: { bookingId: preDispatch.bookingId } }))
+      .resolves.toMatchObject({ status: 'FAILED', failureCode: 'GATEWAY_UNAVAILABLE' });
+    await expect(prisma.idempotencyRecord.findFirst({ where: { key: preDispatch.idempotencyKey } })).resolves.toBeNull();
+
+    const retry = await useCase.execute({
+      ...preDispatch,
+      paymentMethod: { type: 'CARD_TOKEN', token: MOCK_GATEWAY_TOKENS.approved },
+    });
+    expect(retry).toMatchObject({ statusCode: 201, payment: { status: 'APPROVED' } });
+    expect(await prisma.payment.count({ where: { bookingId: preDispatch.bookingId } })).toBe(2);
+  });
+
+  it('keeps PENDING and the idempotency key when the connection drops after the gateway commits', async () => {
+    let chargeCalls = 0;
+    const gatewayDropsResponse: PaymentGatewayPort = {
+      charge: async (command) => {
+        chargeCalls += 1;
+        await gateway.charge(command);
+        throw new Error('simulated connection loss after provider commit');
+      },
+      refund: (command) => gateway.refund(command),
+      getTransaction: (reference) => gateway.getTransaction(reference),
+    };
+    const useCase = createUseCase(gatewayDropsResponse);
+    const command = input();
+
+    const first = await useCase.execute(command);
+    expect(first).toMatchObject({ statusCode: 202, payment: { status: 'PENDING', failureCode: 'GATEWAY_TIMEOUT' } });
+    await expect(prisma.payment.findUnique({ where: { id: first.payment.id } })).resolves.toMatchObject({
+      status: 'PENDING',
+      gatewayReference: first.payment.id,
+      failureCode: 'GATEWAY_TIMEOUT',
+    });
+    await expect(prisma.idempotencyRecord.findFirst({ where: { key: command.idempotencyKey } }))
+      .resolves.toMatchObject({ responseStatus: 202, resourceId: first.payment.id });
+    await expect(gateway.getTransaction(first.payment.id)).resolves.toMatchObject({ kind: 'approved' });
+
+    const replay = await useCase.execute(command);
+    expect(replay).toEqual({ ...first, replayed: true });
+    expect(chargeCalls).toBe(1);
+  });
 });
