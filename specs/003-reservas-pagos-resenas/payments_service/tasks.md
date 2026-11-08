@@ -39,7 +39,7 @@
 - [x] PAY-005 [compartido] Registrar `payments-service` como aplicación NestJS con `root`, `sourceRoot`, `entryFile` y `tsConfigPath` propios en `nest-cli.json`
 - [x] PAY-006 [P] [compartido] Crear el Dockerfile multi-stage no root con targets `build`, `migration` y `runtime` en `infra/docker/payments/Dockerfile`
 - [x] PAY-007 [P] [compartido] Añadir las variables `PAYMENTS_*` documentadas con valores de ejemplo no secretos (ver `plan.md`, sección Configuración) en `.env.example`
-- [ ] PAY-008 [P] Crear `apps/payments-service/README.md` con comandos, variables, tokens mock (`tok_approved`, `tok_declined_funds`, `tok_declined_fraud`, `tok_gateway_timeout`, `tok_gateway_down`, `tok_refund_fails`) y enlace a los documentos del spec
+- [x] PAY-008 [P] Crear `apps/payments-service/README.md` con comandos, variables, tokens mock (`tok_approved`, `tok_declined_funds`, `tok_declined_fraud`, `tok_gateway_timeout`, `tok_gateway_down`, `tok_refund_fails`) y enlace a los documentos del spec
 
 **Checkpoint**: PAY-001 crea el esqueleto local; PAY-002 (aprobado por el equipo) registra el workspace y actualiza el lockfile. Solo después de PAY-002 se exige `npm ci` desde la raíz sin inconsistencias. No marcar el setup como completo antes de resolver la dependencia.
 
