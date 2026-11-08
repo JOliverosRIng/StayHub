@@ -138,7 +138,7 @@
 
 ### Pruebas primero
 
-- [ ] PAY-045 [P] [RED] [US3] Escribir pruebas unitarias del caso de uso `RefundPayment`: total, parcial, monto mayor al saldo, `OWNER_CANCELLATION` con monto parcial, estados no reembolsables, rechazo de la pasarela, idempotencia en `apps/payments-service/test/unit/refund-payment.use-case.spec.ts`
+- [x] PAY-045 [P] [RED] [US3] Escribir pruebas unitarias del caso de uso `RefundPayment`: total, parcial, monto mayor al saldo, `OWNER_CANCELLATION` con monto parcial, estados no reembolsables, rechazo de la pasarela, idempotencia en `apps/payments-service/test/unit/refund-payment.use-case.spec.ts`
 - [ ] PAY-046 [P] [RED] [US3] Escribir pruebas de integración de concurrencia con PostgreSQL real: dos reembolsos simultáneos que juntos exceden el monto (solo uno se aplica), el `CHECK` rechaza un `UPDATE` directo que lo supere, el índice impide dos reembolsos `PENDING` por pago en `apps/payments-service/test/integration/refund-concurrency.spec.ts`
 - [ ] PAY-047 [P] [RED] [US3] Escribir la prueba de contrato de `POST /payments/{id}/refund` para 201, 202, 400, 401, 403, 404, 409, 422 y 503 en `apps/payments-service/test/contract/refund.contract.spec.ts`
 - [ ] PAY-048 [P] [RED] [US3] Escribir pruebas de seguridad: JWT de usuario (403), scope `payments:charge` en la ruta de reembolso (403), reutilizar una clave de idempotencia de **otro pago** (scope `refund:<paymentId>` independiente → operación distinta, nunca replay cruzado; misma clave y mismo paymentId con cuerpo distinto → 409), campos extra y motivo inválido en `apps/payments-service/test/security/refund.security.spec.ts`
