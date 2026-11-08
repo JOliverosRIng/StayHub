@@ -67,4 +67,4 @@ The real Bookings and Notifications clients, deployed broker topology/credential
 
 ## Pending shared change
 
-PAY-065 asks for a root OpenAPI validation script and a `payments-quality` job in `.github/workflows/ci.yml`. Its task explicitly says to present the diff and wait for team approval before editing the root/workflow. The workflow currently contains unresolved merge conflict markers, so this report leaves PAY-065 open and records the proposed changes separately for review.
+PAY-065 asks for a root OpenAPI validation script and a `payments-quality` job in `.github/workflows/ci.yml`. Its task explicitly says to present the diff and wait for team approval before editing the root/workflow. The workflow currently contains unresolved merge conflict markers, so this report leaves PAY-065 open until the diff is presented and approved.
