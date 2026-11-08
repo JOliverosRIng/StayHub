@@ -10,6 +10,8 @@ import { SendAuthGuard } from '../../src/interfaces/http/guards/send-auth.guard'
 import { AccessJwtGuard } from '../../src/interfaces/http/guards/access-jwt.guard';
 import { NotificationOwnershipGuard } from '../../src/interfaces/http/guards/notification-ownership.guard';
 import { ProblemFilter } from '../../src/interfaces/http/problem.filter';
+import { BookingConfirmedUseCase } from '../../src/application/notifications/booking-confirmed.use-case';
+import { ServiceJwtGuard } from '../../src/interfaces/http/guards/service-jwt.guard';
 
 describe('GET /notifications/user/{id} contract (NTF-012)', () => {
   let app: INestApplication | undefined;
@@ -24,10 +26,12 @@ describe('GET /notifications/user/{id} contract (NTF-012)', () => {
     const builder = Test.createTestingModule({ controllers: [NotificationsController], providers: [
       { provide: SendNotificationUseCase, useValue: { execute: jest.fn() } },
       { provide: ListUserNotificationsUseCase, useValue: { execute: list } },
+      { provide: BookingConfirmedUseCase, useValue: { execute: jest.fn() } },
     ] });
     builder.overrideGuard(SendAuthGuard).useValue({ canActivate: (): boolean => true });
     builder.overrideGuard(AccessJwtGuard).useValue({ canActivate: (): boolean => true });
     builder.overrideGuard(NotificationOwnershipGuard).useValue({ canActivate: (): boolean => true });
+    builder.overrideGuard(ServiceJwtGuard).useValue({ canActivate: (): boolean => true });
     const module = await builder.compile();
     app = module.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true, forbidUnknownValues: true }));

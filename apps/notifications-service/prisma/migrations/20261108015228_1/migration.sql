@@ -1,0 +1,3 @@
+-- Intentionally empty. An earlier local Prisma diff attempted to drop a
+-- ScheduledNotification table that is not created by this migration history.
+-- The table is introduced by 20261108020000_booking_reminders instead.

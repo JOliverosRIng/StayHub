@@ -16,6 +16,7 @@ export interface NotificationsConfig {
   serviceJwt: JwtVerificationConfig;
   sendScope: string;
   development: boolean;
+  email: { mode: 'stub' | 'smtp'; host?: string; port?: number; secure?: boolean; user?: string; password?: string; from?: string };
 }
 
 export const NOTIFICATIONS_CONFIG = Symbol('NOTIFICATIONS_CONFIG');
@@ -33,6 +34,16 @@ function required(key: string, env: NodeJS.ProcessEnv): string {
   }
   if (!value?.trim()) throw new Error(`Missing configuration: ${key}`);
   return value.trim();
+}
+
+function optional(key: string, env: NodeJS.ProcessEnv): string | undefined {
+  try {
+    const file = env[`${key}_FILE`];
+    const value = file ? readFileSync(file, 'utf8').trim() : env[key]?.trim();
+    return value || undefined;
+  } catch {
+    throw new Error(`Invalid configuration: ${key}`);
+  }
 }
 
 function loadJwtConfig(prefix: string, maxAgeSeconds: number, env: NodeJS.ProcessEnv): JwtVerificationConfig {
@@ -85,6 +96,25 @@ export function loadNotificationsConfig(env: NodeJS.ProcessEnv = process.env): N
     throw new Error('Invalid configuration: NOTIFICATIONS_SEND_SCOPE');
   }
 
+  const emailMode = optional('NOTIFICATIONS_EMAIL_MODE', env) || 'stub';
+  if (emailMode !== 'stub' && emailMode !== 'smtp') throw new Error('Invalid configuration: NOTIFICATIONS_EMAIL_MODE');
+  let email: NotificationsConfig['email'] = { mode: 'stub' };
+  if (emailMode === 'smtp') {
+    const host = optional('NOTIFICATIONS_SMTP_HOST', env);
+    const from = optional('NOTIFICATIONS_SMTP_FROM', env);
+    const port = Number(optional('NOTIFICATIONS_SMTP_PORT', env) || '587');
+    const secureRaw = optional('NOTIFICATIONS_SMTP_SECURE', env) || 'false';
+    const user = optional('NOTIFICATIONS_SMTP_USER', env);
+    const password = optional('NOTIFICATIONS_SMTP_PASSWORD', env);
+    if (!host || !from || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(from)
+      || !Number.isInteger(port) || port < 1 || port > 65535
+      || !['true', 'false'].includes(secureRaw)
+      || Boolean(user) !== Boolean(password)) {
+      throw new Error('Invalid configuration: NOTIFICATIONS_SMTP_*');
+    }
+    email = { mode: 'smtp', host, port, secure: secureRaw === 'true', from, ...(user && password ? { user, password } : {}) };
+  }
+
   return {
     port,
     databaseUrl,
@@ -92,5 +122,6 @@ export function loadNotificationsConfig(env: NodeJS.ProcessEnv = process.env): N
     serviceJwt: loadJwtConfig('NOTIFICATIONS_SERVICE_JWT', SERVICE_JWT_MAX_AGE_SECONDS, env),
     sendScope,
     development: env.NODE_ENV === 'development',
+    email,
   };
 }

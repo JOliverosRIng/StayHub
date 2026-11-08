@@ -1,19 +1,70 @@
 import { BadRequestException, Body, ConflictException, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query, Res, ServiceUnavailableException, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiCreatedResponse, ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { IdempotencyConflictError, NotificationStorageError, SendNotificationUseCase } from '../../../application/notifications/send-notification.use-case';
+import { BookingConfirmedUseCase, InvalidBookingEventError } from '../../../application/notifications/booking-confirmed.use-case';
+import { ReminderScheduleConflictError } from '../../../application/ports/reminder-schedule.repository';
 import { ListUserNotificationsUseCase } from '../../../application/notifications/list-user-notifications.use-case';
 import { SendAuthGuard } from '../guards/send-auth.guard';
 import { AccessJwtGuard } from '../guards/access-jwt.guard';
 import { NotificationOwnershipGuard } from '../guards/notification-ownership.guard';
 import { SendNotificationDto } from './send-notification.dto';
+import { BookingConfirmedDto } from './booking-confirmed.dto';
 import { ListNotificationsQueryDto } from './list-notifications-query.dto';
 import { InvalidNotificationCursorError } from '../../../domain/notifications/notification-cursor';
+import { ServiceJwtGuard } from '../guards/service-jwt.guard';
 
 @ApiTags('Notifications')
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly sendNotification: SendNotificationUseCase, private readonly listNotifications: ListUserNotificationsUseCase) {}
+  constructor(
+    private readonly sendNotification: SendNotificationUseCase,
+    private readonly listNotifications: ListUserNotificationsUseCase,
+    private readonly bookingConfirmed: BookingConfirmedUseCase,
+  ) {}
+
+  @Post('events/booking-confirmed')
+  @ApiOperation({ operationId: 'bookingConfirmedEvent', summary: 'Record a booking confirmation and schedule its check-in reminder' })
+  @UseGuards(ServiceJwtGuard)
+  @ApiBearerAuth('serviceJwt')
+  @ApiBody({ type: BookingConfirmedDto })
+  @ApiCreatedResponse({
+    description: 'Confirmation created and check-in reminder scheduled.',
+    schema: {
+      type: 'object',
+      required: ['confirmation', 'reminderScheduledAt'],
+      properties: {
+        confirmation: {
+          type: 'object',
+          required: ['id', 'userId', 'type', 'channel', 'subject', 'body', 'status', 'createdAt', 'sentAt'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            userId: { type: 'string', format: 'uuid' },
+            type: { type: 'string', enum: ['BOOKING_CONFIRMATION', 'CHECKIN_REMINDER', 'SYSTEM_ALERT'] },
+            channel: { type: 'string', enum: ['EMAIL', 'IN_APP'] },
+            subject: { type: 'string' },
+            body: { type: 'string' },
+            status: { type: 'string', enum: ['PENDING', 'SENT', 'FAILED'] },
+            createdAt: { type: 'string', format: 'date-time' },
+            sentAt: { type: 'string', format: 'date-time', nullable: true },
+          },
+        },
+        reminderScheduledAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  async bookingConfirmedEvent(@Body() dto: BookingConfirmedDto): Promise<unknown> {
+    try {
+      return await this.bookingConfirmed.execute(dto);
+    } catch (error) {
+      if (error instanceof IdempotencyConflictError || error instanceof ReminderScheduleConflictError) {
+        throw new ConflictException('Booking confirmation conflicts with an existing event');
+      }
+      if (error instanceof InvalidBookingEventError) throw new BadRequestException('Invalid booking event');
+      if (error instanceof NotificationStorageError) throw new ServiceUnavailableException('Notification storage is unavailable');
+      throw new ServiceUnavailableException('Booking notification could not be processed');
+    }
+  }
 
   @Post('send')
   @ApiOperation({ operationId: 'sendNotification', summary: 'Create or replay a notification' })

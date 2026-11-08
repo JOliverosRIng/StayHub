@@ -3,8 +3,8 @@ info:
   title: StayHub Notifications Service
   version: 1.0.0
   description: >-
-    Internal API for idempotent notification submission and owner/admin notification
-    history. Email is handled by a local fake adapter and is never delivered externally.
+    Internal API for notification submission, booking confirmation/reminder scheduling,
+    and owner/admin notification history. Email is handled by a local fake adapter.
 servers:
   - url: http://localhost:3009
     description: Local service port
@@ -57,6 +57,48 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+  /notifications/events/booking-confirmed:
+    post:
+      tags: [Notifications]
+      operationId: bookingConfirmedEvent
+      summary: Create a booking confirmation and schedule its check-in reminder
+      description: >-
+        Requires a service JWT with the configured notification-send scope. The event is
+        idempotent by bookingId. An IN_APP confirmation is recorded immediately and an
+        IN_APP reminder is scheduled 24 hours before checkInAt (or immediately when the
+        booking is confirmed within that window). The local worker polls every 30 seconds.
+      security:
+        - serviceJwt: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingConfirmedEvent'
+      responses:
+        '201':
+          description: Confirmation recorded and reminder scheduled.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [confirmation, reminderScheduledAt]
+                properties:
+                  confirmation:
+                    $ref: '#/components/schemas/Notification'
+                  reminderScheduledAt:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
         '503':
           $ref: '#/components/responses/Problem'
   /notifications/user/{id}:
@@ -127,7 +169,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: Service-JWT (RS256)
-      description: POST only; requires configured issuer, audience, key id, expiry and notification-send scope.
+      description: POST send and booking-confirmed event; requires configured issuer, audience, key id, expiry and notification-send scope.
   parameters:
     IdempotencyKey:
       name: Idempotency-Key
@@ -179,6 +221,44 @@ components:
             - $ref: '#/components/schemas/BookingConfirmationData'
             - $ref: '#/components/schemas/CheckinReminderData'
             - $ref: '#/components/schemas/SystemAlertData'
+    BookingConfirmedEvent:
+      type: object
+      additionalProperties: false
+      required: [userId, bookingId, roomTitle, roomLocation, checkIn, checkOut, guests, totalPrice, checkInAt]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        bookingId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        roomTitle:
+          type: string
+          minLength: 1
+          maxLength: 120
+        roomLocation:
+          type: string
+          minLength: 1
+          maxLength: 200
+        checkIn:
+          type: string
+          format: date
+        checkOut:
+          type: string
+          format: date
+        guests:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalPrice:
+          type: number
+          minimum: 0
+          multipleOf: 0.01
+        checkInAt:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp with UTC offset, on the same local date as checkIn.
     BookingConfirmationData:
       type: object
       additionalProperties: false

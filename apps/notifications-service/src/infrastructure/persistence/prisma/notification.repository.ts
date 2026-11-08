@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { NotificationRepository, NotificationFilter, NewNotification } from '../../../application/ports/notification.repository';
+import { ReminderScheduleConflictError, type NewScheduledReminder, type ReminderScheduleRepository, type ScheduledReminder } from '../../../application/ports/reminder-schedule.repository';
 import type { NotificationRecord } from '../../../domain/notifications/notification.types';
 import { PrismaService } from './prisma.service';
 
@@ -14,7 +15,7 @@ function mapRecord(row: Record<string, unknown>): NotificationRecord {
 }
 
 @Injectable()
-export class PrismaNotificationRepository implements NotificationRepository {
+export class PrismaNotificationRepository implements NotificationRepository, ReminderScheduleRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(record: NewNotification): Promise<NotificationRecord> {
@@ -50,7 +51,54 @@ export class PrismaNotificationRepository implements NotificationRepository {
       where: { userId: filter.userId, ...(filter.status ? { status: filter.status } : {}), ...(filter.type ? { type: filter.type } : {}), ...cursorWhere },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: filter.take,
     });
-    return rows.map((row) => mapRecord(row as unknown as Record<string, unknown>));
+    return rows.map((row: unknown) => mapRecord(row as Record<string, unknown>));
+  }
+
+  async scheduleBookingReminder(reminder: NewScheduledReminder): Promise<void> {
+    try {
+      await this.prisma.scheduledNotification.create({ data: reminder as never } as never);
+    } catch (error) {
+      if (!this.isUniqueViolation(error)) throw error;
+      const existing = await this.prisma.scheduledNotification.findUnique({ where: { bookingId: reminder.bookingId } });
+      if (!existing
+        || existing.userId !== reminder.userId
+        || existing.roomTitle !== reminder.roomTitle
+        || existing.roomLocation !== reminder.roomLocation
+        || existing.checkIn !== reminder.checkIn) {
+        throw new ReminderScheduleConflictError('Booking already has a different reminder');
+      }
+    }
+  }
+
+  async claimDueReminders(now: Date, staleBefore: Date, take: number): Promise<ScheduledReminder[]> {
+    const rows = await this.prisma.$queryRaw<unknown[]>`
+      WITH due AS (
+        SELECT "id"
+        FROM "ScheduledNotification"
+        WHERE ("status" = 'SCHEDULED' AND "scheduledAt" <= ${now})
+          OR ("status" = 'PROCESSING' AND "claimedAt" <= ${staleBefore})
+        ORDER BY "scheduledAt" ASC, "id" ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT ${take}
+      )
+      UPDATE "ScheduledNotification" AS reminder
+      SET "status" = 'PROCESSING', "claimedAt" = ${now}
+      FROM due
+      WHERE reminder."id" = due."id"
+      RETURNING reminder."id", reminder."bookingId", reminder."userId",
+        reminder."roomTitle", reminder."roomLocation", reminder."checkIn"
+    `;
+    return rows.map((row: unknown) => {
+      const record = row as Record<string, unknown>;
+      return {
+        id: String(record.id), bookingId: String(record.bookingId), userId: String(record.userId),
+        roomTitle: String(record.roomTitle), roomLocation: String(record.roomLocation), checkIn: String(record.checkIn),
+      };
+    });
+  }
+
+  async completeReminder(id: string, status: 'SENT' | 'FAILED'): Promise<void> {
+    await this.prisma.scheduledNotification.update({ where: { id }, data: { status, claimedAt: null } });
   }
 
   private isUniqueViolation(error: unknown): boolean {

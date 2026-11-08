@@ -1,7 +1,7 @@
 # Evidencia final — notifications-service
 
 Rama: `feat/notifications-service`
-Alcance: NTF-001–NTF-015. El servicio expone `POST /notifications/send` y `GET /notifications/user/{id}` en el puerto `3009`.
+Alcance: NTF-001–NTF-015 más automatización de reserva. El servicio expone `POST /notifications/send`, `POST /notifications/events/booking-confirmed` y `GET /notifications/user/{id}` en el puerto `3009`.
 
 ## Checkpoints por tarea
 
@@ -49,6 +49,10 @@ La suite de persistencia inspecciona el esquema y la migración; el test de idem
 
 ## Arranque y límites de evidencia
 
-`npm run start:dev` y `npm start` cargan `.env`, validan configuración y escuchan `0.0.0.0:3009`. **El arranque real no se ejecutó**: necesita una base PostgreSQL `notifications_db` accesible y claves/issuer/audience sintéticos configurados. El puerto y variables se cubren con pruebas, pero no se declara un proceso escuchando como PASS.
+`POST /notifications/events/booking-confirmed` recibe un evento firmado por un service JWT, registra la confirmación en `IN_APP` y programa el recordatorio `IN_APP` 24 horas antes de `checkInAt` (o inmediatamente si queda menos tiempo). El worker durable consulta PostgreSQL cada 30 segundos; un `bookingId` solo puede tener una programación. Booking debe invocar esta ruta; este cambio no modifica ni conecta otro servicio.
+
+Las alertas de sistema ya se crean mediante `POST /notifications/send` con `type: SYSTEM_ALERT`. EMAIL sigue usando el adaptador falso.
+
+`npm run start:dev` y `npm start` cargan `.env`, validan configuración y escuchan `0.0.0.0:3009`. **La integración del worker contra PostgreSQL real aún debe verificarse** en el entorno local; requiere aplicar la migración nueva y configurar claves/issuer/audience sintéticos.
 
 El despliegue en Compose, el wiring de Gateway y el aprovisionamiento de claves/scope de service JWT requieren coordinación de plataforma y quedan **fuera de alcance**, no PASS.

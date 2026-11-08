@@ -127,3 +127,15 @@ Scheduler o envío automático por tiempo; colas/eventos; llamadas a otros servi
 - **SC-004**: Las pruebas locales pasan sin credenciales reales ni conectividad con microservicios/proveedores externos.
 - **SC-005**: Ninguna evidencia de logs contiene tokens, correos, asuntos o cuerpos de notificación.
 
+## Ampliación aprobada posteriormente: automatización de reservas
+
+Por solicitud posterior del usuario, esta ampliación prevalece sobre las restricciones originales que limitaban la API a dos rutas y excluían scheduler/eventos. Se mantiene el límite de no modificar Booking, Gateway, Compose ni otros servicios.
+
+- `POST /notifications/events/booking-confirmed` admite solo service JWT con el scope configurado. El evento contiene `userId`, `bookingId`, datos de habitación, fechas, huéspedes, precio y `checkInAt` ISO-8601 con offset.
+- El servicio crea idempotentemente una confirmación `IN_APP` y persiste un recordatorio `IN_APP` asociado al `bookingId`.
+- El recordatorio queda programado para 24 horas antes de `checkInAt`; si la reserva se confirma dentro de esas 24 horas, queda listo para enviarse inmediatamente.
+- Un worker local revisa la tabla de programaciones cada 30 segundos. La reclamación SQL usa locks `SKIP LOCKED` y una lease de cinco minutos para recuperar procesos interrumpidos. La clave determinista evita una segunda notificación ante un replay.
+- Si el mismo `bookingId` llega con datos diferentes, el endpoint devuelve conflicto. Repetir el mismo evento conserva una sola confirmación y una sola programación.
+- `SYSTEM_ALERT` ya se ofrece por `POST /notifications/send`; sus emisores deben invocar esa ruta con credenciales de servicio. No se inventa un catálogo ni se integra un origen externo.
+- La entrega EMAIL continúa siendo simulada; el scheduler automático entrega recordatorios en `IN_APP`. Integrar el productor Booking y un proveedor real sigue siendo trabajo de plataforma.
+
