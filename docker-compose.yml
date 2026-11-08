@@ -234,12 +234,84 @@ services:
       search-redis: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
 
+  payments-db:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: payments_db
+      POSTGRES_USER: stayhub_payments
+      POSTGRES_PASSWORD_FILE: /run/secrets/payments_db_password
+    secrets: [payments_db_password]
+    volumes: [payments_db_data:/var/lib/postgresql/data]
+    networks: [payments-internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stayhub_payments -d payments_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  payments-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/payments/Dockerfile
+      target: migration
+    environment:
+      PAYMENTS_DATABASE_URL_FILE: /run/secrets/payments_database_url
+    secrets: [payments_database_url]
+    networks: [payments-internal]
+    restart: 'no'
+    depends_on:
+      payments-db: { condition: service_healthy }
+
+  payments-service:
+    build:
+      context: .
+      dockerfile: infra/docker/payments/Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: production
+      PAYMENTS_PORT: '3006'
+      PAYMENTS_DATABASE_URL_FILE: /run/secrets/payments_database_url
+      PAYMENTS_JWT_ISSUER: ${PAYMENTS_JWT_ISSUER:?required}
+      PAYMENTS_JWT_AUDIENCE: ${PAYMENTS_JWT_AUDIENCE:?required}
+      PAYMENTS_JWT_KID: ${PAYMENTS_JWT_KID:?required}
+      PAYMENTS_JWT_PUBLIC_KEY_FILE: /run/secrets/payments_jwt_public
+      PAYMENTS_SERVICE_JWT_ISSUER: ${PAYMENTS_SERVICE_JWT_ISSUER:?required}
+      PAYMENTS_SERVICE_JWT_AUDIENCE: ${PAYMENTS_SERVICE_JWT_AUDIENCE:?required}
+      PAYMENTS_SERVICE_JWT_KID: ${PAYMENTS_SERVICE_JWT_KID:?required}
+      PAYMENTS_SERVICE_JWT_PUBLIC_KEY_FILE: /run/secrets/payments_service_jwt_public
+      PAYMENTS_CHARGE_SCOPE: ${PAYMENTS_CHARGE_SCOPE:-payments:charge}
+      PAYMENTS_REFUND_SCOPE: ${PAYMENTS_REFUND_SCOPE:-payments:refund}
+      PAYMENTS_READ_SCOPE: ${PAYMENTS_READ_SCOPE:-payments:read}
+      PAYMENTS_ALLOWED_CURRENCIES: ${PAYMENTS_ALLOWED_CURRENCIES:-COP,USD}
+      PAYMENTS_TOKEN_HMAC_SECRET_FILE: /run/secrets/payments_token_hmac_secret
+      PAYMENTS_RABBITMQ_EXCHANGE: ${PAYMENTS_RABBITMQ_EXCHANGE:-stayhub.payments}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}
+    secrets:
+      - payments_database_url
+      - payments_jwt_public
+      - payments_service_jwt_public
+      - payments_token_hmac_secret
+    networks: [payments-internal, services]
+    restart: always
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3006/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      payments-db: { condition: service_healthy }
+      payments-migrate: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_started, required: false }
+
 networks:
   stayhub-internal:
     internal: true
   users-internal:
     internal: true
   search-internal:
+    internal: true
+  payments-internal:
     internal: true
   services:
     internal: true
@@ -248,6 +320,7 @@ volumes:
   auth-db-data:
   users_data:
   search_db_data:
+  payments_db_data:
 
 secrets:
   gateway_tls_cert:
@@ -266,3 +339,13 @@ secrets:
     file: ${USERS_JWT_PUBLIC_KEY_FILE:?required}
   users_service_public:
     file: ${USERS_SERVICE_JWT_PUBLIC_KEY_FILE:?required}
+  payments_db_password:
+    file: ${PAYMENTS_DB_PASSWORD_FILE:?required}
+  payments_database_url:
+    file: ${PAYMENTS_DATABASE_URL_FILE:?required}
+  payments_jwt_public:
+    file: ${PAYMENTS_JWT_PUBLIC_KEY_FILE:?required}
+  payments_service_jwt_public:
+    file: ${PAYMENTS_SERVICE_JWT_PUBLIC_KEY_FILE:?required}
+  payments_token_hmac_secret:
+    file: ${PAYMENTS_TOKEN_HMAC_SECRET_FILE:?required}
