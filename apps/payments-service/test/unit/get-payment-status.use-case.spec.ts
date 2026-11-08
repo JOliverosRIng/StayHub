@@ -1,14 +1,22 @@
 import { DomainError } from '../../src/domain/shared/domain-error';
-import type { PaymentRepository } from '../../src/application/ports/payment.repository';
+import type { PaymentStatusReader } from '../../src/application/ports/payment-status.reader';
 import { GetPaymentStatus } from '../../src/application/payments/get-payment-status.use-case';
 import { createPaymentFixture, TEST_PAYMENT_ID, TEST_PAYER_ID } from '../fixtures/payments.fixture';
 
 describe('GetPaymentStatus', () => {
   const payment = createPaymentFixture();
-  const payments: jest.Mocked<PaymentRepository> = {
-    findById: jest.fn(async (id: string) => id === payment.id ? payment : null),
-    findActiveByBookingId: jest.fn(),
-    save: jest.fn(),
+  const payments: jest.Mocked<PaymentStatusReader> = {
+    findStatusById: jest.fn(async (id: string) => id === payment.id ? {
+      paymentId: payment.id,
+      bookingId: payment.bookingId,
+      payerUserId: TEST_PAYER_ID,
+      amountMinor: payment.amount.amountMinor,
+      currency: payment.amount.currency,
+      status: payment.status,
+      refundedAmountMinor: payment.refundedAmount.amountMinor,
+      failureCode: payment.failureCode,
+      updatedAt: new Date('2026-11-07T12:00:00.000Z'),
+    } : null),
   };
   const useCase = new GetPaymentStatus(payments);
 
@@ -19,12 +27,12 @@ describe('GetPaymentStatus', () => {
       .resolves.toEqual(expect.objectContaining({
         paymentId: TEST_PAYMENT_ID,
         bookingId: payment.bookingId,
-        payerUserId: TEST_PAYER_ID,
         status: 'PENDING',
         amountMinor: 35_000_000,
         currency: 'COP',
         refundedAmountMinor: 0,
         failureCode: null,
+        updatedAt: '2026-11-07T12:00:00.000Z',
       }));
   });
 
@@ -46,6 +54,6 @@ describe('GetPaymentStatus', () => {
   it('rejects malformed payment IDs before querying the repository', async () => {
     await expect(useCase.execute('not-a-uuid', { kind: 'user', sub: TEST_PAYER_ID, role: 'GUEST' }))
       .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
-    expect(payments.findById).not.toHaveBeenCalled();
+    expect(payments.findStatusById).not.toHaveBeenCalled();
   });
 });
