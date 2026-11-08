@@ -122,7 +122,7 @@
 **Independent Test**: pagos en cada estado consultados por dueño, ajeno, admin y servicio.
 
 - [x] PAY-041 [P] [RED] [US2] Escribir pruebas unitarias y de seguridad: dueño (200), admin (200), servicio con `payments:read` (200), usuario ajeno (404 idéntico a inexistente), identificador malformado (400), scope insuficiente (403) en `apps/payments-service/test/unit/get-payment-status.use-case.spec.ts` y `test/security/get-payment-status.security.spec.ts`
-- [ ] PAY-042 [P] [RED] [US2] Escribir la prueba de contrato de `GET /payments/{id}/status`: esquema `PaymentStatus`, `Cache-Control: no-store` y ausencia de `gatewayReference`, token y huella en `apps/payments-service/test/contract/get-status.contract.spec.ts`
+- [x] PAY-042 [P] [RED] [US2] Escribir la prueba de contrato de `GET /payments/{id}/status`: esquema `PaymentStatus`, `Cache-Control: no-store` y ausencia de `gatewayReference`, token y huella en `apps/payments-service/test/contract/get-status.contract.spec.ts`
 - [ ] PAY-043 [GREEN] [US2] Implementar el caso de uso `GetPaymentStatus` con la política de visibilidad (dueño, `ADMIN`, servicio) en `apps/payments-service/src/application/payments/get-payment-status.use-case.ts`
 - [ ] PAY-044 [GREEN] [US2] Implementar `GET /payments/{id}/status` con autenticación dual (JWT de usuario o JWT de servicio con scope `payments:read`) y OpenAPI en `apps/payments-service/src/interfaces/http/payments/payments.controller.ts`
 
