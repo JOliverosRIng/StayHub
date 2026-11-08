@@ -43,7 +43,9 @@ export class MockPaymentGatewayAdapter implements PaymentGatewayPort {
         const existing = await this.findOperation(operationRefHash);
         if (existing) return this.toChargeResult(existing);
 
-        const fixture = this.chargeFixture(command.token);
+        const fixture = command.token === 'tok_gateway_unknown'
+          ? { result: GatewayOperationResult.UNKNOWN, failureCode: null }
+          : this.chargeFixture(command.token);
         const operation = await this.persistOperation({
           operationRefHash,
           kind: GatewayOperationKind.CHARGE,

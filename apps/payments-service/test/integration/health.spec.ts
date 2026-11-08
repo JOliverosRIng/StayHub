@@ -9,6 +9,7 @@ import { HealthController } from '../../src/modules/health/health.controller';
 import { configureHttp } from '../../src/interfaces/http/configure-http';
 import { RabbitMqPublisher } from '../../src/infrastructure/messaging/rabbitmq.publisher';
 import { OUTBOX_REPOSITORY } from '../../src/infrastructure/messaging/outbox.tokens';
+import { RECONCILIATION_REPOSITORY } from '../../src/infrastructure/messaging/reconciliation.tokens';
 
 describe('Payments health endpoints', () => {
   let app: INestApplication;
@@ -25,6 +26,9 @@ describe('Payments health endpoints', () => {
     const outbox = {
       countByStatus: (): Promise<{ pending: number; dead: number }> => Promise.resolve({ pending: 3, dead: 1 }),
     };
+    const reconciliation = {
+      oldestPendingAgeSeconds: (): Promise<number> => Promise.resolve(42),
+    };
     @Module({
       controllers: [HealthController],
       providers: [
@@ -32,6 +36,7 @@ describe('Payments health endpoints', () => {
         { provide: PAYMENTS_CONFIG, useValue: { rabbitmqUrl: undefined } satisfies Partial<PaymentsConfig> },
         { provide: RabbitMqPublisher, useValue: { isHealthy: (): boolean => false } },
         { provide: OUTBOX_REPOSITORY, useValue: outbox },
+        { provide: RECONCILIATION_REPOSITORY, useValue: reconciliation },
       ],
     })
     class TestModule {}
@@ -77,6 +82,7 @@ describe('Payments health endpoints', () => {
       .expect('Content-Type', /text\/plain/)
       .expect(200)
       .expect(/payments_outbox_pending 3/)
-      .expect(/payments_outbox_dead 1/);
+      .expect(/payments_outbox_dead 1/)
+      .expect(/payments_pending_age_seconds 42/);
   });
 });

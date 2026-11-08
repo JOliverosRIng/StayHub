@@ -6,6 +6,7 @@ import { HealthController } from '../../src/modules/health/health.controller';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma/prisma.service';
 import { RabbitMqPublisher } from '../../src/infrastructure/messaging/rabbitmq.publisher';
 import { OUTBOX_REPOSITORY } from '../../src/infrastructure/messaging/outbox.tokens';
+import { RECONCILIATION_REPOSITORY } from '../../src/infrastructure/messaging/reconciliation.tokens';
 import { createPaymentsOpenApi } from '../../src/interfaces/openapi/openapi.factory';
 
 type JsonObject = Record<string, unknown>;
@@ -21,6 +22,7 @@ describe('Payments OpenAPI contract base', () => {
         { provide: PrismaService, useValue: { isReachable: jest.fn(), hasAppliedMigrations: jest.fn() } },
         { provide: RabbitMqPublisher, useValue: { isHealthy: (): boolean => false } },
         { provide: OUTBOX_REPOSITORY, useValue: { countByStatus: jest.fn() } },
+        { provide: RECONCILIATION_REPOSITORY, useValue: { oldestPendingAgeSeconds: jest.fn() } },
       ],
     }).compile();
     app = module.createNestApplication();
@@ -42,7 +44,7 @@ describe('Payments OpenAPI contract base', () => {
 
     const generatedPaths = generated.paths as JsonObject;
     const sourcePaths = source.paths as JsonObject;
-    for (const path of ['/health/live', '/health/ready']) {
+    for (const path of ['/health/live', '/health/ready', '/health/metrics']) {
       const generatedOperation = (generatedPaths[path] as JsonObject).get as JsonObject;
       const sourceOperation = (sourcePaths[path] as JsonObject).get as JsonObject;
       expect(generatedOperation.operationId).toBe(sourceOperation.operationId);

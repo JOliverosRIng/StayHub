@@ -118,7 +118,7 @@ function createHarness(status: 'PENDING' | 'REVIEW_REQUIRED' | 'APPROVED' | 'DEC
       unitOfWork,
       gateway,
       clock: { now: () => now },
-      config: { idempotencyTtlHours: 48, maxAmountMinor: 9_000_000_000_000 },
+      config: { idempotencyTtlHours: 48, maxAmountMinor: 9_000_000_000_000, reconcilerIntervalMs: 30_000 },
     }),
     payment,
     gateway,

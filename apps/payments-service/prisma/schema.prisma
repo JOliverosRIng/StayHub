@@ -104,6 +104,8 @@ model Refund {
   status           RefundStatus          @default(PENDING)
   failureCode      String?               @map("failure_code") @db.Text
   gatewayReference String?               @map("gateway_reference") @db.Text
+  reconcileAttempts Int                  @default(0) @map("reconcile_attempts")
+  nextReconcileAt DateTime?              @map("next_reconcile_at") @db.Timestamptz(6)
   createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   payment          Payment               @relation(fields: [paymentId, currency], references: [id, currency], onDelete: Restrict, onUpdate: Cascade)

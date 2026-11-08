@@ -41,7 +41,7 @@ interface RefundPaymentDependencies {
   readonly unitOfWork: UnitOfWork<RefundUnitOfWorkRepositories>;
   readonly gateway: PaymentGatewayPort;
   readonly clock: ClockPort;
-  readonly config: Pick<PaymentsConfig, 'idempotencyTtlHours' | 'maxAmountMinor'>;
+  readonly config: Pick<PaymentsConfig, 'idempotencyTtlHours' | 'maxAmountMinor' | 'reconcilerIntervalMs'>;
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -111,7 +111,10 @@ export class RefundPayment {
           ? { requestedAmount: Money.fromMinor(input.amountMinor, locked.payment.amount.currency, config.maxAmountMinor) }
           : {}),
       });
-      await refunds.save(refund, { actor: input.callerSubject });
+      await refunds.save(refund, {
+        actor: input.callerSubject,
+        nextReconcileAt: new Date(createdAt.getTime() + config.reconcilerIntervalMs),
+      });
       return { kind: 'created' as const, refund, paymentReference: locked.gatewayReference ?? '' };
     });
 
@@ -139,6 +142,7 @@ export class RefundPayment {
         await refunds.save(start.refund, {
           actor: 'payments-service',
           reasonCode: 'GATEWAY_UNAVAILABLE',
+          nextReconcileAt: null,
         });
         await outbox.append(refundFailedPaymentEvent(locked.payment, start.refund, occurredAt));
         await idempotency.releasePreDispatch(scope, input.idempotencyKey, input.callerSubject, {
@@ -152,7 +156,10 @@ export class RefundPayment {
       start.refund.markUncertain({ source: 'gateway-adapter', reference: gatewayResult.reference ?? start.refund.id });
       const response = this.toResponse(start.refund, createdAt);
       await unitOfWork.transaction(async ({ refunds, idempotency }) => {
-        await refunds.save(start.refund, { gatewayReference: gatewayResult.reference ?? start.refund.id });
+        await refunds.save(start.refund, {
+          gatewayReference: gatewayResult.reference ?? start.refund.id,
+          nextReconcileAt: new Date(occurredAt.getTime() + config.reconcilerIntervalMs),
+        });
         await idempotency.complete(scope, input.idempotencyKey, input.callerSubject, 202, { refund: response }, start.refund.id);
       });
       return { statusCode: 202, refund: response, replayed: false };
@@ -169,6 +176,7 @@ export class RefundPayment {
         await refunds.save(start.refund, {
           gatewayReference: gatewayResult.reference,
           evidenceReference: gatewayResult.reference,
+          nextReconcileAt: null,
         });
         await outbox.append(refundedPaymentEvent(locked.payment, start.refund, occurredAt));
       } else {
@@ -176,6 +184,7 @@ export class RefundPayment {
         await refunds.save(start.refund, {
           gatewayReference: gatewayResult.reference,
           evidenceReference: gatewayResult.reference,
+          nextReconcileAt: null,
         });
         await outbox.append(refundFailedPaymentEvent(locked.payment, start.refund, occurredAt));
       }

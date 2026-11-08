@@ -1,9 +1,11 @@
 import { Controller, Get, Header, HttpException, HttpStatus, Inject } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiProduces, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { RabbitMqPublisher } from '../../infrastructure/messaging/rabbitmq.publisher';
 import { OUTBOX_REPOSITORY } from '../../infrastructure/messaging/outbox.tokens';
 import type { OutboxRelayRepository } from '../../application/ports/outbox.repository';
+import { RECONCILIATION_REPOSITORY } from '../../infrastructure/messaging/reconciliation.tokens';
+import type { ReconciliationRepository } from '../../application/ports/reconciliation.repository';
 
 export interface ReadinessResponse {
   readonly status: 'ok' | 'degraded';
@@ -21,6 +23,7 @@ export class HealthController {
     private readonly prisma: PrismaService,
     private readonly rabbitmq: RabbitMqPublisher,
     @Inject(OUTBOX_REPOSITORY) private readonly outbox: OutboxRelayRepository,
+    @Inject(RECONCILIATION_REPOSITORY) private readonly reconciliation: ReconciliationRepository,
   ) {}
 
   @Get('live')
@@ -60,8 +63,18 @@ export class HealthController {
 
   @Get('metrics')
   @Header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')
+  @ApiProduces('text/plain')
+  @ApiOperation({ operationId: 'getPaymentsMetrics', summary: 'Métricas Prometheus internas.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Métricas Prometheus.',
+    content: { 'text/plain': { schema: { type: 'string' } } },
+  })
   async metrics(): Promise<string> {
-    const counts = await this.outbox.countByStatus();
+    const [counts, oldestPendingAgeSeconds] = await Promise.all([
+      this.outbox.countByStatus(),
+      this.reconciliation.oldestPendingAgeSeconds(),
+    ]);
     return [
       '# HELP payments_outbox_pending Number of payment events awaiting publication.',
       '# TYPE payments_outbox_pending gauge',
@@ -69,6 +82,9 @@ export class HealthController {
       '# HELP payments_outbox_dead Number of payment events that exhausted publication attempts.',
       '# TYPE payments_outbox_dead gauge',
       `payments_outbox_dead ${counts.dead}`,
+      '# HELP payments_pending_age_seconds Age in seconds of the oldest pending charge or refund.',
+      '# TYPE payments_pending_age_seconds gauge',
+      `payments_pending_age_seconds ${oldestPendingAgeSeconds}`,
       '',
     ].join('\n');
   }

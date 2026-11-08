@@ -39,7 +39,7 @@ describe('refund concurrency and database safeguards with PostgreSQL 16', () => 
       unitOfWork: unitOfWork as unknown as UnitOfWork<RefundUnitOfWorkRepositories>,
       gateway,
       clock,
-      config: { idempotencyTtlHours: 48, maxAmountMinor: 9_000_000_000_000 },
+      config: { idempotencyTtlHours: 48, maxAmountMinor: 9_000_000_000_000, reconcilerIntervalMs: 30_000 },
     });
     const results = await Promise.allSettled([
       useCase.execute({ paymentId: payment.id, reason: 'GUEST_CANCELLATION', amountMinor: 6_000_000, idempotencyKey: randomUUID(), callerSubject: 'bookings-service' }),

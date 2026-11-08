@@ -100,7 +100,7 @@ describe('payment and refund outbox atomicity with PostgreSQL 16', () => {
       unitOfWork: failAfterOutboxInsert(unitOfWork as unknown as UnitOfWork<RefundUnitOfWorkRepositories>),
       gateway: failingGateway,
       clock: { now: (): Date => new Date('2026-11-08T12:01:00.000Z') },
-      config: { idempotencyTtlHours: config.idempotencyTtlHours, maxAmountMinor: config.maxAmountMinor },
+      config: { idempotencyTtlHours: config.idempotencyTtlHours, maxAmountMinor: config.maxAmountMinor, reconcilerIntervalMs: config.reconcilerIntervalMs },
     });
 
     await expect(refundUseCase.execute({
@@ -132,7 +132,7 @@ describe('payment and refund outbox atomicity with PostgreSQL 16', () => {
       unitOfWork: unitOfWork as unknown as UnitOfWork<RefundUnitOfWorkRepositories>,
       gateway: refundGateway,
       clock: { now: (): Date => new Date('2026-11-08T12:01:00.000Z') },
-      config: { idempotencyTtlHours: config.idempotencyTtlHours, maxAmountMinor: config.maxAmountMinor },
+      config: { idempotencyTtlHours: config.idempotencyTtlHours, maxAmountMinor: config.maxAmountMinor, reconcilerIntervalMs: config.reconcilerIntervalMs },
     }).execute({ paymentId, reason: 'GUEST_CANCELLATION', idempotencyKey: randomUUID(), callerSubject: 'bookings-service' });
 
     expect(refund.refund.status).toBe('COMPLETED');

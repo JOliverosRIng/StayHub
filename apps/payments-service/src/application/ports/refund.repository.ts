@@ -11,6 +11,8 @@ export interface RefundPersistenceMetadata {
   readonly evidenceReference?: string;
   readonly actor?: string;
   readonly reasonCode?: string;
+  readonly nextReconcileAt?: Date | null;
+  readonly reconcileAttempts?: number;
 }
 
 export interface RefundRepository {

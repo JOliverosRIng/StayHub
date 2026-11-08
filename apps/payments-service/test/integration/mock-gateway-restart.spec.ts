@@ -52,4 +52,27 @@ describe('mock gateway durable ledger with PostgreSQL restart', () => {
     expect(ledger).toMatchObject({ kind: 'CHARGE', result: 'APPROVED' });
     expect(JSON.stringify(ledger)).not.toContain(MOCK_GATEWAY_TOKENS.gatewayTimeout);
   });
+
+  it('preserves an authoritative UNKNOWN result across instances and Prisma restart', async () => {
+    const firstAdapter = new MockPaymentGatewayAdapter(prisma as unknown as PrismaService, config);
+    const dispatch = await firstAdapter.charge(createChargeCommandFixture({
+      paymentId: randomUUID(),
+      token: MOCK_GATEWAY_TOKENS.gatewayUnknown,
+      amountMinor: 75_000,
+      idempotencyReference: `unknown-${randomUUID()}`,
+    }));
+    expect(dispatch).toMatchObject({ kind: 'uncertain' });
+    if (dispatch.kind !== 'uncertain' || !dispatch.reference) throw new Error('Expected an opaque UNKNOWN ledger reference');
+
+    const concurrentAdapter = new MockPaymentGatewayAdapter(prisma as unknown as PrismaService, config);
+    await expect(concurrentAdapter.getTransaction(dispatch.reference)).resolves.toEqual({ kind: 'unknown' });
+    await prisma.$disconnect();
+    prisma = new PrismaClient({ datasourceUrl: databaseUrl });
+    await prisma.$connect();
+
+    const restartedAdapter = new MockPaymentGatewayAdapter(prisma as unknown as PrismaService, config);
+    await expect(restartedAdapter.getTransaction(dispatch.reference)).resolves.toEqual({ kind: 'unknown' });
+    await expect(prisma.mockGatewayOperation.findUnique({ where: { operationRefHash: dispatch.reference } }))
+      .resolves.toMatchObject({ kind: 'CHARGE', result: 'UNKNOWN' });
+  });
 });

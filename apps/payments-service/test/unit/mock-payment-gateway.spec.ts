@@ -91,6 +91,19 @@ describe('MockPaymentGatewayAdapter', () => {
     await expect(new MockPaymentGatewayAdapter(prisma, config).getTransaction('a'.repeat(64)))
       .resolves.toEqual({ kind: 'unknown' });
   });
+
+  it('persists an authoritative UNKNOWN outcome and never converts it into a decline', async () => {
+    const { prisma, rows } = inMemoryPrisma();
+    const first = new MockPaymentGatewayAdapter(prisma, config);
+    const result = await first.charge(charge(MOCK_GATEWAY_TOKENS.gatewayUnknown, 'opaque-unknown-charge'));
+    expect(result).toMatchObject({ kind: 'uncertain' });
+    expect(rows.values().next().value).toMatchObject({ result: 'UNKNOWN' });
+    const reference = result.kind === 'uncertain' ? result.reference : '';
+    const secondInstance = new MockPaymentGatewayAdapter(prisma, config);
+    await expect(secondInstance.getTransaction(reference ?? '')).resolves.toEqual({ kind: 'unknown' });
+    await expect(secondInstance.charge(charge(MOCK_GATEWAY_TOKENS.gatewayUnknown, 'opaque-unknown-charge')))
+      .resolves.toMatchObject({ kind: 'uncertain' });
+  });
 });
 
 describe('GatewayCircuitBreaker', () => {

@@ -145,6 +145,18 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+  /health/metrics:
+    get:
+      tags: [Health]
+      operationId: getPaymentsMetrics
+      summary: Métricas Prometheus internas.
+      security: []
+      responses:
+        '200':
+          description: Métricas Prometheus.
+          content:
+            text/plain:
+              schema: { type: string }
 components:
   securitySchemes:
     serviceJwt:

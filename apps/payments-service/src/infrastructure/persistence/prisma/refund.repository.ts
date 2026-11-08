@@ -82,6 +82,8 @@ export class PrismaRefundRepository implements RefundRepository {
       status: refund.status,
       failureCode: refund.failureCode,
       ...(metadata.gatewayReference !== undefined ? { gatewayReference: metadata.gatewayReference } : {}),
+      ...(metadata.nextReconcileAt !== undefined ? { nextReconcileAt: metadata.nextReconcileAt } : {}),
+      ...(metadata.reconcileAttempts !== undefined ? { reconcileAttempts: metadata.reconcileAttempts } : {}),
     };
     if (!previous) {
       if (refund.status !== 'PENDING') throw new DomainError('STATE_CONFLICT', 'A refund must be created as PENDING');

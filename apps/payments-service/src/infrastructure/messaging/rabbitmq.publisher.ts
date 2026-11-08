@@ -40,7 +40,21 @@ export class RabbitMqPublisher implements EventPublisherPort, OnModuleInit, OnAp
       Buffer.from(JSON.stringify(event.payload)),
       { persistent: true, contentType: 'application/json', messageId: event.id, type: event.eventType },
     );
-    if (!accepted) await new Promise<void>((resolve) => channel.once('drain', resolve));
+    if (!accepted) {
+      await new Promise<void>((resolve, reject) => {
+        const cleanup = (): void => {
+          channel.off('drain', onDrain);
+          channel.off('error', onError);
+          channel.off('close', onClose);
+        };
+        const onDrain = (): void => { cleanup(); resolve(); };
+        const onError = (error: Error): void => { cleanup(); reject(error); };
+        const onClose = (): void => { cleanup(); reject(new Error('RabbitMQ confirm channel closed before draining')); };
+        channel.once('drain', onDrain);
+        channel.once('error', onError);
+        channel.once('close', onClose);
+      });
+    }
     await channel.waitForConfirms();
   }
 
@@ -52,12 +66,18 @@ export class RabbitMqPublisher implements EventPublisherPort, OnModuleInit, OnAp
     if (this.connecting) return this.connecting;
     const connectionAttempt: Promise<void> = (async (): Promise<void> => {
       const connection = await amqp.connect(this.config.rabbitmqUrl!);
-      connection.on('error', () => { this.channel = undefined; this.connection = undefined; });
-      connection.on('close', () => { this.channel = undefined; this.connection = undefined; });
-      const channel = await connection.createConfirmChannel();
-      await channel.assertExchange(this.config.rabbitmqExchange, 'topic', { durable: true, autoDelete: false });
-      this.connection = connection;
-      this.channel = channel;
+      try {
+        connection.on('error', () => { this.channel = undefined; this.connection = undefined; });
+        connection.on('close', () => { this.channel = undefined; this.connection = undefined; });
+        const channel = await connection.createConfirmChannel();
+        await channel.assertExchange(this.config.rabbitmqExchange, 'topic', { durable: true, autoDelete: false });
+        channel.on('close', () => { this.channel = undefined; });
+        this.connection = connection;
+        this.channel = channel;
+      } catch (error) {
+        await connection.close().catch(() => undefined);
+        throw error;
+      }
     })().finally(() => { this.connecting = undefined; });
     this.connecting = connectionAttempt;
     return this.connecting;

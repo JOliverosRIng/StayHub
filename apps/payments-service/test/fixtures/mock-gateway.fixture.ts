@@ -3,6 +3,7 @@ export const MOCK_GATEWAY_TOKENS = {
   declinedFunds: 'tok_declined_funds',
   declinedFraud: 'tok_declined_fraud',
   gatewayTimeout: 'tok_gateway_timeout',
+  gatewayUnknown: 'tok_gateway_unknown',
   gatewayDown: 'tok_gateway_down',
   refundFails: 'tok_refund_fails',
 } as const;
