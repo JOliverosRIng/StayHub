@@ -145,7 +145,7 @@
 
 ### Implementación
 
-- [ ] PAY-049 [GREEN] [US3] Implementar `RefundRepository` Prisma con escritura de `refund_status_history` atómica y el bloqueo `SELECT … FOR UPDATE` del pago dentro de la transacción de reembolso en `apps/payments-service/src/infrastructure/persistence/prisma/refund.repository.ts`
+- [x] PAY-049 [GREEN] [US3] Implementar `RefundRepository` Prisma con escritura de `refund_status_history` atómica y el bloqueo `SELECT … FOR UPDATE` del pago dentro de la transacción de reembolso en `apps/payments-service/src/infrastructure/persistence/prisma/refund.repository.ts`
 - [ ] PAY-050 [GREEN] [US3] Implementar `RefundPayment`: tx1 bloquear/validar + reembolso PENDING → **cerrar tx** → pasarela fuera de tx → tx2 resultado definitivo + ambos historiales que correspondan + evento outbox (constructores refunded/refund_failed); timeout → PENDING (y posible REVIEW_REQUIRED solo después de reconciliación), preservando bloqueo en `apps/payments-service/src/application/refunds/refund-payment.use-case.ts`
 - [ ] PAY-051 [GREEN] [US3] Implementar DTO estricto, controlador `POST /payments/{id}/refund`, cabeceras de idempotencia y decoradores OpenAPI en `apps/payments-service/src/interfaces/http/refunds/{refund-payment.dto.ts,refunds.controller.ts}` y `src/modules/refunds.module.ts`
 - [ ] PAY-052 [GREEN] [US3] Implementar el resultado ambiguo del reembolso: respuesta `202` con `PENDING`, rechazo de nuevos reembolsos con `409` mientras exista uno pendiente, con su prueba, en `apps/payments-service/src/application/refunds/refund-payment.use-case.ts`

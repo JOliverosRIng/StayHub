@@ -19,7 +19,7 @@ export interface CreateRefundProps {
   readonly requestedAmount?: Money;
 }
 
-export type RefundFailureCode = 'GATEWAY_UNAVAILABLE' | 'CARD_DECLINED';
+export type RefundFailureCode = 'GATEWAY_UNAVAILABLE' | 'CARD_DECLINED' | 'GATEWAY_TIMEOUT' | 'RECONCILIATION_EXHAUSTED';
 
 export class Refund {
   private currentStatus: RefundStatus = 'PENDING';
@@ -44,6 +44,26 @@ export class Refund {
       props.requestedAmount,
     );
     return new Refund(props.id, props.paymentId, amount, props.reason);
+  }
+
+  static reconstitute(props: CreateRefundProps & {
+    readonly status: RefundStatus;
+    readonly failureCode: RefundFailureCode | null;
+  }): Refund {
+    const refund = Refund.create(props);
+    const evidence = { source: 'persistence', reference: 'persisted-refund-state' };
+    if (props.status === 'COMPLETED') refund.complete(evidence);
+    else if (props.status === 'FAILED') {
+      if (props.failureCode !== 'GATEWAY_UNAVAILABLE' && props.failureCode !== 'CARD_DECLINED') {
+        throw new DomainError('STATE_CONFLICT', 'Persisted failed refund has an unsupported failure code');
+      }
+      refund.fail(props.failureCode, evidence);
+    } else if (props.status === 'REVIEW_REQUIRED') refund.markReviewRequired(evidence);
+    else if (props.status === 'PENDING' && props.failureCode === 'GATEWAY_TIMEOUT') refund.markUncertain(evidence);
+    if (props.status === 'PENDING' && props.failureCode !== null && props.failureCode !== 'GATEWAY_TIMEOUT') {
+      throw new DomainError('STATE_CONFLICT', 'Persisted pending refund failure code is unsupported');
+    }
+    return refund;
   }
 
   get status(): RefundStatus {
@@ -74,6 +94,14 @@ export class Refund {
   markReviewRequired(evidence: PaymentStatusEvidence): RefundStatusTransition {
     const transition = assertRefundStatusTransition(this.currentStatus, 'REVIEW_REQUIRED', evidence);
     this.currentStatus = 'REVIEW_REQUIRED';
+    this.currentFailureCode = 'RECONCILIATION_EXHAUSTED';
     return transition;
+  }
+
+  markUncertain(evidence: PaymentStatusEvidence): void {
+    if (this.currentStatus !== 'PENDING' || !evidence.source.trim() || !evidence.reference.trim()) {
+      throw new DomainError('STATE_CONFLICT', 'Only a pending refund can record an uncertain gateway result');
+    }
+    this.currentFailureCode = 'GATEWAY_TIMEOUT';
   }
 }
