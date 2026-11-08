@@ -74,7 +74,7 @@
 
 ### Seguridad, HTTP y operación
 
-- [ ] PAY-021 Implementar verificación JWT RS256 de usuario y de servicio (`alg`, `kid`, `iss`, `aud`, `exp`, edad máxima, scopes) replicando `apps/users-service/src/infrastructure/security/service-jwt.verifier.ts`, con pruebas con claves RSA generadas en el test, en `apps/payments-service/src/infrastructure/security/jwt.verifier.ts` y `src/interfaces/http/auth/jwt.strategy.ts`
+- [x] PAY-021 Implementar verificación JWT RS256 de usuario y de servicio (`alg`, `kid`, `iss`, `aud`, `exp`, edad máxima, scopes) replicando `apps/users-service/src/infrastructure/security/service-jwt.verifier.ts`, con pruebas con claves RSA generadas en el test, en `apps/payments-service/src/infrastructure/security/jwt.verifier.ts` y `src/interfaces/http/auth/jwt.strategy.ts`
 - [ ] PAY-022 Implementar `ServiceAuthGuard` (scope exacto por ruta), `RolesGuard` y `@Roles()` replicando `apps/users-service/src/interfaces/http/guards/`, con pruebas unitarias, en `apps/payments-service/src/interfaces/http/guards/`
 - [ ] PAY-023 Configurar el bootstrap HTTP: `ValidationPipe` con `whitelist` y `forbidNonWhitelisted`, límite de cuerpo de 8 KB, filtro de Problem Details, interceptor de traza y cierre ordenado (drena HTTP antes de liberar Prisma) en `apps/payments-service/src/{main.ts,app.module.ts}` y `src/interfaces/http/{configure-http.ts,validation.pipe.ts,trace.interceptor.ts}`
 - [ ] PAY-024 [P] Implementar el logger JSON con redacción recursiva de `token`, `paymentMethod`, `authorization`, `idempotency-key` y cualquier cadena de 13–19 dígitos, con prueba de seguridad dedicada, en `apps/payments-service/src/infrastructure/logging/payments-logger.ts` y `test/security/log-redaction.spec.ts`
