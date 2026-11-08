@@ -16,6 +16,9 @@ import {
 
 export interface CreatePaymentProps {
   readonly id: string;
+  readonly bookingId: string;
+  readonly payerUserId: string;
+  readonly paymentMethodFingerprint: string;
   readonly amount: Money;
 }
 
@@ -26,6 +29,9 @@ export class Payment {
 
   private constructor(
     readonly id: string,
+    readonly bookingId: string,
+    readonly payerUserId: string,
+    readonly paymentMethodFingerprint: string,
     readonly amount: Money,
   ) {
     this.currentRefundedAmount = Money.fromMinor(0, amount.currency);
@@ -37,12 +43,33 @@ export class Payment {
         { field: 'id', message: 'Must not be empty' },
       ]);
     }
+    if (!props.bookingId.trim() || !props.payerUserId.trim()) {
+      throw new DomainError('VALIDATION_ERROR', 'Payment booking and payer are required');
+    }
+    if (!/^[a-f0-9]{64}$/i.test(props.paymentMethodFingerprint)) {
+      throw new DomainError('VALIDATION_ERROR', 'Payment method fingerprint is invalid');
+    }
     if (props.amount.amountMinor <= 0) {
       throw new DomainError('VALIDATION_ERROR', 'Payment amount must be positive', [
         { field: 'amount', message: 'Must be greater than zero' },
       ]);
     }
-    return new Payment(props.id, props.amount);
+    return new Payment(props.id, props.bookingId, props.payerUserId, props.paymentMethodFingerprint, props.amount);
+  }
+
+  static reconstitute(props: CreatePaymentProps & {
+    readonly status: PaymentStatus;
+    readonly refundedAmount: Money;
+    readonly failureCode: PaymentFailureCode | null;
+  }): Payment {
+    if (props.amount.currency !== props.refundedAmount.currency || props.refundedAmount.amountMinor > props.amount.amountMinor) {
+      throw new DomainError('VALIDATION_ERROR', 'Persisted payment amounts are inconsistent');
+    }
+    const payment = Payment.create(props);
+    payment.currentStatus = props.status;
+    payment.currentRefundedAmount = props.refundedAmount;
+    payment.currentFailureCode = props.failureCode;
+    return payment;
   }
 
   get status(): PaymentStatus {

@@ -8,8 +8,18 @@ export const TEST_BOOKING_ID = 'c23c61c8-1ccb-4c3f-932b-b62505420aae';
 export const TEST_PAYER_ID = 'b73958c2-2ecb-46a2-bc93-b1cba20f9898';
 export const TEST_EVIDENCE: PaymentStatusEvidence = { source: 'test-gateway', reference: 'test-operation-1' };
 
-export function createPaymentFixture(amountMinor = 35_000_000, currency: 'COP' | 'USD' = 'COP'): Payment {
-  return Payment.create({ id: TEST_PAYMENT_ID, amount: Money.fromMinor(amountMinor, currency) });
+export function createPaymentFixture(
+  amountMinor = 35_000_000,
+  currency: 'COP' | 'USD' = 'COP',
+  overrides: Partial<{ id: string; bookingId: string; payerUserId: string }> = {},
+): Payment {
+  return Payment.create({
+    id: overrides.id ?? TEST_PAYMENT_ID,
+    bookingId: overrides.bookingId ?? TEST_BOOKING_ID,
+    payerUserId: overrides.payerUserId ?? TEST_PAYER_ID,
+    paymentMethodFingerprint: 'a'.repeat(64),
+    amount: Money.fromMinor(amountMinor, currency),
+  });
 }
 
 export function createChargeCommandFixture(

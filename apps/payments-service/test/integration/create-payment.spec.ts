@@ -32,13 +32,6 @@ describe('CreatePayment with PostgreSQL 16', () => {
     gateway = new MockPaymentGatewayAdapter(prisma as unknown as PrismaService, config);
   });
 
-  afterEach(async () => {
-    await prisma.outboxEvent.deleteMany();
-    await prisma.paymentStatusHistory.deleteMany();
-    await prisma.idempotencyRecord.deleteMany();
-    await prisma.payment.deleteMany();
-  });
-
   afterAll(async () => {
     await prisma?.$disconnect();
   });
