@@ -4,10 +4,12 @@ import type { Server } from 'node:http';
 import request from 'supertest';
 import { PaymentsController } from '../../src/interfaces/http/payments/payments.controller';
 import { GetPaymentStatus } from '../../src/application/payments/get-payment-status.use-case';
-import { ServiceAuthGuard } from '../../src/interfaces/http/guards/service-auth.guard';
-import { JwtStrategy } from '../../src/interfaces/http/auth/jwt.strategy';
+import { CreatePayment } from '../../src/application/payments/create-payment.use-case';
+import { PaymentReadAuthGuard } from '../../src/interfaces/http/guards/payment-read-auth.guard';
 import { PAYMENTS_CONFIG, type PaymentsConfig } from '../../src/infrastructure/config/payments-config';
 import { createTestJwtFixture } from '../fixtures/jwt.fixture';
+import { configureHttp } from '../../src/interfaces/http/configure-http';
+import type { PaymentStatusRecord } from '../../src/application/ports/payment-status.reader';
 
 const serviceJwt = createTestJwtFixture({ issuer: 'stayhub-bookings-service', audience: 'stayhub-payments-service' });
 const userJwt = createTestJwtFixture({ issuer: 'stayhub-auth', audience: 'stayhub-api' });
@@ -19,10 +21,22 @@ const config = {
   readScope: 'payments:read',
 } as unknown as PaymentsConfig;
 const paymentId = '56ac8df3-4ab6-48d2-8248-37ec830c9131';
+  const useCase = new GetPaymentStatus({
+    findStatusById: (id: string): Promise<PaymentStatusRecord | null> => Promise.resolve(id === paymentId ? {
+      paymentId,
+      bookingId: 'c23c61c8-1ccb-4c3f-932b-b62505420aae',
+      payerUserId: 'b73958c2-2ecb-46a2-bc93-b1cba20f9898',
+      amountMinor: 35_000_000,
+      currency: 'COP',
+      status: 'PENDING',
+      refundedAmountMinor: 0,
+      failureCode: null,
+      updatedAt: new Date('2026-11-07T12:00:00.000Z'),
+    } : null),
+  });
 
 describe('GET /payments/:id/status security', () => {
   let app: INestApplication;
-  const execute = jest.fn();
   const serviceToken = (scope: string): string => serviceJwt.signToken({ sub: 'bookings-service', scope });
   const userToken = (sub: string, role: string): string => userJwt.signToken({
     sub, role, sid: 'c23c61c8-1ccb-4c3f-932b-b62505420aae', jti: 'b73958c2-2ecb-46a2-bc93-b1cba20f9898',
@@ -32,21 +46,26 @@ describe('GET /payments/:id/status security', () => {
     const module = await Test.createTestingModule({
       controllers: [PaymentsController as unknown as Type<unknown>],
       providers: [
-        { provide: GetPaymentStatus, useValue: { execute } },
+        { provide: CreatePayment, useValue: { execute: jest.fn() } },
+        { provide: GetPaymentStatus, useValue: useCase },
         { provide: PAYMENTS_CONFIG, useValue: config },
-        ServiceAuthGuard,
-        JwtStrategy,
+        PaymentReadAuthGuard,
       ],
     }).compile();
     app = module.createNestApplication();
+    configureHttp(app);
     await app.init();
   });
   afterAll(async () => { await app.close(); });
-  beforeEach(() => execute.mockReset().mockResolvedValue({ paymentId, status: 'PENDING' }));
+  beforeEach(() => jest.clearAllMocks());
 
   it('accepts the owning user and an ADMIN user', async () => {
     for (const token of [userToken('b73958c2-2ecb-46a2-bc93-b1cba20f9898', 'GUEST'), userToken('c73958c2-2ecb-46a2-bc93-b1cba20f9898', 'ADMIN')]) {
-      await request(app.getHttpServer() as Server).get(`/payments/${paymentId}/status`).set('Authorization', `Bearer ${token}`).expect(200);
+      const response = await request(app.getHttpServer() as Server).get(`/payments/${paymentId}/status`).set('Authorization', `Bearer ${token}`).expect(200);
+      expect(response.headers['cache-control']).toBe('no-store');
+      expect(response.body).not.toHaveProperty('gatewayReference');
+      expect(response.body).not.toHaveProperty('paymentMethodFingerprint');
+      expect(response.body).not.toHaveProperty('token');
     }
   });
 
@@ -59,7 +78,13 @@ describe('GET /payments/:id/status security', () => {
     const token = userToken('c73958c2-2ecb-46a2-bc93-b1cba20f9898', 'GUEST');
     const foreign = await request(app.getHttpServer() as Server).get(`/payments/${paymentId}/status`).set('Authorization', `Bearer ${token}`).expect(404);
     const absent = await request(app.getHttpServer() as Server).get('/payments/56ac8df3-4ab6-48d2-8248-37ec830c9132/status').set('Authorization', `Bearer ${token}`).expect(404);
-    expect(absent.body).toEqual(foreign.body);
+    const stableBody = (body: Record<string, unknown>): Record<string, unknown> => {
+      const { traceId, instance, ...stable } = body;
+      void traceId;
+      void instance;
+      return stable;
+    };
+    expect(stableBody(absent.body as Record<string, unknown>)).toEqual(stableBody(foreign.body as Record<string, unknown>));
   });
 
   it('rejects malformed payment IDs with 400', async () => {

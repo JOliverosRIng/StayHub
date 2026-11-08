@@ -6,7 +6,7 @@ import { createPaymentFixture, TEST_PAYMENT_ID, TEST_PAYER_ID } from '../fixture
 describe('GetPaymentStatus', () => {
   const payment = createPaymentFixture();
   const payments: jest.Mocked<PaymentStatusReader> = {
-    findStatusById: jest.fn(async (id: string) => id === payment.id ? {
+    findStatusById: jest.fn((id: string) => Promise.resolve(id === payment.id ? {
       paymentId: payment.id,
       bookingId: payment.bookingId,
       payerUserId: TEST_PAYER_ID,
@@ -16,7 +16,7 @@ describe('GetPaymentStatus', () => {
       refundedAmountMinor: payment.refundedAmount.amountMinor,
       failureCode: payment.failureCode,
       updatedAt: new Date('2026-11-07T12:00:00.000Z'),
-    } : null),
+    } : null)),
   };
   const useCase = new GetPaymentStatus(payments);
 
@@ -54,6 +54,6 @@ describe('GetPaymentStatus', () => {
   it('rejects malformed payment IDs before querying the repository', async () => {
     await expect(useCase.execute('not-a-uuid', { kind: 'user', sub: TEST_PAYER_ID, role: 'GUEST' }))
       .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
-    expect(payments.findStatusById).not.toHaveBeenCalled();
+    expect(payments.findStatusById.mock.calls).toHaveLength(0);
   });
 });

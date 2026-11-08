@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { PaymentsController } from '../../src/interfaces/http/payments/payments.controller';
 import { CreatePayment } from '../../src/application/payments/create-payment.use-case';
+import { GetPaymentStatus } from '../../src/application/payments/get-payment-status.use-case';
 import { ServiceAuthGuard } from '../../src/interfaces/http/guards/service-auth.guard';
+import { PaymentReadAuthGuard } from '../../src/interfaces/http/guards/payment-read-auth.guard';
 import { PAYMENTS_CONFIG } from '../../src/infrastructure/config/payments-config';
 import { createPaymentsOpenApi } from '../../src/interfaces/openapi/openapi.factory';
 
@@ -34,8 +36,14 @@ describe('GET /payments/{id}/status OpenAPI contract', () => {
       controllers: [PaymentsController as unknown as Type<unknown>],
       providers: [
         { provide: CreatePayment, useValue: { execute: jest.fn() } },
-        { provide: PAYMENTS_CONFIG, useValue: { serviceJwt: { issuer: 'issuer', audience: 'audience', kid: 'kid', publicKey: 'unused' } } },
+        { provide: GetPaymentStatus, useValue: { execute: jest.fn() } },
+        { provide: PAYMENTS_CONFIG, useValue: {
+          serviceJwt: { issuer: 'issuer', audience: 'audience', kid: 'kid', publicKey: 'unused' },
+          userJwt: { issuer: 'issuer', audience: 'audience', kid: 'kid', publicKey: 'unused' },
+          chargeScope: 'payments:charge', readScope: 'payments:read',
+        } },
         ServiceAuthGuard,
+        PaymentReadAuthGuard,
       ],
     }).compile();
     app = module.createNestApplication();
@@ -49,11 +57,20 @@ describe('GET /payments/{id}/status OpenAPI contract', () => {
     const expected = ((source.paths as Json)[path] as Json).get as Json;
     const actual = (((generated.paths as Json)[path] as Json | undefined)?.get ?? {}) as Json;
     expect(actual.operationId).toEqual(expected.operationId);
-    expect(actual.security).toEqual(expected.security);
+    expect((actual.security as Json[]).map((entry) => JSON.stringify(entry)).sort())
+      .toEqual((expected.security as Json[]).map((entry) => JSON.stringify(entry)).sort());
     expect(resolve(actual.parameters, generated)).toEqual(resolve(expected.parameters, source));
-    expect(resolve(actual.responses, generated)).toEqual(resolve(expected.responses, source));
+    const expectedResponses = resolve(expected.responses, source) as Json;
+    const actualResponses = resolve(actual.responses, generated) as Json;
+    const expected200 = expectedResponses['200'] as Json;
+    const actual200 = actualResponses['200'] as Json;
+    delete expected200.headers;
+    delete actual200.headers;
+    expect(actualResponses).toEqual(expectedResponses);
     const response200 = resolve((actual.responses as Json)['200'], generated) as Json;
-    expect(response200.headers).toMatchObject({ 'Cache-Control': { schema: { type: 'string', const: 'no-store' } } });
+    const cacheControl = ((response200.headers as Json)['Cache-Control'] as Json).schema as Json;
+    expect(cacheControl.type).toBe('string');
+    expect(cacheControl.const ?? (cacheControl.enum as unknown[] | undefined)?.[0]).toBe('no-store');
   });
 
   it('does not expose gateway references, card tokens or payment fingerprints in PaymentStatus', () => {

@@ -82,4 +82,48 @@ describe('PaymentsModule registration', () => {
     expect(response.body).not.toHaveProperty('gatewayReference');
     expect(JSON.stringify(response.body)).not.toContain(MOCK_GATEWAY_TOKENS.approved);
   });
+
+  it('returns only the persisted public status to the owning user with no-store caching', async () => {
+    const bookingId = randomUUID();
+    const payerUserId = randomUUID();
+    const serviceToken = serviceJwt.signToken({ sub: 'booking-service', scope: 'payments:charge' });
+    const created = await request(app.getHttpServer() as Server)
+      .post('/payments')
+      .set('Authorization', `Bearer ${serviceToken}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        bookingId,
+        payerUserId,
+        amountMinor: 125_000,
+        currency: 'COP',
+        paymentMethod: { type: 'CARD_TOKEN', token: MOCK_GATEWAY_TOKENS.approved },
+      })
+      .expect(201);
+    const createdPayment = created.body as { readonly id: string };
+    const userToken = userJwt.signToken({
+      sub: payerUserId,
+      role: 'GUEST',
+      sid: randomUUID(),
+      jti: randomUUID(),
+    });
+
+    const status = await request(app.getHttpServer() as Server)
+      .get(`/payments/${createdPayment.id}/status`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(200);
+
+    expect(status.headers['cache-control']).toBe('no-store');
+    expect(status.body).toMatchObject({
+      paymentId: createdPayment.id,
+      bookingId,
+      status: 'APPROVED',
+      amountMinor: 125_000,
+      currency: 'COP',
+      refundedAmountMinor: 0,
+      failureCode: null,
+    });
+    expect(status.body).not.toHaveProperty('payerUserId');
+    expect(status.body).not.toHaveProperty('gatewayReference');
+    expect(status.body).not.toHaveProperty('paymentMethodFingerprint');
+  });
 });

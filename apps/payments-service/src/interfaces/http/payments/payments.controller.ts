@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Get,
   Headers,
+  Param,
   Post,
   Req,
   Res,
@@ -11,6 +13,7 @@ import {
   ApiBody,
   ApiHeader,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiSecurity,
   ApiTags,
@@ -18,18 +21,23 @@ import {
 import type { Response } from 'express';
 import { DomainError } from '../../../domain/shared/domain-error';
 import { CreatePayment, type CreatePaymentInput, type CreatePaymentResponse } from '../../../application/payments/create-payment.use-case';
+import { GetPaymentStatus, type GetPaymentStatusResponse } from '../../../application/payments/get-payment-status.use-case';
 import { ServiceAuthGuard, ServiceScope, type ServicePrincipalRequest } from '../guards/service-auth.guard';
+import { PaymentReadAuthGuard, type PaymentReadRequest } from '../guards/payment-read-auth.guard';
 import { CreatePaymentDto } from './create-payment.dto';
 
 @ApiTags('Payments')
 @Controller('payments')
-@UseGuards(ServiceAuthGuard)
-@ApiSecurity('serviceJwt', ['payments:charge'])
 export class PaymentsController {
-  constructor(private readonly createPayment: CreatePayment) {}
+  constructor(
+    private readonly createPayment: CreatePayment,
+    private readonly getPaymentStatus: GetPaymentStatus,
+  ) {}
 
   @Post()
+  @UseGuards(ServiceAuthGuard)
   @ServiceScope('charge')
+  @ApiSecurity('serviceJwt', ['payments:charge'])
   @ApiOperation({
     operationId: 'createPayment',
     summary: 'Cobrar una reserva',
@@ -80,5 +88,37 @@ export class PaymentsController {
     if (result.replayed) response.setHeader('Idempotent-Replay', 'true');
     if (result.statusCode === 202) response.setHeader('Location', `/payments/${result.payment.id}/status`);
     return result.payment;
+  }
+
+  @Get(':id/status')
+  @UseGuards(PaymentReadAuthGuard)
+  @ApiSecurity('userJwt')
+  @ApiSecurity('serviceJwt', ['payments:read'])
+  @ApiOperation({
+    operationId: 'getPaymentStatus',
+    summary: 'Consultar el estado de un pago',
+    description: 'Acceso del pagador propietario, ADMIN o servicio con payments:read. Un pago ajeno se oculta como inexistente.',
+  })
+  @ApiParam({ name: 'id', required: true, description: 'UUID del pago.', schema: { type: 'string', format: 'uuid' } })
+  @ApiResponse({
+    status: 200,
+    description: 'Estado del pago.',
+    headers: { 'Cache-Control': { description: 'La respuesta no se almacena.', schema: { type: 'string', enum: ['no-store'] } } },
+    content: { 'application/json': { schema: { $ref: '#/components/schemas/PaymentStatus' } } },
+  })
+  @ApiResponse({ status: 400, description: 'Identificador inválido.', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/Problem' } } } })
+  @ApiResponse({ status: 401, description: 'Autenticación requerida.', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/Problem' } } } })
+  @ApiResponse({ status: 403, description: 'Scope de servicio insuficiente.', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/Problem' } } } })
+  @ApiResponse({ status: 404, description: 'Pago inexistente o no visible.', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/Problem' } } } })
+  async getStatus(
+    @Param('id') id: string,
+    @Req() request: PaymentReadRequest,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<GetPaymentStatusResponse> {
+    const principal = request.paymentReadPrincipal;
+    if (!principal) throw new DomainError('FORBIDDEN', 'Authenticated principal is missing');
+    const status = await this.getPaymentStatus.execute(id, principal);
+    response.setHeader('Cache-Control', 'no-store');
+    return status;
   }
 }

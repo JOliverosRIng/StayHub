@@ -11,6 +11,7 @@ import { PrismaService } from '../infrastructure/persistence/prisma/prisma.servi
 import { PrismaPaymentStatusReader } from '../infrastructure/persistence/prisma/payment-status.reader';
 import { PrismaUnitOfWork } from '../infrastructure/persistence/prisma/unit-of-work';
 import { ServiceAuthGuard } from '../interfaces/http/guards/service-auth.guard';
+import { PaymentReadAuthGuard } from '../interfaces/http/guards/payment-read-auth.guard';
 import { PaymentsController } from '../interfaces/http/payments/payments.controller';
 
 export const PAYMENT_UNIT_OF_WORK = Symbol('PAYMENT_UNIT_OF_WORK');
@@ -22,6 +23,7 @@ export const PAYMENT_STATUS_READER = Symbol('PAYMENT_STATUS_READER');
   controllers: [PaymentsController],
   providers: [
     ServiceAuthGuard,
+    PaymentReadAuthGuard,
     MockPaymentGatewayAdapter,
     {
       provide: PAYMENT_UNIT_OF_WORK,

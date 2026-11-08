@@ -5,6 +5,7 @@ import request from 'supertest';
 import { sign } from 'jsonwebtoken';
 import { PaymentsController } from '../../src/interfaces/http/payments/payments.controller';
 import { CreatePayment } from '../../src/application/payments/create-payment.use-case';
+import { GetPaymentStatus } from '../../src/application/payments/get-payment-status.use-case';
 import { ServiceAuthGuard } from '../../src/interfaces/http/guards/service-auth.guard';
 import { PAYMENTS_CONFIG, type PaymentsConfig } from '../../src/infrastructure/config/payments-config';
 import { PaymentsLogger } from '../../src/infrastructure/logging/payments-logger';
@@ -46,6 +47,7 @@ describe('POST /payments security', () => {
       controllers: [PaymentsController as unknown as Type<unknown>],
       providers: [
         { provide: CreatePayment, useValue: { execute } },
+        { provide: GetPaymentStatus, useValue: { execute: jest.fn() } },
         { provide: PAYMENTS_CONFIG, useValue: config },
         ServiceAuthGuard,
         { provide: PaymentsLogger, useValue: new PaymentsLogger((record) => records.push(record)) },

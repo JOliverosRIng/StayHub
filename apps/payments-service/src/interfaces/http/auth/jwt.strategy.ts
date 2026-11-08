@@ -30,18 +30,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(request: Request): PaymentPrincipal {
-    const claims = verifyUserJwt(bearer(request), this.config.userJwt, USER_TOKEN_MAX_AGE_SECONDS);
-    if (
-      ![claims.sub, claims.sid, claims.jti].every((value: unknown) => typeof value === 'string' && UUID_PATTERN.test(value)) ||
-      !['GUEST', 'OWNER', 'ADMIN'].includes(String(claims.role))
-    ) {
-      throw new UnauthorizedException();
-    }
-    return {
-      sub: claims.sub!,
-      sid: claims.sid as string,
-      jti: claims.jti!,
-      role: claims.role as PaymentPrincipal['role'],
-    };
+    return verifyPaymentUserPrincipal(bearer(request), this.config.userJwt);
   }
+}
+
+export function verifyPaymentUserPrincipal(token: string, config: PaymentsConfig['userJwt']): PaymentPrincipal {
+  const claims = verifyUserJwt(token, config, USER_TOKEN_MAX_AGE_SECONDS);
+  if (
+    ![claims.sub, claims.sid, claims.jti].every((value: unknown) => typeof value === 'string' && UUID_PATTERN.test(value)) ||
+    !['GUEST', 'OWNER', 'ADMIN'].includes(String(claims.role))
+  ) {
+    throw new UnauthorizedException();
+  }
+  return {
+    sub: claims.sub!,
+    sid: claims.sid as string,
+    jti: claims.jti!,
+    role: claims.role as PaymentPrincipal['role'],
+  };
 }
