@@ -1,4 +1,5 @@
 import { generateKeyPairSync } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { loadNotificationsConfig } from '../../src/infrastructure/config/notifications-config';
 
 const accessKey = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -25,6 +26,15 @@ function validEnvironment(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv 
 }
 
 describe('notifications configuration (NTF-002)', () => {
+  it('documents only synthetic local values and file-backed public keys', () => {
+    const sample = readFileSync('.env.example', 'utf8');
+    expect(sample).toContain('NOTIFICATIONS_PORT=3009');
+    expect(sample).toContain('/notifications_db');
+    expect(sample).toContain('NOTIFICATIONS_JWT_PUBLIC_KEY_FILE=');
+    expect(sample).toContain('NOTIFICATIONS_SERVICE_JWT_PUBLIC_KEY_FILE=');
+    expect(sample).not.toMatch(/-----BEGIN (RSA )?PRIVATE KEY-----|password=[^\s]+@/i);
+  });
+
   it('loads the fixed port, private database URL and distinct JWT settings', () => {
     const config = loadNotificationsConfig(validEnvironment());
 
