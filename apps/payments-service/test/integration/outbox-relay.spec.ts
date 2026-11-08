@@ -95,6 +95,7 @@ describe('payments outbox relay with PostgreSQL 16 and RabbitMQ', () => {
 
   it('publishes events in aggregate order and moves exhausted events to DEAD', async () => {
     await channel.purgeQueue(queue);
+    await prisma.$executeRaw`UPDATE outbox_events SET next_attempt_at = now() + interval '1 day' WHERE status = 'PENDING'::outbox_status`;
     const aggregateId = randomUUID();
     const first = event(aggregateId);
     const second = event(aggregateId);

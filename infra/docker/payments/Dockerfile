@@ -25,6 +25,8 @@ RUN apt-get update \
   && useradd --system --gid stayhub stayhub
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist/apps/payments-service ./dist/apps/payments-service
+COPY --from=build /app/apps/payments-service/src/infrastructure/persistence/generated/client ./dist/apps/payments-service/infrastructure/persistence/generated/client
+COPY --from=build /app/apps/payments-service/node_modules ./dist/apps/payments-service/node_modules
 COPY --from=build /app/apps/payments-service/prisma ./apps/payments-service/prisma
 USER stayhub
 EXPOSE 3006

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import net from 'node:net';
+import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -11,13 +11,16 @@ const rabbitContainerName = `stayhub-payments-rabbit-test-${randomBytes(5).toStr
 const username = 'payments_test';
 const password = randomBytes(18).toString('hex');
 const database = 'payments_test';
+const require = createRequire(import.meta.url);
+const amqp = require('amqplib');
 const projectFlagIndex = process.argv.indexOf('--project');
 const project = projectFlagIndex >= 0 ? process.argv[projectFlagIndex + 1] : 'integration';
-if (project !== 'integration' && project !== 'performance') throw new Error('Supported projects: integration, performance');
+if (!['integration', 'performance', 'all'].includes(project)) throw new Error('Supported projects: integration, performance, all');
 const jestArguments = process.argv.slice(2).filter((argument, index, arguments_) =>
   argument !== '--project' && arguments_[index - 1] !== '--project',
 );
-const useRabbit = project === 'integration';
+const useRabbit = project === 'integration' || project === 'all';
+const selectedProjects = project === 'all' ? ['unit', 'integration', 'contract', 'security', 'performance'] : [project];
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { cwd: serviceRoot, encoding: 'utf8', stdio: 'inherit', ...options });
@@ -42,24 +45,29 @@ function assertNoSensitiveLogs(logs) {
     /\bAuthorization\b["']?\s*[:=]\s*["']?(?!["']?\[REDACTED\])[^,\s}\]]+/i,
     /\b(?:Idempotency-Key|idempotencyKey)\b["']?\s*[:=]\s*["']?(?!["']?\[REDACTED\])(?:[0-9a-f-]{16,}|[^,\s}\]]+)/i,
   ];
-  if (patterns.some((pattern) => pattern.test(logs))) throw new Error('Sensitive value detected in captured Payments integration logs');
+  // Jest's combined output also contains coverage tables and test fixture text,
+  // which can contain PAN-shaped numbers unrelated to emitted application logs.
+  // Scan only structured Payments service log records captured from the suites.
+  const serviceLogs = logs
+    .split(/\r?\n/)
+    .filter((line) => line.includes('"service":"payments-service"'))
+    .join('\n');
+  const findingIndex = patterns.findIndex((pattern) => pattern.test(serviceLogs));
+  if (findingIndex >= 0) throw new Error(`Sensitive value pattern ${findingIndex + 1} detected in captured Payments integration logs`);
 }
 
 function runDocker(args, options = {}) {
   return run('docker', args, options);
 }
 
-function tcpReady(port) {
-  return new Promise((resolve) => {
-    const socket = net.createConnection({ host: '127.0.0.1', port });
-    const finish = (ready) => {
-      socket.destroy();
-      resolve(ready);
-    };
-    socket.setTimeout(500, () => finish(false));
-    socket.once('connect', () => finish(true));
-    socket.once('error', () => finish(false));
-  });
+async function amqpReady(url) {
+  try {
+    const connection = await amqp.connect(url, { timeout: 1_000 });
+    await connection.close();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 try {
@@ -104,13 +112,13 @@ try {
     if (!rabbitMatch) throw new Error('Could not resolve the temporary RabbitMQ port');
     let rabbitReady = false;
     for (let attempt = 0; attempt < 60; attempt += 1) {
-      if (await tcpReady(Number(rabbitMatch[1]))) {
+      if (await amqpReady(`amqp://127.0.0.1:${rabbitMatch[1]}`)) {
         rabbitReady = true;
         break;
       }
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    if (!rabbitReady) throw new Error('Temporary RabbitMQ did not open its AMQP listener');
+    if (!rabbitReady) throw new Error('Temporary RabbitMQ did not accept an AMQP handshake');
     rabbitUrl = `amqp://127.0.0.1:${rabbitMatch[1]}`;
   }
   const environment = {
@@ -121,8 +129,8 @@ try {
   };
 
   run(process.execPath, [path.join(repositoryRoot, 'node_modules/prisma/build/index.js'), 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'], { env: environment });
-  const testResult = runCaptured(process.execPath, [path.join(repositoryRoot, 'node_modules/jest/bin/jest.js'), '--selectProjects', project, '--runInBand', ...jestArguments], { env: environment });
-  if (project === 'integration') assertNoSensitiveLogs(testResult.output);
+  const testResult = runCaptured(process.execPath, [path.join(repositoryRoot, 'node_modules/jest/bin/jest.js'), '--selectProjects', ...selectedProjects, '--runInBand', ...jestArguments], { env: environment });
+  if (project === 'integration' || project === 'all') assertNoSensitiveLogs(testResult.output);
   if (testResult.status !== 0) throw new Error(`Jest ${project} project exited with code ${String(testResult.status)}`);
 } finally {
   const stopped = spawnSync('docker', ['stop', containerName], { cwd: serviceRoot, stdio: 'ignore' });

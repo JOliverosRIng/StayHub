@@ -18,10 +18,12 @@
     "test:security": "jest --selectProjects security --runInBand",
     "test:performance": "jest --selectProjects performance --runInBand",
     "test:performance:profile": "node test/scripts/run-integration.mjs --project performance",
+    "test:compose:smoke": "node test/scripts/compose-smoke.mjs",
+    "test:coverage:profile": "node test/scripts/run-integration.mjs --project all --coverage",
     "test:coverage": "jest --coverage --runInBand",
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",
     "prisma:migrate:dev": "prisma migrate dev --schema prisma/schema.prisma",
-    "prisma:migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma"
+    "prisma:migrate:deploy": "node scripts/migrate-deploy.mjs"
   },
   "dependencies": {
     "@nestjs/common": "10.4.22",
