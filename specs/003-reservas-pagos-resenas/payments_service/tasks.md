@@ -53,7 +53,7 @@
 
 ### Configuración y persistencia
 
-- [ ] PAY-009 Implementar configuración tipada y validada que falle al arrancar si falta el secreto HMAC (< 32 caracteres), las claves JWT, la URL de base de datos o la lista de monedas, con pruebas unitarias, en `apps/payments-service/src/infrastructure/config/{payments-config.ts,config.module.ts}`
+- [x] PAY-009 Implementar configuración tipada y validada que falle al arrancar si falta el secreto HMAC (< 32 caracteres), las claves JWT, la URL de base de datos o la lista de monedas, con pruebas unitarias, en `apps/payments-service/src/infrastructure/config/{payments-config.ts,config.module.ts}`
 - [ ] PAY-010 Definir Prisma (`payments`, `refunds`, `idempotency_records`, `outbox_events`, `payment_status_history`, `refund_status_history`, `mock_gateway_operations` solo dev/test, enums) y migración SQL `001_payments_core`: montos `BIGINT` seguros con `CHECK` de rango, `CHECK (refunded_amount_minor BETWEEN 0 AND amount_minor)`, índice parcial único de pago con `REVIEW_REQUIRED`, índice parcial único de reembolso `PENDING|REVIEW_REQUIRED`, índice único del ledger mock y los índices de reconciliador/outbox según `data-model.md` en `apps/payments-service/prisma/{schema.prisma,migrations/001_payments_core/migration.sql}`
 - [ ] PAY-011 Implementar `PrismaService`, `PrismaModule`, mapeo de errores de base de datos a indisponibilidad (`database-error.ts`) y `UnitOfWork` transaccional con aislamiento explícito en `apps/payments-service/src/infrastructure/persistence/prisma/` y `src/application/ports/unit-of-work.ts`
 
