@@ -1,6 +1,9 @@
-import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Header, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
+import { RabbitMqPublisher } from '../../infrastructure/messaging/rabbitmq.publisher';
+import { OUTBOX_REPOSITORY } from '../../infrastructure/messaging/outbox.tokens';
+import type { OutboxRelayRepository } from '../../application/ports/outbox.repository';
 
 export interface ReadinessResponse {
   readonly status: 'ok' | 'degraded';
@@ -14,7 +17,11 @@ export interface ReadinessResponse {
 @Controller('health')
 @ApiTags('Health')
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rabbitmq: RabbitMqPublisher,
+    @Inject(OUTBOX_REPOSITORY) private readonly outbox: OutboxRelayRepository,
+  ) {}
 
   @Get('live')
   @ApiOperation({ operationId: 'getLiveness', summary: 'Liveness' })
@@ -43,12 +50,26 @@ export class HealthController {
     const checks: ReadinessResponse['checks'] = {
       database: databaseReady ? 'up' : 'down',
       migration: migrationApplied ? 'applied' : 'pending',
-      // RabbitMQ is optional; no relay/health adapter is active yet.
-      rabbitmq: 'degraded',
+      rabbitmq: this.rabbitmq.isHealthy() ? 'up' : 'degraded',
     };
     if (!databaseReady || !migrationApplied) {
       throw new HttpException('Payments dependencies are not ready', HttpStatus.SERVICE_UNAVAILABLE);
     }
     return { status: checks.rabbitmq === 'degraded' ? 'degraded' : 'ok', checks };
+  }
+
+  @Get('metrics')
+  @Header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')
+  async metrics(): Promise<string> {
+    const counts = await this.outbox.countByStatus();
+    return [
+      '# HELP payments_outbox_pending Number of payment events awaiting publication.',
+      '# TYPE payments_outbox_pending gauge',
+      `payments_outbox_pending ${counts.pending}`,
+      '# HELP payments_outbox_dead Number of payment events that exhausted publication attempts.',
+      '# TYPE payments_outbox_dead gauge',
+      `payments_outbox_dead ${counts.dead}`,
+      '',
+    ].join('\n');
   }
 }

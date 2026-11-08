@@ -9,9 +9,10 @@ import { PaymentsLogger } from './infrastructure/logging/payments-logger';
 import { HealthModule } from './modules/health/health.module';
 import { PaymentsModule } from './modules/payments.module';
 import { RefundsModule } from './modules/refunds.module';
+import { OutboxModule } from './modules/outbox.module';
 
 @Module({
-  imports: [PaymentsConfigModule, PrismaModule, HealthModule, PaymentsModule, RefundsModule, PassportModule.register({ defaultStrategy: 'jwt' })],
+  imports: [PaymentsConfigModule, PrismaModule, OutboxModule, HealthModule, PaymentsModule, RefundsModule, PassportModule.register({ defaultStrategy: 'jwt' })],
   providers: [JwtStrategy, RolesGuard, ServiceAuthGuard, PaymentsLogger],
 })
 export class AppModule {}

@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { HealthController } from '../../src/modules/health/health.controller';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma/prisma.service';
+import { RabbitMqPublisher } from '../../src/infrastructure/messaging/rabbitmq.publisher';
+import { OUTBOX_REPOSITORY } from '../../src/infrastructure/messaging/outbox.tokens';
 import { createPaymentsOpenApi } from '../../src/interfaces/openapi/openapi.factory';
 
 type JsonObject = Record<string, unknown>;
@@ -15,13 +17,17 @@ describe('Payments OpenAPI contract base', () => {
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       controllers: [HealthController],
-      providers: [{ provide: PrismaService, useValue: { isReachable: jest.fn(), hasAppliedMigrations: jest.fn() } }],
+      providers: [
+        { provide: PrismaService, useValue: { isReachable: jest.fn(), hasAppliedMigrations: jest.fn() } },
+        { provide: RabbitMqPublisher, useValue: { isHealthy: (): boolean => false } },
+        { provide: OUTBOX_REPOSITORY, useValue: { countByStatus: jest.fn() } },
+      ],
     }).compile();
     app = module.createNestApplication();
     await app.init();
   });
 
-  afterAll(async () => app.close());
+  afterAll(async () => app?.close());
 
   it('keeps OpenAPI version, metadata, servers, auth schemes, base health paths and shared schemas aligned', () => {
     const generated = createPaymentsOpenApi(app) as unknown as JsonObject;

@@ -61,6 +61,21 @@ export function failedPaymentEvent(
   }, eventId);
 }
 
+export function reviewRequiredPaymentEvent(
+  payment: Payment,
+  occurredAt: Date,
+  eventId = randomUUID(),
+): NewOutboxEvent {
+  if (payment.status !== 'REVIEW_REQUIRED' || payment.failureCode !== 'RECONCILIATION_EXHAUSTED') {
+    throw new DomainError('STATE_CONFLICT', 'Review event requires an exhausted uncertain payment reconciliation');
+  }
+  const eventType = 'payment.v1.review_required';
+  return event(payment, eventType, {
+    ...basePayload(payment, eventId, eventType, occurredAt),
+    reasonCode: 'RECONCILIATION_EXHAUSTED',
+  }, eventId);
+}
+
 export function refundedPaymentEvent(
   payment: Payment,
   refund: Refund,
@@ -103,5 +118,23 @@ export function refundFailedPaymentEvent(
     refundId: refund.id,
     reason: refund.reason,
     failureCode: refund.failureCode,
+  }, eventId);
+}
+
+export function refundReviewRequiredPaymentEvent(
+  payment: Payment,
+  refund: Refund,
+  occurredAt: Date,
+  eventId = randomUUID(),
+): NewOutboxEvent {
+  if (refund.status !== 'REVIEW_REQUIRED' || refund.failureCode !== 'RECONCILIATION_EXHAUSTED') {
+    throw new DomainError('STATE_CONFLICT', 'Refund review event requires an exhausted uncertain refund reconciliation');
+  }
+  const eventType = 'payment.v1.refund_review_required';
+  return event(payment, eventType, {
+    ...basePayload(payment, eventId, eventType, occurredAt),
+    refundId: refund.id,
+    reasonCode: 'RECONCILIATION_EXHAUSTED',
+    refundAmountMinor: refund.amount.amountMinor,
   }, eventId);
 }

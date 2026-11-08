@@ -7,6 +7,8 @@ import { PrismaService } from '../../src/infrastructure/persistence/prisma/prism
 import { PAYMENTS_CONFIG, type PaymentsConfig } from '../../src/infrastructure/config/payments-config';
 import { HealthController } from '../../src/modules/health/health.controller';
 import { configureHttp } from '../../src/interfaces/http/configure-http';
+import { RabbitMqPublisher } from '../../src/infrastructure/messaging/rabbitmq.publisher';
+import { OUTBOX_REPOSITORY } from '../../src/infrastructure/messaging/outbox.tokens';
 
 describe('Payments health endpoints', () => {
   let app: INestApplication;
@@ -20,11 +22,16 @@ describe('Payments health endpoints', () => {
       isReachable: (): Promise<boolean> => Promise.resolve(databaseReachable),
       hasAppliedMigrations: (): Promise<boolean> => Promise.resolve(migrationApplied),
     };
+    const outbox = {
+      countByStatus: (): Promise<{ pending: number; dead: number }> => Promise.resolve({ pending: 3, dead: 1 }),
+    };
     @Module({
       controllers: [HealthController],
       providers: [
         { provide: PrismaService, useValue: prisma },
         { provide: PAYMENTS_CONFIG, useValue: { rabbitmqUrl: undefined } satisfies Partial<PaymentsConfig> },
+        { provide: RabbitMqPublisher, useValue: { isHealthy: (): boolean => false } },
+        { provide: OUTBOX_REPOSITORY, useValue: outbox },
       ],
     })
     class TestModule {}
@@ -62,5 +69,14 @@ describe('Payments health endpoints', () => {
       .get('/health/ready')
       .expect('Content-Type', /application\/problem\+json/)
       .expect(503);
+  });
+
+  it('exposes Prometheus gauges for pending and dead outbox events', async () => {
+    await request(app.getHttpServer() as Server)
+      .get('/health/metrics')
+      .expect('Content-Type', /text\/plain/)
+      .expect(200)
+      .expect(/payments_outbox_pending 3/)
+      .expect(/payments_outbox_dead 1/);
   });
 });

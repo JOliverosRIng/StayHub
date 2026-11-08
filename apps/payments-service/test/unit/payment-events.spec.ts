@@ -4,6 +4,8 @@ import {
   failedPaymentEvent,
   refundedPaymentEvent,
   refundFailedPaymentEvent,
+  reviewRequiredPaymentEvent,
+  refundReviewRequiredPaymentEvent,
 } from '../../src/application/events/payment-events';
 import { readFileSync } from 'node:fs';
 import Ajv2020, { type AnySchema } from 'ajv/dist/2020';
@@ -49,6 +51,30 @@ describe('payment outbox event constructors', () => {
       .toMatchObject({ eventType: 'payment.v1.failed', failureCode: 'GATEWAY_UNAVAILABLE' });
   });
 
+  it('reports uncertain charge and refund amounts for manual review without leaking gateway evidence', () => {
+    const payment = createPaymentFixture();
+    payment.markReviewRequired({ source: 'reconciler', reference: 'private-charge-evidence' });
+    const reviewEvent = reviewRequiredPaymentEvent(payment, occurredAt);
+    expect(reviewEvent.payload).toMatchObject({ eventType: 'payment.v1.review_required', reasonCode: 'RECONCILIATION_EXHAUSTED' });
+
+    const refundPayment = createPaymentFixture();
+    refundPayment.approve({ source: 'gateway', reference: 'private-approved-reference' });
+    const refund = Refund.create({
+      id: randomUUID(), paymentId: refundPayment.id, paymentStatus: refundPayment.status,
+      paymentAmount: refundPayment.amount, refundedAmount: refundPayment.refundedAmount,
+      reason: 'GUEST_CANCELLATION', requestedAmount: Money.fromMinor(4_500, 'COP'),
+    });
+    refund.markUncertain({ source: 'gateway', reference: 'private-refund-timeout' });
+    refund.markReviewRequired({ source: 'reconciler', reference: 'private-refund-evidence' });
+    const refundReviewEvent = refundReviewRequiredPaymentEvent(refundPayment, refund, occurredAt);
+    expect(refundReviewEvent.payload).toMatchObject({
+      eventType: 'payment.v1.refund_review_required',
+      reasonCode: 'RECONCILIATION_EXHAUSTED',
+      refundAmountMinor: 4_500,
+    });
+    expect(JSON.stringify([reviewEvent, refundReviewEvent])).not.toMatch(/private-|gatewayReference|token|idempotency/i);
+  });
+
   it('validates every implemented event against JSON Schema 2020-12 and excludes secrets', () => {
     const schema = JSON.parse(readFileSync(
       '../../specs/003-reservas-pagos-resenas/payments_service/contracts/payment-events-v1.schema.json',
@@ -91,12 +117,26 @@ describe('payment outbox event constructors', () => {
     });
     failedRefund.fail('CARD_DECLINED', { source: 'gateway', reference: 'sensitive-refund-rejection' });
 
+    const reviewPayment = createPaymentFixture();
+    reviewPayment.markReviewRequired({ source: 'reconciler', reference: 'sensitive-review-evidence' });
+    const reviewRefundPayment = createPaymentFixture();
+    reviewRefundPayment.approve({ source: 'gateway', reference: 'approved-charge-for-review' });
+    const reviewRefund = Refund.create({
+      id: randomUUID(), paymentId: reviewRefundPayment.id, paymentStatus: reviewRefundPayment.status,
+      paymentAmount: reviewRefundPayment.amount, refundedAmount: reviewRefundPayment.refundedAmount,
+      reason: 'GUEST_CANCELLATION', requestedAmount: Money.fromMinor(7_500, 'COP'),
+    });
+    reviewRefund.markUncertain({ source: 'gateway', reference: 'sensitive-refund-timeout' });
+    reviewRefund.markReviewRequired({ source: 'reconciler', reference: 'sensitive-refund-review-evidence' });
+
     const events = [
       approvedPaymentEvent(approved, occurredAt),
       declinedPaymentEvent(declined, occurredAt, 'CARD_DECLINED'),
       failedPaymentEvent(failed, occurredAt),
       refundedPaymentEvent(refundedPayment, refund, occurredAt),
       refundFailedPaymentEvent(refundFailedPayment, failedRefund, occurredAt),
+      reviewRequiredPaymentEvent(reviewPayment, occurredAt),
+      refundReviewRequiredPaymentEvent(reviewRefundPayment, reviewRefund, occurredAt),
     ];
     for (const item of events) {
       const valid = validate(item.payload);
