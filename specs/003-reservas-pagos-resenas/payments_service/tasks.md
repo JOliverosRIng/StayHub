@@ -160,7 +160,7 @@
 
 **Independent Test**: provocar caídas del broker y comprobar entrega al menos una vez, orden por pago y estado `DEAD` visible.
 
-- [ ] PAY-053 [P] [RED] [US4] Escribir pruebas unitarias de los constructores de eventos validando cada evento contra `contracts/payment-events-v1.schema.json` (JSON Schema 2020-12) y la ausencia de token, correo y datos personales en `apps/payments-service/test/unit/payment-events.spec.ts`
+- [x] PAY-053 [P] [RED] [US4] Escribir pruebas unitarias de los constructores de eventos validando cada evento contra `contracts/payment-events-v1.schema.json` (JSON Schema 2020-12) y la ausencia de token, correo y datos personales en `apps/payments-service/test/unit/payment-events.spec.ts`
 - [ ] PAY-054 [P] [RED] [US4] Escribir pruebas de integración de atomicidad: si la transacción de cobro o reembolso falla, no queda evento; si confirma, el evento existe en `outbox_events` en `apps/payments-service/test/integration/outbox-atomicity.spec.ts`
 - [ ] PAY-055 [P] [RED] [US4] Escribir pruebas de integración con RabbitMQ real: publisher confirms, broker caído y recuperado, orden por `aggregate_id`, paso a `DEAD` tras el máximo de intentos en `apps/payments-service/test/integration/outbox-relay.spec.ts`
 - [ ] PAY-056 [GREEN] [US4] Auditar/refactorizar constructores de eventos ya incorporados en PAY-035 y PAY-050; completar nuevos eventos `review_required`/`refund_review_required` (incluyendo `refundAmountMinor` aún incierto), probar contrato JSON Schema y **demostrar** que US1/US3 ya escribían outbox atómico antes de activar relay. No posponer la escritura al completar US4
