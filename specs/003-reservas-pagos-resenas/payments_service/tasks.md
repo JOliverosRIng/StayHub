@@ -97,7 +97,7 @@
 
 ### Pruebas primero
 
-- [ ] PAY-031 [P] [RED] [US1] Escribir pruebas unitarias del caso de uso `CreatePayment`: aprobado, rechazado, resultado ambiguo, reproducción idempotente, conflicto de huella, pago activo existente y pasarela no disponible en `apps/payments-service/test/unit/create-payment.use-case.spec.ts`
+- [x] PAY-031 [P] [RED] [US1] Escribir pruebas unitarias del caso de uso `CreatePayment`: aprobado, rechazado, resultado ambiguo, reproducción idempotente, conflicto de huella, pago activo existente y pasarela no disponible en `apps/payments-service/test/unit/create-payment.use-case.spec.ts`
 - [ ] PAY-032 [P] [RED] [US1] Escribir pruebas de integración con PostgreSQL real: el índice parcial impide dos pagos activos por reserva; N peticiones simultáneas con la misma clave producen un solo pago y una sola llamada a la pasarela; reintento tras `DECLINED` está permitido en `apps/payments-service/test/integration/create-payment.spec.ts`
 - [ ] PAY-033 [P] [RED] [US1] Escribir pruebas de contrato de `POST /payments` para 201, 202, 400, 401, 403, 409 y 503 contra `contracts/openapi-payments-service.yaml` en `apps/payments-service/test/contract/create-payment.contract.spec.ts`
 - [ ] PAY-034 [P] [RED] [US1] Escribir pruebas de seguridad: sin JWT, JWT expirado, `alg: none`, `kid` desconocido, audiencia incorrecta, JWT de usuario llamando al cobro (403), scope equivocado (403), campos extra, token con formato de PAN, cuerpo sobredimensionado y ausencia de secretos en logs en `apps/payments-service/test/security/create-payment.security.spec.ts`
