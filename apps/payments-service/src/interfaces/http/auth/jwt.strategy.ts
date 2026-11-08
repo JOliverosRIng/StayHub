@@ -4,6 +4,7 @@ import { Strategy } from 'passport-jwt';
 import type { Request } from 'express';
 import { PAYMENTS_CONFIG, type PaymentsConfig } from '../../../infrastructure/config/payments-config';
 import { verifyUserJwt } from '../../../infrastructure/security/jwt.verifier';
+import { bearer } from './bearer';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const USER_TOKEN_MAX_AGE_SECONDS = 3_600;
@@ -13,18 +14,6 @@ export interface PaymentPrincipal {
   readonly sid: string;
   readonly jti: string;
   readonly role: 'GUEST' | 'OWNER' | 'ADMIN';
-}
-
-function bearer(request: Request): string {
-  const authorization = request.headers.authorization;
-  if (
-    typeof authorization !== 'string' ||
-    !/^Bearer [A-Za-z0-9_.-]+$/.test(authorization) ||
-    request.rawHeaders.filter((header, index) => index % 2 === 0 && header.toLowerCase() === 'authorization').length > 1
-  ) {
-    throw new UnauthorizedException();
-  }
-  return authorization.slice(7);
 }
 
 @Injectable()
