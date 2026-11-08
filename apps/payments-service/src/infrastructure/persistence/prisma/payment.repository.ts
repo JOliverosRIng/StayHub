@@ -141,7 +141,9 @@ export function mapPaymentPersistenceError(error: unknown): unknown {
     error.code === 'P2002'
   ) {
     const target = error.meta?.target;
-    const fields = Array.isArray(target) ? target.map(String) : [String(target ?? '')];
+    const fields = Array.isArray(target)
+      ? target.filter((field): field is string => typeof field === 'string')
+      : typeof target === 'string' ? [target] : [];
     if (fields.some((field) => field.includes('payments_active_booking_uq') || field.includes('booking_id'))) {
       return new DomainError('STATE_CONFLICT', 'An active payment already exists for this booking');
     }

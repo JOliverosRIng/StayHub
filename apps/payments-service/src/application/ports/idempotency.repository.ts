@@ -11,7 +11,7 @@ export interface IdempotencyRecord {
 
 export interface IdempotencyRepository {
   find(scope: string, key: string, callerSubject: string): Promise<IdempotencyRecord | null>;
-  reserve(record: IdempotencyRecord): Promise<IdempotencyRecord>;
+  reserve(record: IdempotencyRecord): Promise<{ readonly record: IdempotencyRecord; readonly created: boolean }>;
   complete(
     scope: string,
     key: string,

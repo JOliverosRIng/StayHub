@@ -4,6 +4,10 @@ import type { PaymentRepository } from '../../src/application/ports/payment.repo
 import type { IdempotencyRecord, IdempotencyRepository } from '../../src/application/ports/idempotency.repository';
 import type { PaymentGatewayPort } from '../../src/application/ports/payment-gateway.port';
 import type { ClockPort } from '../../src/application/ports/clock.port';
+import type { UnitOfWork } from '../../src/application/ports/unit-of-work';
+import type { PaymentUnitOfWorkRepositories } from '../../src/infrastructure/persistence/prisma/unit-of-work';
+import type { OutboxRepository } from '../../src/application/ports/outbox.repository';
+import type { NewOutboxEvent } from '../../src/application/ports/outbox.repository';
 import { CreatePayment } from '../../src/application/payments/create-payment.use-case';
 import { createPaymentFixture, TEST_BOOKING_ID, TEST_PAYER_ID } from '../fixtures/payments.fixture';
 import { MOCK_GATEWAY_TOKENS } from '../fixtures/mock-gateway.fixture';
@@ -23,6 +27,8 @@ interface Harness {
   readonly payments: PaymentRepository;
   readonly idempotency: IdempotencyRepository;
   readonly gateway: jest.Mocked<PaymentGatewayPort>;
+  readonly outbox: jest.Mocked<OutboxRepository>;
+  readonly executionOrder: string[];
   readonly records: Map<string, IdempotencyRecord>;
   readonly savedPayments: Payment[];
 }
@@ -30,42 +36,59 @@ interface Harness {
 function createHarness(): Harness {
   const records = new Map<string, IdempotencyRecord>();
   const savedPayments: Payment[] = [];
+  const executionOrder: string[] = [];
   const payments: jest.Mocked<PaymentRepository> = {
-    findById: jest.fn(async (_id: string): Promise<Payment | null> => null),
-    findActiveByBookingId: jest.fn(async (_bookingId: string): Promise<Payment | null> => null),
-    save: jest.fn(async (payment) => { savedPayments.push(payment); }),
+    findById: jest.fn((_id: string): Promise<Payment | null> => { void _id; return Promise.resolve(null); }),
+    findActiveByBookingId: jest.fn((_bookingId: string): Promise<Payment | null> => { void _bookingId; return Promise.resolve(null); }),
+    save: jest.fn((payment) => { savedPayments.push(payment); return Promise.resolve(); }),
   };
   const idempotency: jest.Mocked<IdempotencyRepository> = {
-    find: jest.fn(async (scope, key, caller) => records.get(`${scope}:${key}:${caller}`) ?? null),
-    reserve: jest.fn(async (record) => {
+    find: jest.fn((scope, key, caller) => Promise.resolve(records.get(`${scope}:${key}:${caller}`) ?? null)),
+    reserve: jest.fn((record) => {
       const key = `${record.scope}:${record.key}:${record.callerSubject}`;
       const existing = records.get(key);
-      if (existing) return existing;
+      if (existing) return Promise.resolve({ record: existing, created: false });
       records.set(key, record);
-      return record;
+      return Promise.resolve({ record, created: true });
     }),
-    complete: jest.fn(async (scope, key, caller, responseStatus, responseBody, resourceId) => {
+    complete: jest.fn((scope, key, caller, responseStatus, responseBody, resourceId) => {
       const recordKey = `${scope}:${key}:${caller}`;
       const existing = records.get(recordKey);
-      if (!existing) throw new Error('missing reservation');
+      if (!existing) return Promise.reject(new Error('missing reservation'));
       records.set(recordKey, { ...existing, responseStatus, responseBody, resourceId });
+      return Promise.resolve();
     }),
-    releasePreDispatch: jest.fn(async (scope, key, caller) => { records.delete(`${scope}:${key}:${caller}`); }),
-    purgeExpired: jest.fn(async () => 0),
+    releasePreDispatch: jest.fn(async (scope: string, key: string, caller: string, proof: { dispatch: 'NOT_DISPATCHED'; reason: 'GATEWAY_UNAVAILABLE' }): Promise<void> => {
+      void proof;
+      records.delete(`${scope}:${key}:${caller}`);
+      return Promise.resolve();
+    }),
+    purgeExpired: jest.fn((nowArg: Date): Promise<number> => { void nowArg; return Promise.resolve(0); }),
   };
   const gateway: jest.Mocked<PaymentGatewayPort> = {
-    charge: jest.fn(async (_command: Parameters<PaymentGatewayPort['charge']>[0]) => ({
-      kind: 'approved' as const,
-      reference: 'gateway-reference',
-    })),
+    charge: jest.fn((_command: Parameters<PaymentGatewayPort['charge']>[0]) => {
+      void _command;
+      executionOrder.push('gateway');
+      return Promise.resolve({ kind: 'approved' as const, reference: 'gateway-reference' });
+    }),
     refund: jest.fn(),
     getTransaction: jest.fn(),
+  };
+  const outbox: jest.Mocked<OutboxRepository> = {
+    append: jest.fn((event: NewOutboxEvent): Promise<void> => { void event; return Promise.resolve(); }),
+  };
+  const unitOfWork: UnitOfWork<PaymentUnitOfWorkRepositories> = {
+    transaction: async <T>(work: (repositories: PaymentUnitOfWorkRepositories) => Promise<T>): Promise<T> => {
+      executionOrder.push('transaction:start');
+      const result = await work({ payments, idempotency, outbox });
+      executionOrder.push('transaction:end');
+      return result;
+    },
   };
   const clock: ClockPort = { now: () => now };
   return {
     useCase: new CreatePayment({
-      payments,
-      idempotency,
+      unitOfWork,
       gateway,
       clock,
       config: {
@@ -73,11 +96,14 @@ function createHarness(): Harness {
         maxAmountMinor: 9_000_000_000_000,
         idempotencyTtlHours: 48,
         tokenHmacSecret: 'payments-test-secret-with-at-least-thirty-two-chars',
+        reconcilerIntervalMs: 30_000,
       },
     }),
     payments,
     idempotency,
     gateway,
+    outbox,
+    executionOrder,
     records,
     savedPayments,
   };
@@ -89,8 +115,13 @@ describe('CreatePayment', () => {
     const result = await harness.useCase.execute({ ...request, idempotencyKey, callerSubject: 'booking-service' });
 
     expect(result).toMatchObject({ statusCode: 201, payment: { status: 'APPROVED' }, replayed: false });
-    expect(harness.gateway.charge).toHaveBeenCalledTimes(1);
-    expect(harness.savedPayments).toHaveLength(1);
+    expect(harness.gateway.charge.mock.calls).toHaveLength(1);
+    expect(harness.savedPayments).toHaveLength(2);
+    expect(harness.executionOrder).toEqual([
+      'transaction:start', 'transaction:end', 'gateway', 'transaction:start', 'transaction:end',
+    ]);
+    expect(harness.outbox.append.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ eventType: 'payment.v1.approved' }));
+    expect(JSON.stringify(harness.records)).not.toContain(MOCK_GATEWAY_TOKENS.approved);
   });
 
   it('returns a confirmed decline as a created business result', async () => {
@@ -124,7 +155,7 @@ describe('CreatePayment', () => {
     const replay = await harness.useCase.execute(input);
 
     expect(replay).toEqual({ ...original, replayed: true });
-    expect(harness.gateway.charge).toHaveBeenCalledTimes(1);
+    expect(harness.gateway.charge.mock.calls).toHaveLength(1);
   });
 
   it('rejects reuse of an idempotency key with a different request fingerprint', async () => {
@@ -134,7 +165,7 @@ describe('CreatePayment', () => {
 
     await expect(harness.useCase.execute({ ...input, amountMinor: input.amountMinor + 1 }))
       .rejects.toMatchObject<Partial<DomainError>>({ code: 'IDEMPOTENCY_CONFLICT' });
-    expect(harness.gateway.charge).toHaveBeenCalledTimes(1);
+    expect(harness.gateway.charge.mock.calls).toHaveLength(1);
   });
 
   it('blocks a new charge while the booking has an active payment', async () => {
@@ -145,7 +176,7 @@ describe('CreatePayment', () => {
 
     await expect(harness.useCase.execute({ ...request, idempotencyKey, callerSubject: 'booking-service' }))
       .rejects.toMatchObject<Partial<DomainError>>({ code: 'STATE_CONFLICT' });
-    expect(harness.gateway.charge).not.toHaveBeenCalled();
+    expect(harness.gateway.charge.mock.calls).toHaveLength(0);
   });
 
   it('returns unavailable only when the gateway proves the request was not dispatched', async () => {

@@ -33,15 +33,6 @@ function toRecord(row: {
   };
 }
 
-function hasUniqueConflict(error: unknown): boolean {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') return false;
-  const target = error.meta?.target;
-  const fields = Array.isArray(target)
-    ? target.filter((field): field is string => typeof field === 'string')
-    : typeof target === 'string' ? [target] : [];
-  return fields.some((field) => field.includes('idempotency_scope_key_caller_uq') || ['scope', 'key', 'caller_subject'].includes(field));
-}
-
 export class PrismaIdempotencyRepository implements IdempotencyRepository {
   constructor(private readonly prisma: PrismaTypes.TransactionClient) {}
 
@@ -50,30 +41,30 @@ export class PrismaIdempotencyRepository implements IdempotencyRepository {
     return row ? toRecord(row) : null;
   }
 
-  async reserve(record: IdempotencyRecord): Promise<IdempotencyRecord> {
-    try {
-      const row = await this.prisma.idempotencyRecord.create({
-        data: {
-          id: randomUUID(),
-          scope: record.scope,
-          key: record.key,
-          callerSubject: record.callerSubject,
-          requestFingerprint: record.requestFingerprint,
-          responseStatus: record.responseStatus,
-          responseBody: record.responseBody === null
-            ? Prisma.DbNull
-            : record.responseBody as unknown as PrismaTypes.InputJsonObject,
-          resourceId: record.resourceId,
-          expiresAt: record.expiresAt,
-        },
-      });
-      return toRecord(row);
-    } catch (error) {
-      if (!hasUniqueConflict(error)) throw error;
-      const existing = await this.find(record.scope, record.key, record.callerSubject);
-      if (!existing) throw error;
-      return existing;
+  async reserve(record: IdempotencyRecord): Promise<{ readonly record: IdempotencyRecord; readonly created: boolean }> {
+    if (record.responseStatus !== null || record.responseBody !== null || record.resourceId === null) {
+      throw new DomainError('VALIDATION_ERROR', 'Idempotency reservation must be incomplete and tied to a payment');
     }
+    if (!/^[a-f0-9]{64}$/i.test(record.requestFingerprint)) {
+      throw new DomainError('VALIDATION_ERROR', 'Idempotency request fingerprint is invalid');
+    }
+    const inserted = await this.prisma.idempotencyRecord.createMany({
+      data: [{
+        id: randomUUID(),
+        scope: record.scope,
+        key: record.key,
+        callerSubject: record.callerSubject,
+        requestFingerprint: record.requestFingerprint,
+        responseStatus: null,
+        responseBody: Prisma.DbNull,
+        resourceId: record.resourceId,
+        expiresAt: record.expiresAt,
+      }],
+      skipDuplicates: true,
+    });
+    const existing = await this.find(record.scope, record.key, record.callerSubject);
+    if (!existing) throw new DomainError('STATE_CONFLICT', 'Idempotency reservation could not be read');
+    return { record: existing, created: inserted.count === 1 };
   }
 
   async complete(
@@ -85,7 +76,7 @@ export class PrismaIdempotencyRepository implements IdempotencyRepository {
     resourceId: string,
   ): Promise<void> {
     const changed = await this.prisma.idempotencyRecord.updateMany({
-      where: { scope, key, callerSubject },
+      where: { scope, key, callerSubject, responseStatus: null },
       data: {
         responseStatus,
         responseBody: responseBody as PrismaTypes.InputJsonObject,

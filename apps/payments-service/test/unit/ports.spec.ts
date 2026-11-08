@@ -37,8 +37,10 @@ describe('application ports', () => {
     };
     const idempotencyRepository: IdempotencyRepository = {
       find: () => Promise.resolve(null),
-      save: () => Promise.resolve(),
-      delete: () => Promise.resolve(),
+      reserve: (record) => Promise.resolve({ record, created: true }),
+      complete: () => Promise.resolve(),
+      releasePreDispatch: () => Promise.resolve(),
+      purgeExpired: () => Promise.resolve(0),
     };
     const outboxRepository: OutboxRepository = { append: () => Promise.resolve() };
     const clock: ClockPort = { now: () => new Date(0) };

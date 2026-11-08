@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, Type } from '@nestjs/common';
 import type { Server } from 'node:http';
 import request from 'supertest';
 import { sign } from 'jsonwebtoken';
@@ -43,7 +43,7 @@ describe('POST /payments security', () => {
   beforeAll(async () => {
     execute = jest.fn().mockResolvedValue({ statusCode: 201, payment: { status: 'APPROVED' }, replayed: false });
     const module = await Test.createTestingModule({
-      controllers: [PaymentsController],
+      controllers: [PaymentsController as unknown as Type<unknown>],
       providers: [
         { provide: CreatePayment, useValue: { execute } },
         { provide: PAYMENTS_CONFIG, useValue: config },
@@ -112,7 +112,7 @@ describe('POST /payments security', () => {
     const response = await request(app.getHttpServer() as Server).post('/payments')
       .set('Authorization', `Bearer ${token()}`).set('Idempotency-Key', idempotencyKey)
       .send(oversized).expect(413);
-    const serialized = JSON.stringify({ response: response.body, records });
+    const serialized = JSON.stringify({ response: response.body as unknown, records });
     expect(serialized).not.toContain(MOCK_GATEWAY_TOKENS.approved);
     expect(execute).not.toHaveBeenCalled();
   });

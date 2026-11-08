@@ -108,6 +108,13 @@ export class Payment {
     this.currentFailureCode = 'RECONCILIATION_EXHAUSTED';
   }
 
+  markUncertain(evidence: PaymentStatusEvidence): void {
+    if (this.currentStatus !== 'PENDING' || !evidence.source.trim() || !evidence.reference.trim()) {
+      throw new DomainError('STATE_CONFLICT', 'Only a pending payment can record an uncertain gateway result');
+    }
+    this.currentFailureCode = 'GATEWAY_TIMEOUT';
+  }
+
   applyRefund(amount: Money, evidence: PaymentStatusEvidence): void {
     const result = getPaymentStatusAfterRefund(
       this.currentStatus,

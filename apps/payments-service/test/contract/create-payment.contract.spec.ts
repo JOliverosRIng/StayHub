@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, Type } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { PaymentsController } from '../../src/interfaces/http/payments/payments.controller';
@@ -32,7 +32,7 @@ describe('POST /payments OpenAPI contract', () => {
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
-      controllers: [PaymentsController],
+      controllers: [PaymentsController as unknown as Type<unknown>],
       providers: [{ provide: CreatePayment, useValue: { execute: jest.fn() } }],
     }).compile();
     app = module.createNestApplication();

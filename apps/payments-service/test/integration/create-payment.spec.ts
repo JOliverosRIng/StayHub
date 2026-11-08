@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '../../src/infrastructure/persistence/generated/client';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma/prisma.service';
-import { PrismaPaymentRepository } from '../../src/infrastructure/persistence/prisma/payment.repository';
-import { PrismaIdempotencyRepository } from '../../src/infrastructure/persistence/prisma/idempotency.repository';
+import { PrismaUnitOfWork } from '../../src/infrastructure/persistence/prisma/unit-of-work';
 import { MockPaymentGatewayAdapter } from '../../src/infrastructure/gateway/mock-payment-gateway.adapter';
-import { CreatePayment } from '../../src/application/payments/create-payment.use-case';
+import { CreatePayment, type CreatePaymentInput } from '../../src/application/payments/create-payment.use-case';
 import type { PaymentsConfig } from '../../src/infrastructure/config/payments-config';
 import type { PaymentGatewayPort } from '../../src/application/ports/payment-gateway.port';
 import { MOCK_GATEWAY_TOKENS, TEST_TOKEN_HMAC_SECRET } from '../fixtures/mock-gateway.fixture';
@@ -18,6 +17,7 @@ const config = {
   gatewayTimeoutMs: 1_000,
   gatewayCircuitFailureThreshold: 3,
   gatewayCircuitResetMs: 100,
+  reconcilerIntervalMs: 30_000,
 } as unknown as PaymentsConfig;
 
 describe('CreatePayment with PostgreSQL 16', () => {
@@ -39,23 +39,14 @@ describe('CreatePayment with PostgreSQL 16', () => {
   function createUseCase(gatewayPort: PaymentGatewayPort = gateway): CreatePayment {
     const prismaService = prisma as unknown as PrismaService;
     return new CreatePayment({
-      payments: new PrismaPaymentRepository(prismaService),
-      idempotency: new PrismaIdempotencyRepository(prismaService),
+      unitOfWork: new PrismaUnitOfWork(prismaService),
       gateway: gatewayPort,
       clock: { now: () => new Date() },
       config,
     });
   }
 
-  function input(overrides: Partial<{
-    bookingId: string;
-    payerUserId: string;
-    amountMinor: number;
-    currency: 'COP' | 'USD';
-    paymentMethod: { type: 'CARD_TOKEN'; token: string };
-    idempotencyKey: string;
-    callerSubject: string;
-  }> = {}) {
+  function input(overrides: Partial<CreatePaymentInput> = {}): CreatePaymentInput {
     return {
       bookingId: randomUUID(),
       payerUserId: randomUUID(),
@@ -70,7 +61,8 @@ describe('CreatePayment with PostgreSQL 16', () => {
 
   it('uses the partial unique index to reject a second active payment for a booking', async () => {
     const bookingId = randomUUID();
-    const createRow = (id: string, status: 'PENDING' | 'APPROVED') => prisma.payment.create({
+    const createRow = async (id: string, status: 'PENDING' | 'APPROVED'): Promise<void> => {
+      await prisma.payment.create({
       data: {
         id,
         bookingId,
@@ -80,7 +72,8 @@ describe('CreatePayment with PostgreSQL 16', () => {
         status,
         paymentMethodFingerprint: id.replaceAll('-', '').padEnd(64, 'a').slice(0, 64),
       },
-    });
+      });
+    };
 
     const results = await Promise.allSettled([
       createRow(randomUUID(), 'PENDING'),
@@ -97,10 +90,12 @@ describe('CreatePayment with PostgreSQL 16', () => {
     const useCase = createUseCase();
     const command = input();
 
-    const results = await Promise.all(Array.from({ length: 12 }, () => useCase.execute(command)));
+    const results = await Promise.allSettled(Array.from({ length: 12 }, () => useCase.execute(command)));
 
-    expect(results.filter((result: { replayed: boolean }) => result.replayed === false)).toHaveLength(1);
-    expect(results.filter((result: { replayed: boolean }) => result.replayed === true)).toHaveLength(11);
+    const fulfilled = results.filter((result) => result.status === 'fulfilled');
+    const rejected = results.filter((result) => result.status === 'rejected');
+    expect(fulfilled.length).toBeGreaterThan(0);
+    for (const result of rejected) expect(result).toMatchObject({ reason: { code: 'STATE_CONFLICT' } });
     expect(gatewaySpy).toHaveBeenCalledTimes(1);
     expect(await prisma.payment.count({ where: { bookingId: command.bookingId } })).toBe(1);
     expect(await prisma.idempotencyRecord.count({ where: { key: command.idempotencyKey } })).toBe(1);

@@ -3,6 +3,7 @@ import { PrismaClient } from '../../src/infrastructure/persistence/generated/cli
 import { PrismaService } from '../../src/infrastructure/persistence/prisma/prisma.service';
 import { PrismaIdempotencyRepository } from '../../src/infrastructure/persistence/prisma/idempotency.repository';
 import { PrismaUnitOfWork } from '../../src/infrastructure/persistence/prisma/unit-of-work';
+import type { IdempotencyRecord } from '../../src/application/ports/idempotency.repository';
 import { createPaymentFixture } from '../fixtures/payments.fixture';
 
 describe('idempotency repository with PostgreSQL 16', () => {
@@ -29,7 +30,7 @@ describe('idempotency repository with PostgreSQL 16', () => {
     responseBody: Readonly<Record<string, unknown>> | null;
     resourceId: string | null;
     expiresAt: Date;
-  }> = {}) {
+  }> = {}): IdempotencyRecord {
     return {
       scope: 'charge',
       key: randomUUID(),
@@ -37,7 +38,7 @@ describe('idempotency repository with PostgreSQL 16', () => {
       requestFingerprint: 'a'.repeat(64),
       responseStatus: null,
       responseBody: null,
-      resourceId: null,
+      resourceId: randomUUID(),
       expiresAt: new Date(Date.now() + 60_000),
       ...overrides,
     };
@@ -47,7 +48,8 @@ describe('idempotency repository with PostgreSQL 16', () => {
     const record = reservation();
     const [first, second] = await Promise.all([repository.reserve(record), repository.reserve(record)]);
 
-    expect(first).toEqual(second);
+    expect(first.record).toEqual(second.record);
+    expect([first.created, second.created].filter(Boolean)).toHaveLength(1);
     expect(await prisma.idempotencyRecord.count({
       where: { scope: record.scope, key: record.key, callerSubject: record.callerSubject },
     })).toBe(1);
@@ -84,24 +86,14 @@ describe('idempotency repository with PostgreSQL 16', () => {
     });
     await unitOfWork.transaction(({ payments }) => payments.save(pendingPayment));
 
-    const pending = reservation({
-      responseStatus: 202,
-      responseBody: { payment: { status: 'PENDING' } },
-      resourceId: pendingPayment.id,
-      expiresAt,
-    });
-    const review = reservation({
-      responseStatus: 202,
-      responseBody: { payment: { status: 'REVIEW_REQUIRED' } },
-      expiresAt,
-    });
-    const completed = reservation({
-      responseStatus: 201,
-      responseBody: { payment: { status: 'APPROVED' } },
-      expiresAt,
-    });
+    const pending = reservation({ resourceId: pendingPayment.id, expiresAt });
+    const review = reservation({ expiresAt });
+    const completed = reservation({ expiresAt });
     const incomplete = reservation({ expiresAt });
     for (const record of [pending, review, completed, incomplete]) await repository.reserve(record);
+    await repository.complete(pending.scope, pending.key, pending.callerSubject, 202, { payment: { status: 'PENDING' } }, pendingPayment.id);
+    await repository.complete(review.scope, review.key, review.callerSubject, 202, { payment: { status: 'REVIEW_REQUIRED' } }, randomUUID());
+    await repository.complete(completed.scope, completed.key, completed.callerSubject, 201, { payment: { status: 'APPROVED' } }, randomUUID());
 
     await expect(repository.purgeExpired(purgeAt)).resolves.toBe(1);
     for (const record of [pending, review, incomplete]) {
