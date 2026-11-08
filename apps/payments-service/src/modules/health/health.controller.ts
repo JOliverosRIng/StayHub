@@ -1,4 +1,5 @@
 import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 
 export interface ReadinessResponse {
@@ -11,15 +12,29 @@ export interface ReadinessResponse {
 }
 
 @Controller('health')
+@ApiTags('Health')
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get('live')
+  @ApiOperation({ operationId: 'getLiveness', summary: 'Liveness' })
+  @ApiResponse({ status: 200, description: 'Proceso vivo.' })
   live(): { readonly status: 'ok' } {
     return { status: 'ok' };
   }
 
   @Get('ready')
+  @ApiOperation({ operationId: 'getReadiness', summary: 'Readiness (base de datos y migración; RabbitMQ degradado no bloquea)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Listo.',
+    content: { 'application/json': { schema: { $ref: '#/components/schemas/Readiness' } } },
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'No listo.',
+    content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/Problem' } } },
+  })
   async ready(): Promise<ReadinessResponse> {
     const [databaseReady, migrationApplied] = await Promise.all([
       this.prisma.isReachable(),
