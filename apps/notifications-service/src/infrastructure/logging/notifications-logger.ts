@@ -1,6 +1,6 @@
 import type { LoggerService } from '@nestjs/common';
 
-const SECRET_KEY = /body|email|token|authorization|password|secret|private.?key|idempotency|fingerprint/i;
+const SECRET_KEY = /body|email|subject|token|authorization|password|secret|private.?key|idempotency|fingerprint/i;
 
 function redact(value: unknown, depth = 0): unknown {
   if (depth > 5) return '[REDACTED]';
@@ -20,7 +20,7 @@ export class NotificationsLogger implements LoggerService {
   verbose(message: unknown, context?: string): void { this.write('debug', message, context); }
 
   private write(level: string, message: unknown, context?: string): void {
-    const safe = typeof message === 'string' ? message : redact(message);
+    const safe = typeof message === 'string' ? '[REDACTED]' : redact(message);
     process.stdout.write(`${JSON.stringify({ level, service: 'notifications-service', ...(context ? { context } : {}), message: safe })}\n`);
   }
 }
