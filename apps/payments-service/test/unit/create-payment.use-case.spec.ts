@@ -37,8 +37,21 @@ function createHarness(): Harness {
   };
   const idempotency: jest.Mocked<IdempotencyRepository> = {
     find: jest.fn(async (scope, key, caller) => records.get(`${scope}:${key}:${caller}`) ?? null),
-    save: jest.fn(async (record) => { records.set(`${record.scope}:${record.key}:${record.callerSubject}`, record); }),
-    delete: jest.fn(async (scope, key, caller) => { records.delete(`${scope}:${key}:${caller}`); }),
+    reserve: jest.fn(async (record) => {
+      const key = `${record.scope}:${record.key}:${record.callerSubject}`;
+      const existing = records.get(key);
+      if (existing) return existing;
+      records.set(key, record);
+      return record;
+    }),
+    complete: jest.fn(async (scope, key, caller, responseStatus, responseBody, resourceId) => {
+      const recordKey = `${scope}:${key}:${caller}`;
+      const existing = records.get(recordKey);
+      if (!existing) throw new Error('missing reservation');
+      records.set(recordKey, { ...existing, responseStatus, responseBody, resourceId });
+    }),
+    releasePreDispatch: jest.fn(async (scope, key, caller) => { records.delete(`${scope}:${key}:${caller}`); }),
+    purgeExpired: jest.fn(async () => 0),
   };
   const gateway: jest.Mocked<PaymentGatewayPort> = {
     charge: jest.fn(async (_command: Parameters<PaymentGatewayPort['charge']>[0]) => ({

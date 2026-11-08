@@ -11,6 +11,20 @@ export interface IdempotencyRecord {
 
 export interface IdempotencyRepository {
   find(scope: string, key: string, callerSubject: string): Promise<IdempotencyRecord | null>;
-  save(record: IdempotencyRecord): Promise<void>;
-  delete(scope: string, key: string, callerSubject: string): Promise<void>;
+  reserve(record: IdempotencyRecord): Promise<IdempotencyRecord>;
+  complete(
+    scope: string,
+    key: string,
+    callerSubject: string,
+    responseStatus: number,
+    responseBody: Readonly<Record<string, unknown>>,
+    resourceId: string,
+  ): Promise<void>;
+  releasePreDispatch(
+    scope: string,
+    key: string,
+    callerSubject: string,
+    proof: { readonly dispatch: 'NOT_DISPATCHED'; readonly reason: 'GATEWAY_UNAVAILABLE' },
+  ): Promise<void>;
+  purgeExpired(now: Date): Promise<number>;
 }
