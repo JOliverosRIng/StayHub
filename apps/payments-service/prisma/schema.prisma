@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/infrastructure/persistence/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PAYMENTS_DATABASE_URL")
+}
+
+enum PaymentStatus {
+  PENDING
+  REVIEW_REQUIRED
+  APPROVED
+  DECLINED
+  FAILED
+  PARTIALLY_REFUNDED
+  REFUNDED
+
+  @@map("payment_status")
+}
+
+enum RefundStatus {
+  PENDING
+  REVIEW_REQUIRED
+  COMPLETED
+  FAILED
+
+  @@map("refund_status")
+}
+
+enum RefundReason {
+  GUEST_CANCELLATION
+  OWNER_CANCELLATION
+
+  @@map("refund_reason")
+}
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  DEAD
+
+  @@map("outbox_status")
+}
+
+enum GatewayOperationKind {
+  CHARGE
+  REFUND
+
+  @@map("gateway_operation_kind")
+}
+
+enum GatewayOperationResult {
+  APPROVED
+  DECLINED
+  REFUND_COMPLETED
+  REFUND_FAILED
+  UNKNOWN
+
+  @@map("gateway_operation_result")
+}
+
+enum RefundFixtureResult {
+  NORMAL
+  REFUND_DECLINED
+
+  @@map("refund_fixture_result")
+}
+
+model Payment {
+  id                       String                 @id @db.Uuid
+  bookingId                String                 @map("booking_id") @db.Uuid
+  payerUserId              String                 @map("payer_user_id") @db.Uuid
+  amountMinor              BigInt                 @map("amount_minor")
+  currency                 String                 @db.Char(3)
+  status                   PaymentStatus          @default(PENDING)
+  refundedAmountMinor      BigInt                 @default(0) @map("refunded_amount_minor")
+  failureCode              String?                @map("failure_code") @db.Text
+  paymentMethodType        String                 @default("CARD_TOKEN") @map("payment_method_type") @db.Text
+  paymentMethodFingerprint String                 @map("payment_method_fingerprint") @db.Char(64)
+  gatewayReference         String?                @map("gateway_reference") @db.Text
+  reconcileAttempts        Int                    @default(0) @map("reconcile_attempts")
+  nextReconcileAt          DateTime?              @map("next_reconcile_at") @db.Timestamptz(6)
+  version                  Int                    @default(1)
+  createdAt                DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  approvedAt               DateTime?              @map("approved_at") @db.Timestamptz(6)
+  refunds                  Refund[]
+  statusHistory            PaymentStatusHistory[]
+
+  @@unique([id, currency], map: "payments_id_currency_key")
+  @@index([payerUserId, createdAt(sort: Desc)], map: "payments_payer_user_created_idx")
+  // Partial reconciliation indexes are defined in the SQL migration.
+  @@map("payments")
+}
+
+model Refund {
+  id               String                @id @db.Uuid
+  paymentId        String                @map("payment_id") @db.Uuid
+  amountMinor      BigInt                @map("amount_minor")
+  currency         String                @db.Char(3)
+  reason           RefundReason
+  status           RefundStatus          @default(PENDING)
+  failureCode      String?               @map("failure_code") @db.Text
+  gatewayReference String?               @map("gateway_reference") @db.Text
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  payment          Payment               @relation(fields: [paymentId, currency], references: [id, currency], onDelete: Restrict, onUpdate: Cascade)
+  statusHistory    RefundStatusHistory[]
+
+  @@index([paymentId, createdAt], map: "refunds_payment_created_idx")
+  @@map("refunds")
+}
+
+model IdempotencyRecord {
+  id                 String   @id @db.Uuid
+  scope              String   @db.Text
+  key                String   @db.Uuid
+  requestFingerprint String   @map("request_fingerprint") @db.Char(64)
+  callerSubject      String   @map("caller_subject") @db.Text
+  responseStatus     Int?     @map("response_status")
+  responseBody       Json?    @map("response_body") @db.JsonB
+  resourceId         String?  @map("resource_id") @db.Uuid
+  expiresAt          DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([scope, key, callerSubject], map: "idempotency_scope_key_caller_uq")
+  @@index([expiresAt], map: "idempotency_expiry_idx")
+  @@map("idempotency_records")
+}
+
+model OutboxEvent {
+  id            String       @id @db.Uuid
+  aggregateId   String       @map("aggregate_id") @db.Uuid
+  eventType     String       @map("event_type") @db.VarChar(100)
+  payload       Json         @db.JsonB
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  nextAttemptAt DateTime     @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  publishedAt   DateTime?    @map("published_at") @db.Timestamptz(6)
+
+  // The partial pending index is defined in the SQL migration.
+  @@index([aggregateId, createdAt, id], map: "outbox_aggregate_order_idx")
+  @@map("outbox_events")
+}
+
+model PaymentStatusHistory {
+  id              String         @id @db.Uuid
+  paymentId       String         @map("payment_id") @db.Uuid
+  fromStatus      PaymentStatus? @map("from_status")
+  toStatus        PaymentStatus  @map("to_status")
+  reasonCode      String         @map("reason_code") @db.Text
+  actor           String         @db.Text
+  evidenceRefHash String?        @map("evidence_ref_hash") @db.Char(64)
+  occurredAt      DateTime       @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  payment         Payment        @relation(fields: [paymentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([paymentId, occurredAt], map: "payment_status_history_payment_time_idx")
+  @@map("payment_status_history")
+}
+
+model RefundStatusHistory {
+  id              String        @id @db.Uuid
+  refundId        String        @map("refund_id") @db.Uuid
+  fromStatus      RefundStatus? @map("from_status")
+  toStatus        RefundStatus  @map("to_status")
+  reasonCode      String        @map("reason_code") @db.Text
+  actor           String        @db.Text
+  evidenceRefHash String?       @map("evidence_ref_hash") @db.Char(64)
+  occurredAt      DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  refund          Refund        @relation(fields: [refundId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([refundId, occurredAt], map: "refund_status_history_refund_time_idx")
+  @@map("refund_status_history")
+}
+
+// This ledger contains only non-sensitive mock-provider results for dev/test flows.
+model MockGatewayOperation {
+  operationRefHash    String                 @id @map("operation_ref_hash") @db.Char(64)
+  kind                GatewayOperationKind
+  result              GatewayOperationResult
+  failureCode         String?                @map("failure_code") @db.Text
+  refundFixtureResult RefundFixtureResult?   @map("refund_fixture_result")
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  resolvedAt          DateTime?              @map("resolved_at") @db.Timestamptz(6)
+
+  @@unique([kind, operationRefHash], map: "mock_gateway_kind_operation_hash_uq")
+  @@map("mock_gateway_operations")
+}
