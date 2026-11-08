@@ -1,6 +1,7 @@
 import { Prisma } from '../generated/client';
 import type { UnitOfWork } from '../../../application/ports/unit-of-work';
 import { PrismaService } from './prisma.service';
+import { observeDependency } from '../../observability/otel';
 
 export type RepositoryFactory<TRepositories> = (
   transaction: Prisma.TransactionClient,
@@ -15,7 +16,7 @@ export class PrismaUnitOfWork<TRepositories> implements UnitOfWork<TRepositories
   ) {}
 
   public transaction<T>(work: (repositories: TRepositories) => Promise<T>): Promise<T> {
-    return this.prisma.$transaction(
+    return observeDependency('postgresql', 'transaction', () => this.prisma.$transaction(
       (transaction) => work(this.repositoriesFor(transaction)),
       {
         // Row locks and partial unique indexes protect money invariants; keep the
@@ -24,6 +25,6 @@ export class PrismaUnitOfWork<TRepositories> implements UnitOfWork<TRepositories
         maxWait: TRANSACTION_TIMEOUT_MS,
         timeout: TRANSACTION_TIMEOUT_MS,
       },
-    );
+    ));
   }
 }
