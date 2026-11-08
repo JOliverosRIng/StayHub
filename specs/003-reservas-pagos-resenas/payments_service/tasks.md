@@ -36,7 +36,7 @@
 - [x] PAY-002 [compartido] Registrar `apps/payments-service` en workspaces y añadir scripts raíz `build:payments`, `lint:payments`, `typecheck:payments`, `test:payments:*`, `prisma:payments:*` sin alterar Auth, Users ni Search en `package.json` y `package-lock.json`
 - [x] PAY-003 [P] Crear configuración TypeScript estricta y alias `@payments/*` siguiendo las convenciones del monorepo en `apps/payments-service/tsconfig.json` y `apps/payments-service/tsconfig.build.json`
 - [x] PAY-004 [P] Configurar proyectos Jest `unit`, `integration`, `contract`, `security` y `performance`, cobertura global mínima de 70 % y setup aislado por suite en `apps/payments-service/jest.config.ts` y `apps/payments-service/test/{unit,integration,contract,security,performance}/setup.ts`
-- [ ] PAY-005 [compartido] Registrar `payments-service` como aplicación NestJS con `root`, `sourceRoot`, `entryFile` y `tsConfigPath` propios en `nest-cli.json`
+- [x] PAY-005 [compartido] Registrar `payments-service` como aplicación NestJS con `root`, `sourceRoot`, `entryFile` y `tsConfigPath` propios en `nest-cli.json`
 - [ ] PAY-006 [P] [compartido] Crear el Dockerfile multi-stage no root con targets `build`, `migration` y `runtime` en `infra/docker/payments/Dockerfile`
 - [ ] PAY-007 [P] [compartido] Añadir las variables `PAYMENTS_*` documentadas con valores de ejemplo no secretos (ver `plan.md`, sección Configuración) en `.env.example`
 - [ ] PAY-008 [P] Crear `apps/payments-service/README.md` con comandos, variables, tokens mock (`tok_approved`, `tok_declined_funds`, `tok_declined_fraud`, `tok_gateway_timeout`, `tok_gateway_down`, `tok_refund_fails`) y enlace a los documentos del spec
