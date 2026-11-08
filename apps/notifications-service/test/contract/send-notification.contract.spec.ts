@@ -9,7 +9,7 @@ import { ProblemFilter } from '../../src/interfaces/http/problem.filter';
 
 describe('POST /notifications/send contract (NTF-009)', () => {
   let app: INestApplication | undefined;
-  const execute = jest.fn().mockResolvedValue({ id: 'n1', status: 'SENT' });
+  const execute = jest.fn().mockResolvedValue({ notification: { id: 'n1', status: 'SENT' }, replayed: false });
 
   beforeAll(async (): Promise<void> => {
     const builder = Test.createTestingModule({
