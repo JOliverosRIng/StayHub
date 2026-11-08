@@ -15,6 +15,10 @@ import { bearer } from '../auth/bearer';
 type ServiceOperation = 'charge' | 'refund' | 'read';
 const SERVICE_TOKEN_MAX_AGE_SECONDS = 300;
 
+export interface ServicePrincipalRequest extends Request {
+  paymentsServicePrincipal?: { readonly subject: string };
+}
+
 export const ServiceScope = (scope: ServiceOperation): ReturnType<typeof SetMetadata> =>
   SetMetadata('payments:service-scope', scope);
 
@@ -26,8 +30,9 @@ export class ServiceAuthGuard implements CanActivate {
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<Request>();
+    const request = context.switchToHttp().getRequest<ServicePrincipalRequest>();
     const payload = verifyServiceJwt(bearer(request), this.config.serviceJwt, SERVICE_TOKEN_MAX_AGE_SECONDS);
+    if (typeof payload.sub !== 'string' || payload.sub.trim().length === 0) throw new ForbiddenException();
     const operation = this.reflector.getAllAndOverride<ServiceOperation>('payments:service-scope', [
       context.getHandler(),
       context.getClass(),
@@ -40,6 +45,7 @@ export class ServiceAuthGuard implements CanActivate {
           ? this.config.readScope
           : undefined;
     if (!expected || payload.scope !== expected) throw new ForbiddenException();
+    request.paymentsServicePrincipal = { subject: payload.sub };
     return true;
   }
 }

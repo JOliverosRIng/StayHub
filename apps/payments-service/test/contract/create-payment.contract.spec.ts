@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { PaymentsController } from '../../src/interfaces/http/payments/payments.controller';
 import { CreatePayment } from '../../src/application/payments/create-payment.use-case';
+import { ServiceAuthGuard } from '../../src/interfaces/http/guards/service-auth.guard';
+import { PAYMENTS_CONFIG } from '../../src/infrastructure/config/payments-config';
 import { createPaymentsOpenApi } from '../../src/interfaces/openapi/openapi.factory';
 
 type Json = Record<string, unknown>;
@@ -33,7 +35,11 @@ describe('POST /payments OpenAPI contract', () => {
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       controllers: [PaymentsController as unknown as Type<unknown>],
-      providers: [{ provide: CreatePayment, useValue: { execute: jest.fn() } }],
+      providers: [
+        { provide: CreatePayment, useValue: { execute: jest.fn() } },
+        { provide: PAYMENTS_CONFIG, useValue: { serviceJwt: { issuer: 'issuer', audience: 'audience', kid: 'kid', publicKey: 'unused' } } },
+        ServiceAuthGuard,
+      ],
     }).compile();
     app = module.createNestApplication();
     await app.init();
