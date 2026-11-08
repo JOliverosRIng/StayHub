@@ -3,6 +3,7 @@ import { ConfigModule } from './infrastructure/config/config.module';
 import { PrismaModule } from './infrastructure/persistence/prisma/prisma.module';
 import { SecurityModule } from './infrastructure/security/security.module';
 import { DeliveryModule } from './infrastructure/delivery/delivery.module';
+import { NotificationsModule } from './modules/notifications.module';
 
-@Module({ imports: [ConfigModule, PrismaModule, SecurityModule, DeliveryModule] })
+@Module({ imports: [ConfigModule, PrismaModule, SecurityModule, DeliveryModule, NotificationsModule] })
 export class AppModule {}
