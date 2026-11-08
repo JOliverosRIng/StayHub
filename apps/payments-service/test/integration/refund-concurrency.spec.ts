@@ -31,7 +31,7 @@ describe('refund concurrency and database safeguards with PostgreSQL 16', () => 
     await unitOfWork.transaction(({ payments }) => payments.save(payment));
     const gateway: jest.Mocked<PaymentGatewayPort> = {
       charge: jest.fn(),
-      refund: jest.fn((_command) => Promise.resolve({ kind: 'completed' as const, reference: 'refund-provider-reference' })),
+      refund: jest.fn((_command) => { void _command; return Promise.resolve({ kind: 'completed' as const, reference: 'refund-provider-reference' }); }),
       getTransaction: jest.fn(),
     };
     const clock: ClockPort = { now: () => new Date('2026-11-08T12:00:00.000Z') };
@@ -39,7 +39,7 @@ describe('refund concurrency and database safeguards with PostgreSQL 16', () => 
       unitOfWork: unitOfWork as unknown as UnitOfWork<RefundUnitOfWorkRepositories>,
       gateway,
       clock,
-      config: { idempotencyTtlHours: 48, tokenHmacSecret: 'payments-test-secret-with-at-least-thirty-two-chars' },
+      config: { idempotencyTtlHours: 48, maxAmountMinor: 9_000_000_000_000 },
     });
     const results = await Promise.allSettled([
       useCase.execute({ paymentId: payment.id, reason: 'GUEST_CANCELLATION', amountMinor: 6_000_000, idempotencyKey: randomUUID(), callerSubject: 'bookings-service' }),
@@ -50,7 +50,7 @@ describe('refund concurrency and database safeguards with PostgreSQL 16', () => 
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
     const persisted = await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
     expect(Number(persisted.refundedAmountMinor)).toBe(6_000_000);
-    expect(gateway.refund).toHaveBeenCalledTimes(1);
+    expect(gateway.refund.mock.calls).toHaveLength(1);
   });
 
   it('rejects a direct refunded total above the payment amount with the database CHECK', async () => {

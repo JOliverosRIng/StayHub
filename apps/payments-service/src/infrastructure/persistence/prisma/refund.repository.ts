@@ -1,10 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { DomainError } from '../../../domain/shared/domain-error';
 import { Money, type Currency } from '../../../domain/shared/money';
-import { Payment } from '../../../domain/payments/payment.entity';
 import { Refund, type RefundFailureCode } from '../../../domain/refunds/refund.entity';
 import type { RefundReason, RefundStatus } from '../../../domain/refunds/refund.policy';
-import type { RefundPersistenceMetadata, RefundRepository } from '../../../application/ports/refund.repository';
+import type { LockedRefundPayment, RefundPersistenceMetadata, RefundRepository } from '../../../application/ports/refund.repository';
 import { Prisma, type Prisma as PrismaTypes } from '../generated/client';
 import { PrismaPaymentRepository } from './payment.repository';
 
@@ -56,12 +55,13 @@ export class PrismaRefundRepository implements RefundRepository {
     return row ? mapRefund(row) : null;
   }
 
-  async lockPaymentForRefund(paymentId: string): Promise<Payment | null> {
-    const locked = await this.prisma.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM payments WHERE id = ${paymentId}::uuid FOR UPDATE
+  async lockPaymentForRefund(paymentId: string): Promise<LockedRefundPayment | null> {
+    const locked = await this.prisma.$queryRaw<Array<{ id: string; gateway_reference: string | null }>>`
+      SELECT id, gateway_reference FROM payments WHERE id = ${paymentId}::uuid FOR UPDATE
     `;
     if (!locked.length) return null;
-    return new PrismaPaymentRepository(this.prisma).findById(paymentId);
+    const payment = await new PrismaPaymentRepository(this.prisma).findById(paymentId);
+    return payment ? { payment, gatewayReference: locked[0]!.gateway_reference?.trim() ?? null } : null;
   }
 
   async save(refund: Refund, metadata: RefundPersistenceMetadata = {}): Promise<void> {

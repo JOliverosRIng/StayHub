@@ -3,6 +3,7 @@ import { DomainError } from '../../domain/shared/domain-error';
 import type { Payment } from '../../domain/payments/payment.entity';
 import type { PaymentFailureCode } from '../../domain/payments/payment.policy';
 import type { NewOutboxEvent } from '../ports/outbox.repository';
+import type { Refund } from '../../domain/refunds/refund.entity';
 
 function basePayload(payment: Payment, eventId: string, eventType: string, occurredAt: Date): Record<string, unknown> {
   return {
@@ -57,5 +58,50 @@ export function failedPaymentEvent(
   return event(payment, eventType, {
     ...basePayload(payment, eventId, eventType, occurredAt),
     failureCode: 'GATEWAY_UNAVAILABLE',
+  }, eventId);
+}
+
+export function refundedPaymentEvent(
+  payment: Payment,
+  refund: Refund,
+  occurredAt: Date,
+  eventId = randomUUID(),
+): NewOutboxEvent {
+  if (
+    refund.status !== 'COMPLETED' ||
+    (payment.status !== 'PARTIALLY_REFUNDED' && payment.status !== 'REFUNDED')
+  ) {
+    throw new DomainError('STATE_CONFLICT', 'Refund event requires a completed refund and updated payment');
+  }
+  const eventType = 'payment.v1.refunded';
+  return event(payment, eventType, {
+    ...basePayload(payment, eventId, eventType, occurredAt),
+    refundId: refund.id,
+    refundedAmountMinor: refund.amount.amountMinor,
+    totalRefundedAmountMinor: payment.refundedAmount.amountMinor,
+    reason: refund.reason,
+    paymentStatus: payment.status,
+  }, eventId);
+}
+
+export function refundFailedPaymentEvent(
+  payment: Payment,
+  refund: Refund,
+  occurredAt: Date,
+  eventId = randomUUID(),
+): NewOutboxEvent {
+  if (
+    refund.status !== 'FAILED' ||
+    (refund.failureCode !== 'CARD_DECLINED' && refund.failureCode !== 'GATEWAY_UNAVAILABLE') ||
+    (payment.status !== 'APPROVED' && payment.status !== 'PARTIALLY_REFUNDED')
+  ) {
+    throw new DomainError('STATE_CONFLICT', 'Refund failure event requires a definitive failed refund');
+  }
+  const eventType = 'payment.v1.refund_failed';
+  return event(payment, eventType, {
+    ...basePayload(payment, eventId, eventType, occurredAt),
+    refundId: refund.id,
+    reason: refund.reason,
+    failureCode: refund.failureCode,
   }, eventId);
 }

@@ -46,7 +46,7 @@ describe('refund persistence with PostgreSQL 16', () => {
     const refund = pendingRefund(payment.id);
     await unitOfWork.transaction(async ({ payments, refunds }) => {
       await payments.save(payment);
-      await expect(refunds.lockPaymentForRefund(payment.id)).resolves.toMatchObject({ id: payment.id });
+      await expect(refunds.lockPaymentForRefund(payment.id)).resolves.toMatchObject({ payment: { id: payment.id } });
       await refunds.save(refund);
       refund.complete({ source: 'gateway', reference: 'opaque-refund-evidence' });
       await refunds.save(refund, {

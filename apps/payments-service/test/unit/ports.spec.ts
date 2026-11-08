@@ -33,6 +33,7 @@ describe('application ports', () => {
     const refundRepository: RefundRepository = {
       findById: () => Promise.resolve(null),
       findInFlightByPaymentId: () => Promise.resolve(null),
+      lockPaymentForRefund: () => Promise.resolve(null),
       save: () => Promise.resolve(),
     };
     const idempotencyRepository: IdempotencyRepository = {

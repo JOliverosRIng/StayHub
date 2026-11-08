@@ -28,6 +28,7 @@ interface Harness {
   readonly savedPayments: ReturnType<typeof createPaymentFixture>[];
   readonly records: Map<string, IdempotencyRecord>;
   readonly outbox: jest.Mocked<OutboxRepository>;
+  readonly executionOrder: string[];
 }
 
 function paymentForState(status: 'PENDING' | 'REVIEW_REQUIRED' | 'APPROVED' | 'DECLINED' | 'FAILED' | 'PARTIALLY_REFUNDED' | 'REFUNDED'): Payment {
@@ -51,9 +52,10 @@ function createHarness(status: 'PENDING' | 'REVIEW_REQUIRED' | 'APPROVED' | 'DEC
   const records = new Map<string, IdempotencyRecord>();
   const savedRefunds: Refund[] = [];
   const savedPayments: ReturnType<typeof createPaymentFixture>[] = [];
+  const executionOrder: string[] = [];
   const payments: jest.Mocked<PaymentRepository> = {
     findById: jest.fn((id: string) => Promise.resolve(paymentsById.get(id) ?? null)),
-    findActiveByBookingId: jest.fn((_bookingId: string) => Promise.resolve(null as Payment | null)),
+    findActiveByBookingId: jest.fn((bookingId: string) => { void bookingId; return Promise.resolve(null as Payment | null); }),
     save: jest.fn((item) => { paymentsById.set(item.id, item); savedPayments.push(item); return Promise.resolve(); }),
   };
   const refunds: jest.Mocked<RefundRepository> = {
@@ -61,6 +63,10 @@ function createHarness(status: 'PENDING' | 'REVIEW_REQUIRED' | 'APPROVED' | 'DEC
     findInFlightByPaymentId: jest.fn((paymentId: string) => Promise.resolve(
       [...refundsById.values()].find((item) => item.paymentId === paymentId && (item.status === 'PENDING' || item.status === 'REVIEW_REQUIRED')) ?? null,
     )),
+    lockPaymentForRefund: jest.fn((paymentId: string) => {
+      const locked = paymentsById.get(paymentId);
+      return Promise.resolve(locked ? { payment: locked, gatewayReference: 'a'.repeat(64) } : null);
+    }),
     save: jest.fn((item) => { refundsById.set(item.id, item); savedRefunds.push(item); return Promise.resolve(); }),
   };
   const idempotency: jest.Mocked<IdempotencyRepository> = {
@@ -79,12 +85,20 @@ function createHarness(status: 'PENDING' | 'REVIEW_REQUIRED' | 'APPROVED' | 'DEC
       records.set(recordKey, { ...existing, responseStatus, responseBody, resourceId });
       return Promise.resolve();
     }),
-    releasePreDispatch: jest.fn((_scope: string, _key: string, _caller: string, _proof: { readonly dispatch: 'NOT_DISPATCHED'; readonly reason: 'GATEWAY_UNAVAILABLE' }): Promise<void> => Promise.resolve()),
-    purgeExpired: jest.fn((_now: Date): Promise<number> => Promise.resolve(0)),
+    releasePreDispatch: jest.fn((scope: string, key: string, caller: string, _proof: { readonly dispatch: 'NOT_DISPATCHED'; readonly reason: 'GATEWAY_UNAVAILABLE' }): Promise<void> => {
+      void _proof;
+      records.delete(`${scope}:${key}:${caller}`);
+      return Promise.resolve();
+    }),
+    purgeExpired: jest.fn((purgeAt: Date): Promise<number> => { void purgeAt; return Promise.resolve(0); }),
   };
   const gateway: jest.Mocked<PaymentGatewayPort> = {
     charge: jest.fn(),
-    refund: jest.fn((_command: Parameters<PaymentGatewayPort['refund']>[0]) => Promise.resolve({ kind: 'completed' as const, reference: 'refund-reference' })),
+    refund: jest.fn((_command: Parameters<PaymentGatewayPort['refund']>[0]) => {
+      void _command;
+      executionOrder.push('gateway');
+      return Promise.resolve({ kind: 'completed' as const, reference: 'refund-reference' });
+    }),
     getTransaction: jest.fn(),
   };
   const outbox: jest.Mocked<OutboxRepository> = {
@@ -92,14 +106,19 @@ function createHarness(status: 'PENDING' | 'REVIEW_REQUIRED' | 'APPROVED' | 'DEC
   };
   const repositories: RefundRepositories = { payments, refunds, idempotency, outbox };
   const unitOfWork: UnitOfWork<RefundRepositories> = {
-    transaction: async <T>(work: (value: RefundRepositories) => Promise<T>): Promise<T> => work(repositories),
+    transaction: async <T>(work: (value: RefundRepositories) => Promise<T>): Promise<T> => {
+      executionOrder.push('transaction:start');
+      const result = await work(repositories);
+      executionOrder.push('transaction:end');
+      return result;
+    },
   };
   return {
     useCase: new RefundPayment({
       unitOfWork,
       gateway,
       clock: { now: () => now },
-      config: { idempotencyTtlHours: 48, tokenHmacSecret: 'payments-test-secret-with-at-least-thirty-two-chars' },
+      config: { idempotencyTtlHours: 48, maxAmountMinor: 9_000_000_000_000 },
     }),
     payment,
     gateway,
@@ -108,6 +127,7 @@ function createHarness(status: 'PENDING' | 'REVIEW_REQUIRED' | 'APPROVED' | 'DEC
     savedPayments,
     records,
     outbox,
+    executionOrder,
   };
 }
 
@@ -126,7 +146,10 @@ describe('RefundPayment', () => {
     expect(result).toMatchObject({ statusCode: 201, refund: { paymentId: TEST_PAYMENT_ID, amountMinor: 35_000_000, status: 'COMPLETED' } });
     expect(harness.payment.status).toBe('REFUNDED');
     expect(harness.payment.refundedAmount.amountMinor).toBe(35_000_000);
-    expect(harness.gateway.refund).toHaveBeenCalledTimes(1);
+    expect(harness.gateway.refund.mock.calls).toHaveLength(1);
+    expect(harness.executionOrder).toEqual([
+      'transaction:start', 'transaction:end', 'gateway', 'transaction:start', 'transaction:end',
+    ]);
     expect(harness.outbox.append.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ eventType: 'payment.v1.refunded' }));
   });
 
@@ -143,14 +166,14 @@ describe('RefundPayment', () => {
     const harness = createHarness();
     await expect(harness.useCase.execute({ ...input, amountMinor: 35_000_001 }))
       .rejects.toMatchObject<Partial<DomainError>>({ code: 'REFUND_AMOUNT_INVALID' });
-    expect(harness.gateway.refund).not.toHaveBeenCalled();
+    expect(harness.gateway.refund.mock.calls).toHaveLength(0);
   });
 
   it('rejects a partial OWNER_CANCELLATION refund', async () => {
     const harness = createHarness();
     await expect(harness.useCase.execute({ ...input, reason: 'OWNER_CANCELLATION', amountMinor: 10_000_000 }))
       .rejects.toMatchObject<Partial<DomainError>>({ code: 'REFUND_AMOUNT_INVALID' });
-    expect(harness.gateway.refund).not.toHaveBeenCalled();
+    expect(harness.gateway.refund.mock.calls).toHaveLength(0);
   });
 
   it.each(['PENDING', 'REVIEW_REQUIRED', 'DECLINED', 'FAILED', 'REFUNDED'] as const)(
@@ -171,12 +194,36 @@ describe('RefundPayment', () => {
     expect(harness.outbox.append.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ eventType: 'payment.v1.refund_failed' }));
   });
 
+  it('keeps an ambiguous gateway result PENDING, retains its key and blocks another refund', async () => {
+    const harness = createHarness();
+    harness.gateway.refund.mockResolvedValue({ kind: 'uncertain', reference: 'uncertain-ref' });
+    const result = await harness.useCase.execute(input);
+
+    expect(result).toMatchObject({ statusCode: 202, refund: { status: 'PENDING', failureCode: 'GATEWAY_TIMEOUT' } });
+    expect(harness.records.size).toBe(1);
+    await expect(harness.useCase.execute({ ...input, idempotencyKey: '96fb2227-37f0-477f-8570-2e4919fa3e69' }))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: 'STATE_CONFLICT' });
+    expect(harness.gateway.refund.mock.calls).toHaveLength(1);
+  });
+
+  it('releases the key only when the gateway proves a refund was not dispatched', async () => {
+    const harness = createHarness();
+    harness.gateway.refund.mockResolvedValueOnce({ kind: 'not-dispatched', reason: 'GATEWAY_UNAVAILABLE' });
+
+    await expect(harness.useCase.execute(input)).rejects.toMatchObject<Partial<DomainError>>({ code: 'UNAVAILABLE' });
+    expect(harness.records.size).toBe(0);
+    expect(harness.savedRefunds.at(-1)?.status).toBe('FAILED');
+
+    harness.gateway.refund.mockResolvedValueOnce({ kind: 'completed', reference: 'retry-refund' });
+    await expect(harness.useCase.execute(input)).resolves.toMatchObject({ statusCode: 201, refund: { status: 'COMPLETED' } });
+  });
+
   it('replays the original idempotent result and rejects the same key with a changed body', async () => {
     const harness = createHarness();
     const original = await harness.useCase.execute(input);
     const replay = await harness.useCase.execute(input);
     expect(replay).toEqual({ ...original, replayed: true });
-    expect(harness.gateway.refund).toHaveBeenCalledTimes(1);
+    expect(harness.gateway.refund.mock.calls).toHaveLength(1);
     await expect(harness.useCase.execute({ ...input, amountMinor: 1_000_000 }))
       .rejects.toMatchObject<Partial<DomainError>>({ code: 'IDEMPOTENCY_CONFLICT' });
   });
