@@ -5,13 +5,12 @@ on:
     paths:
       - 'apps/api-gateway/**'
       - 'apps/auth-service/**'
-<<<<<<< HEAD
-      - 'infra/docker/gateway/**'
-=======
       - 'apps/users-service/**'
->>>>>>> origin
+      - 'apps/payments-service/**'
+      - 'infra/docker/gateway/**'
       - 'infra/docker/auth/**'
       - 'infra/docker/users/**'
+      - 'infra/docker/payments/**'
       - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
@@ -22,6 +21,7 @@ on:
       - 'specs/001-fundamentos-identidad/contracts/openapi-public.yaml'
       - 'specs/001-fundamentos-identidad/contracts/openapi-auth-service.yaml'
       - 'specs/001-fundamentos-identidad/contracts/openapi-users-service.yaml'
+      - 'specs/003-reservas-pagos-resenas/payments_service/**'
   push:
     branches: [main]
 
@@ -46,7 +46,7 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      TEST_AUTH_DATABASE_URL: ******localhost:5432/auth_test?schema=public
+      TEST_AUTH_DATABASE_URL: postgresql://auth_test:auth_test@localhost:5432/auth_test?schema=public
       TEST_AUTH_REDIS_URL: redis://localhost:6379/15
     steps:
       - uses: actions/checkout@v4
@@ -61,18 +61,12 @@ jobs:
           AUTH_DATABASE_URL: ${{ env.TEST_AUTH_DATABASE_URL }}
       - run: npm run lint:auth
       - run: npm run typecheck:auth
-<<<<<<< HEAD
-      - run: npm run test:auth:coverage
-      - run: npm run openapi:check
-=======
       - run: npm run test:auth -- --coverage
       - run: npm run openapi:auth:check
->>>>>>> origin
       - run: npm run build:auth
       - run: docker build --target runtime -f infra/docker/auth/Dockerfile .
       - run: npm run test:auth:cross-service -- --runTestsByPath test/integration/auth-compose.spec.ts
 
-<<<<<<< HEAD
   gateway-quality:
     runs-on: ubuntu-latest
     services:
@@ -84,7 +78,19 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       GATEWAY_TEST_REDIS_URL: redis://localhost:6379/14
-=======
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:gateway
+      - run: npm run typecheck:gateway
+      - run: npm run test:coverage --workspace @stayhub/api-gateway
+      - run: npm run build:gateway
+      - run: docker build --target runtime -f infra/docker/gateway/Dockerfile .
+
   users-quality:
     runs-on: ubuntu-latest
     services:
@@ -99,24 +105,12 @@ jobs:
           --health-cmd "pg_isready -U users -d users_db"
           --health-interval 5s --health-timeout 3s --health-retries 20
     env:
-      USERS_DATABASE_URL: ******localhost:5432/users_db
-      USERS_TEST_DATABASE_URL: ******localhost:5432/users_db
->>>>>>> origin
+      USERS_DATABASE_URL: postgresql://users:users_test_only@localhost:5432/users_db?schema=public
+      USERS_TEST_DATABASE_URL: postgresql://users:users_test_only@localhost:5432/users_db?schema=public
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-<<<<<<< HEAD
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run lint:gateway
-      - run: npm run typecheck:gateway
-      - run: npm run test:gateway:coverage
-      - run: npm run openapi:check:gateway
-      - run: npm run build:gateway
-      - run: docker build --target runtime -f infra/docker/gateway/Dockerfile .
-=======
           node-version: '20'
           cache: npm
       - run: npm ci
@@ -134,4 +128,50 @@ jobs:
         with:
           name: users-coverage
           path: coverage/users
->>>>>>> origin
+
+  payments-quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: payments_test
+          POSTGRES_USER: payments_test
+          POSTGRES_PASSWORD: payments_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U payments_test -d payments_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3.13-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: payments_test
+          RABBITMQ_DEFAULT_PASS: payments_test
+        ports: ['5672:5672']
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      PAYMENTS_DATABASE_URL: postgresql://payments_test:payments_test@localhost:5432/payments_test?schema=public
+      PAYMENTS_TEST_DATABASE_URL: postgresql://payments_test:payments_test@localhost:5432/payments_test?schema=public
+      PAYMENTS_TEST_RABBITMQ_URL: amqp://payments_test:payments_test@localhost:5672
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:payments:generate
+      - run: npm run prisma:payments:migrate:deploy
+      - run: npm run lint:payments
+      - run: npm run typecheck:payments
+      - run: npm run test:payments:coverage
+      - run: npm run openapi:payments:check
+      - run: npm run build:payments
+      - run: docker build --target runtime -f infra/docker/payments/Dockerfile .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: payments-coverage
+          path: coverage/payments

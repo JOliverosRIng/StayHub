@@ -69,6 +69,7 @@
     "test:payments:security": "npm run test:security --workspace @stayhub/payments-service",
     "test:payments:performance": "npm run test:performance --workspace @stayhub/payments-service",
     "test:payments:coverage": "npm run test:coverage --workspace @stayhub/payments-service",
+    "openapi:payments:check": "node scripts/validate-payments-openapi.mjs",
     "prisma:payments:generate": "npm run prisma:generate --workspace @stayhub/payments-service",
     "prisma:payments:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/payments-service",
     "prisma:payments:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/payments-service",
