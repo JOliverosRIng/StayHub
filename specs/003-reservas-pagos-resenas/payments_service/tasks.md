@@ -67,7 +67,7 @@
 
 ### Puertos y utilidades de aplicación
 
-- [ ] PAY-017 Definir puertos `PaymentRepository`, `RefundRepository`, `IdempotencyRepository`, `OutboxRepository`, `PaymentGatewayPort` (`charge`, `refund`, `getTransaction`, distinguiendo no despacho de resultado incierto), `ClockPort` y `UnitOfWork` en `apps/payments-service/src/application/ports/`
+- [x] PAY-017 Definir puertos `PaymentRepository`, `RefundRepository`, `IdempotencyRepository`, `OutboxRepository`, `PaymentGatewayPort` (`charge`, `refund`, `getTransaction`, distinguiendo no despacho de resultado incierto), `ClockPort` y `UnitOfWork` en `apps/payments-service/src/application/ports/`
 - [ ] PAY-018 Crear los errores de aplicación y el mapeo `DomainError → Problem Details` (`application/problem+json`, campos `type`, `title`, `status`, `detail`, `instance`, `code`, `traceId`, `errors`) con la tabla de estados de `research.md` R-09 y pruebas en `apps/payments-service/src/application/errors/payments-errors.ts` y `src/interfaces/http/{problem.mapper.ts,problem.filter.ts}`
 - [ ] PAY-019 [P] Implementar serialización JSON canónica (claves ordenadas) y huella SHA-256 del cuerpo con pruebas de estabilidad en `apps/payments-service/src/infrastructure/security/request-fingerprint.ts`
 - [ ] PAY-020 [P] Implementar la huella HMAC-SHA-256 del token de pago con secreto de configuración y pruebas de que el token en claro nunca aparece en el resultado en `apps/payments-service/src/infrastructure/security/token-fingerprint.ts`
