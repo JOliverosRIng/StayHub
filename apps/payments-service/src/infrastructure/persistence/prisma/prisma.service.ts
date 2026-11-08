@@ -22,25 +22,39 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnAppli
   }
 
   public async ready(): Promise<boolean> {
+    const [database, migration] = await Promise.all([this.isReachable(), this.hasAppliedMigrations()]);
+    return database && migration;
+  }
+
+  public async isReachable(): Promise<boolean> {
     try {
-      return await observeDependency('postgresql', 'readiness', async () => {
-        const rows = await this.$queryRaw<Array<{ ready: boolean }>>`
-          SELECT EXISTS (
-            SELECT 1 FROM "_prisma_migrations"
-            WHERE migration_name = '001_payments_core'
-              AND finished_at IS NOT NULL
-              AND rolled_back_at IS NULL
-          )
-          AND NOT EXISTS (
-            SELECT 1 FROM "_prisma_migrations"
-            WHERE finished_at IS NULL AND rolled_back_at IS NULL
-          )
-          AND to_regclass('public.payments') IS NOT NULL
-          AND to_regclass('public.refunds') IS NOT NULL
-          AND to_regclass('public.outbox_events') IS NOT NULL AS ready
-        `;
-        return rows[0]?.ready === true;
-      });
+      const rows = await observeDependency('postgresql', 'health', () =>
+        this.$queryRaw<Array<{ reachable: number }>>`SELECT 1 AS reachable`,
+      );
+      return rows[0]?.reachable === 1;
+    } catch {
+      return false;
+    }
+  }
+
+  public async hasAppliedMigrations(): Promise<boolean> {
+    try {
+      const rows = await observeDependency('postgresql', 'migration_readiness', () => this.$queryRaw<Array<{ ready: boolean }>>`
+        SELECT EXISTS (
+          SELECT 1 FROM "_prisma_migrations"
+          WHERE migration_name = '001_payments_core'
+            AND finished_at IS NOT NULL
+            AND rolled_back_at IS NULL
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM "_prisma_migrations"
+          WHERE finished_at IS NULL AND rolled_back_at IS NULL
+        )
+        AND to_regclass('public.payments') IS NOT NULL
+        AND to_regclass('public.refunds') IS NOT NULL
+        AND to_regclass('public.outbox_events') IS NOT NULL AS ready
+      `);
+      return rows[0]?.ready === true;
     } catch {
       return false;
     }
