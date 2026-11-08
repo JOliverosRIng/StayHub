@@ -1,5 +1,5 @@
 import { BadRequestException, Body, ConflictException, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query, Res, ServiceUnavailableException, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiCreatedResponse, ApiHeader, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiCreatedResponse, ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { IdempotencyConflictError, NotificationStorageError, SendNotificationUseCase } from '../../../application/notifications/send-notification.use-case';
 import { ListUserNotificationsUseCase } from '../../../application/notifications/list-user-notifications.use-case';
@@ -16,6 +16,7 @@ export class NotificationsController {
   constructor(private readonly sendNotification: SendNotificationUseCase, private readonly listNotifications: ListUserNotificationsUseCase) {}
 
   @Post('send')
+  @ApiOperation({ operationId: 'sendNotification', summary: 'Create or replay a notification' })
   @UseGuards(SendAuthGuard)
   @ApiBearerAuth('accessJwt')
   @ApiBearerAuth('serviceJwt')
@@ -39,6 +40,7 @@ export class NotificationsController {
   }
 
   @Get('user/:id')
+  @ApiOperation({ operationId: 'listUserNotifications', summary: 'List notifications for their owner or an administrator' })
   @UseGuards(AccessJwtGuard, NotificationOwnershipGuard)
   @ApiBearerAuth('accessJwt')
   @ApiOkResponse({ description: 'Private paginated notification history.' })
