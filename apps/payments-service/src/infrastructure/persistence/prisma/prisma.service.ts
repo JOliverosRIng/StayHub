@@ -1,9 +1,9 @@
-import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '../generated/client';
 import { PAYMENTS_CONFIG, type PaymentsConfig } from '../../config/payments-config';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService extends PrismaClient implements OnModuleInit, OnApplicationShutdown {
   public constructor(@Inject(PAYMENTS_CONFIG) config: PaymentsConfig) {
     super({ datasourceUrl: config.databaseUrl, log: [] });
   }
@@ -12,7 +12,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     await this.$connect();
   }
 
-  public async onModuleDestroy(): Promise<void> {
+  public async onApplicationShutdown(): Promise<void> {
     await this.$disconnect();
   }
 

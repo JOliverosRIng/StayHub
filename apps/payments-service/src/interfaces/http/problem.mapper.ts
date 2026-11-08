@@ -29,6 +29,7 @@ const TITLES: Readonly<Record<number, string>> = {
   403: 'Access denied',
   404: 'Resource not found',
   409: 'Conflict',
+  413: 'Payload too large',
   422: 'Refund amount invalid',
   500: 'Internal error',
   503: 'Service unavailable',
@@ -48,13 +49,16 @@ export interface PaymentProblem {
 export function mapPaymentProblem(error: unknown, traceId: string): PaymentProblem {
   const domainError = error instanceof DomainError ? error : null;
   const unavailable = isDatabaseUnavailable(error);
+  const parserStatus =
+    typeof error === 'object' && error !== null && 'status' in error &&
+    typeof error.status === 'number' ? error.status : undefined;
   const status = domainError
     ? DOMAIN_STATUSES[domainError.code]
     : unavailable
       ? 503
       : error instanceof HttpException
         ? error.getStatus()
-        : 500;
+        : parserStatus ?? 500;
   const safeStatus = Number.isInteger(status) && status >= 400 && status <= 599 ? status : 500;
   const normalizedTraceId = /^[0-9a-f]{32}$/.test(traceId) && !/^0+$/.test(traceId)
     ? traceId
