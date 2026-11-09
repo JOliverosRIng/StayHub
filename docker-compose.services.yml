@@ -1,0 +1,124 @@
+name: stayhub-services
+
+services:
+  payments-db:
+    image: postgres:16-bookworm
+    env_file: .artifacts/services/payments-db.env
+    volumes: [payments_data:/var/lib/postgresql/data]
+    networks: [payments]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U stayhub_payments -d payments_db']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  payments-rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    env_file: .artifacts/services/rabbitmq.env
+    volumes: [payments_rabbitmq:/var/lib/rabbitmq]
+    networks: [payments]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  payments-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/payments/Dockerfile
+      target: migration
+    env_file: .artifacts/services/payments.env
+    secrets:
+      - source: payments_database_url
+        target: database_url
+    networks: [payments]
+    depends_on:
+      payments-db: { condition: service_healthy }
+    restart: 'no'
+  payments-service:
+    build:
+      context: .
+      dockerfile: infra/docker/payments/Dockerfile
+      target: runtime
+    env_file: .artifacts/services/payments.env
+    environment:
+      NODE_ENV: development
+      PAYMENTS_CHARGE_SCOPE: payments:charge
+      PAYMENTS_REFUND_SCOPE: payments:refund
+      PAYMENTS_READ_SCOPE: payments:read
+      PAYMENTS_ALLOWED_CURRENCIES: COP,USD
+    secrets:
+      - source: payments_database_url
+        target: database_url
+      - source: payments_jwt_public
+        target: jwt_public
+      - source: payments_token_hmac
+        target: token_hmac
+    ports: ['127.0.0.1:3006:3006']
+    networks: [payments]
+    restart: unless-stopped
+    depends_on:
+      payments-migrate: { condition: service_completed_successfully }
+      payments-rabbitmq: { condition: service_healthy }
+  notifications-db:
+    image: postgres:16-bookworm
+    env_file: .artifacts/services/notifications-db.env
+    volumes: [notifications_data:/var/lib/postgresql/data]
+    networks: [notifications]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U stayhub_notifications -d notifications_db']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  notifications-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/notifications/Dockerfile
+      target: migration
+    env_file: .artifacts/services/notifications.env
+    secrets:
+      - source: notifications_database_url
+        target: database_url
+    networks: [notifications]
+    depends_on:
+      notifications-db: { condition: service_healthy }
+    restart: 'no'
+  notifications-service:
+    build:
+      context: .
+      dockerfile: infra/docker/notifications/Dockerfile
+      target: runtime
+    env_file: .artifacts/services/notifications.env
+    environment:
+      NODE_ENV: development
+    secrets:
+      - source: notifications_database_url
+        target: database_url
+      - source: notifications_jwt_public
+        target: jwt_public
+    ports: ['127.0.0.1:3009:3009']
+    networks: [notifications]
+    restart: unless-stopped
+    depends_on:
+      notifications-migrate: { condition: service_completed_successfully }
+
+networks:
+  payments:
+  notifications:
+volumes:
+  payments_data:
+  payments_rabbitmq:
+  notifications_data:
+secrets:
+  payments_database_url:
+    file: .artifacts/services/payments-database-url
+  payments_jwt_public:
+    file: .artifacts/services/payments-public.pem
+  payments_token_hmac:
+    file: .artifacts/services/payments-token-hmac
+  notifications_database_url:
+    file: .artifacts/services/notifications-database-url
+  notifications_jwt_public:
+    file: .artifacts/services/notifications-public.pem

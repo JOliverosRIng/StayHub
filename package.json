@@ -86,7 +86,16 @@
     "typecheck:web": "npm run typecheck --workspace @stayhub/web",
     "test:web": "npm run test --workspace @stayhub/web",
     "dev:gateway": "node scripts/dev-gateway.mjs",
-    "env:web:https": "node scripts/setup-web-https.mjs"
+    "env:web:https": "node scripts/setup-web-https.mjs",
+    "test:notifications": "npm --prefix apps/notifications-service test",
+    "dev:services:down": "docker compose -f docker-compose.services.yml down",
+    "env:services:dev": "node scripts/generate-services-dev-env.mjs",
+    "dev:services:up": "npm run env:services:dev && docker compose -f docker-compose.services.yml up -d --build",
+    "test:services:smoke": "node scripts/services-smoke.mjs",
+    "typecheck:notifications": "npm --prefix apps/notifications-service run typecheck",
+    "lint:notifications": "npm --prefix apps/notifications-service run lint",
+    "build:notifications": "npm --prefix apps/notifications-service run build",
+    "token:services": "node scripts/services-dev-token.mjs"
   },
   "devDependencies": {
     "eslint-plugin-react-hooks": "^5.2.0",
