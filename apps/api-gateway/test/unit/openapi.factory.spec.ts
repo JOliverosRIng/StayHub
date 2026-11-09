@@ -64,6 +64,17 @@ describe('buildPublicOpenApi (GW-021)', () => {
     expect(servers[0]?.url).toBe('https://localhost:8080/api/v1');
   });
 
+  it('declara el servidor HTTP cuando el Gateway no usa TLS', () => {
+    const doc = buildOpenApi({
+      NODE_ENV: 'development',
+      GATEWAY_PROTOCOL: 'http',
+      GATEWAY_TLS_CERT_FILE: '',
+      GATEWAY_TLS_KEY_FILE: '',
+    });
+
+    expect((doc['servers'] as { url: string }[])[0]?.url).toBe('http://localhost:8080/api/v1');
+  });
+
   it('respeta el servidor configurado para despliegues reales', () => {
     const doc = buildOpenApi({ GATEWAY_SWAGGER_SERVER_URL: 'https://api.stayhub.example/api/v1' });
 

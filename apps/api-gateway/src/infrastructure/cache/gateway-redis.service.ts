@@ -15,6 +15,7 @@ export class GatewayRedisService implements RedisScriptPort, OnModuleDestroy {
     @Optional() client?: Redis,
   ) {
     this.redis = client ?? new Redis(config.redis.url, {
+      password: config.redis.password,
       lazyConnect: true,
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,

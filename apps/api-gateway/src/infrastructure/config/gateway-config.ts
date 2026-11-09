@@ -74,9 +74,10 @@ export function loadGatewayConfig(
   if (!['development', 'test', 'production'].includes(nodeEnvironment)) {
     throw new Error('NODE_ENV must be development, test, or production');
   }
-  const protocol = optional(environment, 'GATEWAY_PROTOCOL', 'https');
+  const defaultProtocol = nodeEnvironment === 'development' ? 'http' : 'https';
+  const protocol = optional(environment, 'GATEWAY_PROTOCOL', defaultProtocol);
   if (protocol !== 'https' && (protocol !== 'http' || nodeEnvironment !== 'development')) {
-    throw new Error('GATEWAY_PROTOCOL must be https or http in development');
+    throw new Error('GATEWAY_PROTOCOL must be https, or http only in development');
   }
   const swaggerServerUrl = optionalString(environment, 'GATEWAY_SWAGGER_SERVER_URL');
 

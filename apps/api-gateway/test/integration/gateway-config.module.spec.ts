@@ -61,6 +61,7 @@ beforeAll(() => {
   writeFileSync(secretPath('redis.pass'), 'redis-password-long-enough');
 
   environment = {
+    NODE_ENV: 'test',
     GATEWAY_PORT: '8080',
     GATEWAY_API_PREFIX: '/api/v1',
     GATEWAY_TLS_CERT_FILE: secretPath('tls.crt'),

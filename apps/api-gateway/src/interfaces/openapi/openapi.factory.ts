@@ -93,9 +93,10 @@ export function buildPublicOpenApi(config: GatewayConfig): OpenAPIObject {
   if (config.tls !== null && !serverUrl.startsWith('https://')) {
     throw new Error('Public OpenAPI server url must use https');
   }
+  const protocol = config.tls === null ? 'HTTP' : 'HTTPS';
   const options = new DocumentBuilder()
     .setTitle('StayHub Identity Public API')
-    .setDescription('Public HTTPS contract exposed by the NestJS API Gateway.')
+    .setDescription(`Public ${protocol} contract exposed by the NestJS API Gateway.`)
     .setVersion('1.0.0')
     .setOpenAPIVersion('3.0.3')
     .addServer(serverUrl)
