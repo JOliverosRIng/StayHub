@@ -1,5 +1,14 @@
 # Notifications service
 
+## Docker with Payments
+
+From the repository root, run `npm run dev:services:up`, then
+`npm run test:services:smoke`. This builds both services, applies migrations,
+and keeps a dedicated persistent PostgreSQL volume for each service.
+Notifications is available on `http://localhost:3009`; `/health/live` checks the
+process and `/health/ready` checks its notification and reminder tables.
+See [Docker operations](../../infra/docker/SERVICES.md) for commands and limits.
+
 NestJS microservice for sending and reading StayHub notifications. It listens on port `3009` and exposes:
 
 - `POST /notifications/send` — access JWT with `ADMIN`, or service JWT with the configured send scope; requires `Idempotency-Key`.
@@ -92,4 +101,4 @@ npm run build
 node scripts/validate-openapi.mjs
 ```
 
-The repository's isolated integration tests use deterministic adapters unless a test explicitly requires PostgreSQL. Compose and Gateway wiring are platform work outside this service's scope.
+The repository's isolated integration tests use deterministic adapters unless a test explicitly requires PostgreSQL. The root smoke test verifies the Docker deployment against real PostgreSQL, including persistence after restarting both databases and services. Gateway wiring remains separate.
