@@ -19,4 +19,3 @@ apps/*/src/infrastructure/persistence/generated/
 dsecrets/
 .artifacts/
 AGENT.md
-AGENTS.md

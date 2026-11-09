@@ -90,7 +90,7 @@ export class HealthController {
       this.redis.ping(),
       this.destinationsResolvable(),
     ]);
-    const tls = config && this.tlsReader.readable(this.config.tls);
+    const tls = config && (!this.config.tls || this.tlsReader.readable(this.config.tls));
 
     const checks: ReadinessChecks = { config, tls, redis, destinations };
     const result: ReadinessResult = {
@@ -107,8 +107,7 @@ export class HealthController {
   private hasEssentialConfig(): boolean {
     const { tls, authBaseUrl, usersBaseUrl, redis } = this.config;
     return (
-      nonEmpty(tls.certFile) &&
-      nonEmpty(tls.keyFile) &&
+      (!tls || (nonEmpty(tls.certFile) && nonEmpty(tls.keyFile))) &&
       nonEmpty(authBaseUrl) &&
       nonEmpty(usersBaseUrl) &&
       nonEmpty(redis.url)

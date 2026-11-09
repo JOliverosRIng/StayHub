@@ -158,7 +158,7 @@ describe('HealthController (GW-020)', () => {
       const serialized = JSON.stringify(result);
 
       expect(serialized).not.toContain(config.redis.url);
-      expect(serialized).not.toContain(config.tls.certFile);
+      expect(serialized).not.toContain(config.tls?.certFile ?? 'missing TLS fixture');
       expect(serialized).not.toContain('change-me');
     });
   });

@@ -9,9 +9,6 @@ const values = Object.fromEntries(parseEnv(readFileSync(dev.envPath, 'utf8')));
 const passwordFile = join(dev.secretsDir, 'gateway-redis-password.txt');
 if (!existsSync(passwordFile)) writeFileSync(passwordFile, secret(), { mode: 0o600 });
 const password = readFileSync(passwordFile, 'utf8');
-for (const name of ['localhost.pem', 'localhost-key.pem', 'rootCA.pem']) {
-  if (!existsSync(join(dev.secretsDir, name))) throw new Error('Missing HTTPS certificate: see docs/frontend-gateway.md');
-}
 const engine = ['docker', 'podman'].find(name => spawnSync(name, ['--version'], { stdio: 'ignore' }).status === 0);
 if (!engine) throw new Error('Docker or Podman required');
 const compose = spawnSync(engine === 'docker' ? engine : 'podman-compose', [...(engine === 'docker' ? ['compose'] : []), '-f', 'infra/docker/dev/compose.gateway.yml', 'up', '-d', '--wait'], {
@@ -25,7 +22,7 @@ if (build.status !== 0) throw new Error('Gateway build failed');
 const env = {
   ...process.env, NODE_ENV: 'development',
   GATEWAY_PORT: '8080', GATEWAY_API_PREFIX: '/api/v1',
-  GATEWAY_TLS_CERT_FILE: join(dev.secretsDir, 'localhost.pem'), GATEWAY_TLS_KEY_FILE: join(dev.secretsDir, 'localhost-key.pem'), GATEWAY_TLS_MIN_VERSION: 'TLSv1.2',
+  GATEWAY_PROTOCOL: 'http',
   GATEWAY_AUTH_BASE_URL: 'http://127.0.0.1:3001', GATEWAY_USERS_BASE_URL: 'http://127.0.0.1:3002',
   GATEWAY_JWT_PUBLIC_KEYS_JSON: values.AUTH_JWT_PUBLIC_KEYS_JSON, GATEWAY_JWT_ISSUER: values.AUTH_JWT_ISSUER, GATEWAY_JWT_AUDIENCE: values.AUTH_JWT_AUDIENCE,
   GATEWAY_SERVICE_KID: INBOUND_KID, GATEWAY_SERVICE_PRIVATE_KEY_FILE: join(dev.secretsDir, 'gateway-private.pem'), GATEWAY_SERVICE_ISSUER: INBOUND_ISSUER, GATEWAY_SERVICE_AUDIENCE: INBOUND_AUDIENCE, GATEWAY_SERVICE_SCOPE: INBOUND_SCOPE, GATEWAY_SERVICE_TTL_SECONDS: '60',

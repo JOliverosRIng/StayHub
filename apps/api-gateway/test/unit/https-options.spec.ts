@@ -23,13 +23,13 @@ describe('httpsOptionsFrom (GW-010)', () => {
 
   it('fails loudly when the certificate file is not readable', () => {
     const { config } = createTestGatewayConfig();
-    const broken = { ...config, tls: { ...config.tls, certFile: 'C:/ausente/no-existe.crt' } };
+    const broken = { ...config, tls: { ...config.tls!, certFile: 'C:/ausente/no-existe.crt' } };
     expect(() => httpsOptionsFrom(broken)).toThrow();
   });
 
   it('fails loudly when the private key file is not readable', () => {
     const { config } = createTestGatewayConfig();
-    const broken = { ...config, tls: { ...config.tls, keyFile: 'C:/ausente/no-existe.key' } };
+    const broken = { ...config, tls: { ...config.tls!, keyFile: 'C:/ausente/no-existe.key' } };
     expect(() => httpsOptionsFrom(broken)).toThrow();
   });
 });
