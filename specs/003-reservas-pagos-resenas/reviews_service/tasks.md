@@ -79,14 +79,14 @@
 
 ### Implementation for US1
 
-- [ ] T038 [P] [US1] Implementar DTO cerrado que acepte solo `bookingId UUID`, `rating` entero 1..5 y `comment` string trim 1..2.000 en `apps/reviews-service/src/interfaces/http/dto/create-review.dto.ts` (depends on T032)
-- [ ] T039 [P] [US1] Implementar tipos/mapper de `ReviewEligibility` que exijan `bookingId|guestId|propertyId` UUID, `eligible` boolean y coincidencia exacta con el comando/principal en `apps/reviews-service/src/infrastructure/http/bookings-eligibility.mapper.ts` (depends on T033–T034)
-- [ ] T040 [US1] Implementar cliente REST de Bookings con token de `ServiceTokenPort`, URL codificada, timeout, propagación `x-request-id` y fail-closed: mapear 404 a reserva no elegible/no encontrada y traducir 400/401 internos, timeout, 5xx, respuesta inválida o mismatch a dependencia/configuración no disponible sin convertirlos en 401 del usuario en `apps/reviews-service/src/infrastructure/http/bookings-review-eligibility.client.ts` (depends on T012,T018,T022,T039; provider disponible mediante Bookings T080,T085–T088)
-- [ ] T041 [P] [US1] Implementar repositorio/UoW Prisma para crear Review y mapear la unicidad de `bookingId` a `REVIEW_ALREADY_EXISTS` sin filtrar SQL en `apps/reviews-service/src/infrastructure/persistence/prisma/review.repository.ts` y `apps/reviews-service/src/infrastructure/persistence/prisma/review.unit-of-work.ts` (depends on T017–T019,T035–T036)
-- [ ] T042 [US1] Implementar `CreateReviewUseCase` que toma guestId/rol del principal, valida Bookings antes de abrir transacción, deriva propertyId, crea Review y falla cerrado en `apps/reviews-service/src/application/create-review/create-review.use-case.ts` (depends on T014,T018,T031,T040–T041)
-- [ ] T043 [US1] Implementar controller, presenter seguro y composición del módulo para `POST /internal/v1/reviews` con user bearer y rol GUEST en `apps/reviews-service/src/interfaces/http/reviews/reviews.controller.ts`, `apps/reviews-service/src/interfaces/http/reviews/review.presenter.ts` y `apps/reviews-service/src/modules/reviews/reviews.module.ts` (depends on T021,T024,T038,T042)
-- [ ] T044 [US1] Generar decoradores/Swagger de creación y prueba de drift contra `openapi-reviews-service.yaml` en `apps/reviews-service/src/interfaces/openapi/reviews.openapi.ts` y `apps/reviews-service/test/contract/openapi-drift.spec.ts` (depends on T028,T043)
-- [ ] T045 [US1] Ejecutar y estabilizar T031–T037 demostrando RQ-11 aislado con Bookings stub, PostgreSQL real, cero duplicados y cero acceso a bases ajenas en `apps/reviews-service/test/{unit,integration,contract,security,concurrency}/` (depends on T038–T044)
+- [x] T038 [P] [US1] Implementar DTO cerrado que acepte solo `bookingId UUID`, `rating` entero 1..5 y `comment` string trim 1..2.000 en `apps/reviews-service/src/interfaces/http/dto/create-review.dto.ts` (depends on T032)
+- [x] T039 [P] [US1] Implementar tipos/mapper de `ReviewEligibility` que exijan `bookingId|guestId|propertyId` UUID, `eligible` boolean y coincidencia exacta con el comando/principal en `apps/reviews-service/src/infrastructure/http/bookings-eligibility.mapper.ts` (depends on T033–T034)
+- [x] T040 [US1] Implementar cliente REST de Bookings con token de `ServiceTokenPort`, URL codificada, timeout, propagación `x-request-id` y fail-closed: mapear 404 a reserva no elegible/no encontrada y traducir 400/401 internos, timeout, 5xx, respuesta inválida o mismatch a dependencia/configuración no disponible sin convertirlos en 401 del usuario en `apps/reviews-service/src/infrastructure/http/bookings-review-eligibility.client.ts` (depends on T012,T018,T022,T039; provider disponible mediante Bookings T080,T085–T088)
+- [x] T041 [P] [US1] Implementar repositorio/UoW Prisma para crear Review y mapear la unicidad de `bookingId` a `REVIEW_ALREADY_EXISTS` sin filtrar SQL en `apps/reviews-service/src/infrastructure/persistence/prisma/review.repository.ts` y `apps/reviews-service/src/infrastructure/persistence/prisma/review.unit-of-work.ts` (depends on T017–T019,T035–T036)
+- [x] T042 [US1] Implementar `CreateReviewUseCase` que toma guestId/rol del principal, valida Bookings antes de abrir transacción, deriva propertyId, crea Review y falla cerrado en `apps/reviews-service/src/application/create-review/create-review.use-case.ts` (depends on T014,T018,T031,T040–T041)
+- [x] T043 [US1] Implementar controller, presenter seguro y composición del módulo para `POST /internal/v1/reviews` con user bearer y rol GUEST en `apps/reviews-service/src/interfaces/http/reviews/reviews.controller.ts`, `apps/reviews-service/src/interfaces/http/reviews/review.presenter.ts` y `apps/reviews-service/src/modules/reviews/reviews.module.ts` (depends on T021,T024,T038,T042)
+- [x] T044 [US1] Generar decoradores/Swagger de creación y prueba de drift contra `openapi-reviews-service.yaml` en `apps/reviews-service/src/interfaces/openapi/reviews.openapi.ts` y `apps/reviews-service/test/contract/openapi-drift.spec.ts` (depends on T028,T043)
+- [x] T045 [US1] Ejecutar y estabilizar T031–T037 demostrando RQ-11 aislado con Bookings stub, PostgreSQL real, cero duplicados y cero acceso a bases ajenas en `apps/reviews-service/test/{unit,integration,contract,security,concurrency}/` (depends on T038–T044)
 
 **Checkpoint**: MVP de RQ-11 funciona de forma aislada; no se declara integración real con Bookings hasta su handoff.
 
@@ -100,18 +100,18 @@
 
 ### Tests for US2 — escribir primero
 
-- [ ] T046 [P] [US2] Escribir pruebas unitarias fallidas de query/paginación y presenter que nunca exponga `guestId|bookingId` en `apps/reviews-service/test/unit/list-property-reviews.use-case.spec.ts` y `apps/reviews-service/test/unit/review-presenter.spec.ts`
-- [ ] T047 [P] [US2] Escribir contrato fallido de `GET /internal/v1/properties/{propertyId}/reviews` con service JWT, UUID, page >=1, pageSize 1..100, 200/400/401/403 y `ReviewPage` cerrado en `apps/reviews-service/test/contract/property-reviews.contract.spec.ts`
-- [ ] T048 [P] [US2] Escribir integración fallida de repositorio para filtro exclusivo por propertyId, lista vacía, total/totalPages y orden `createdAt DESC,id DESC` en `apps/reviews-service/test/integration/property-reviews.repository.spec.ts`
-- [ ] T049 [P] [US2] Escribir seguridad fallida para token de servicio ausente, issuer/audience/scope incorrectos, UUID malicioso y ausencia de PII en `apps/reviews-service/test/security/property-reviews-security.spec.ts`
+- [x] T046 [P] [US2] Escribir pruebas unitarias fallidas de query/paginación y presenter que nunca exponga `guestId|bookingId` en `apps/reviews-service/test/unit/list-property-reviews.use-case.spec.ts` y `apps/reviews-service/test/unit/review-presenter.spec.ts`
+- [x] T047 [P] [US2] Escribir contrato fallido de `GET /internal/v1/properties/{propertyId}/reviews` con service JWT, UUID, page >=1, pageSize 1..100, 200/400/401/403 y `ReviewPage` cerrado en `apps/reviews-service/test/contract/property-reviews.contract.spec.ts`
+- [x] T048 [P] [US2] Escribir integración fallida de repositorio para filtro exclusivo por propertyId, lista vacía, total/totalPages y orden `createdAt DESC,id DESC` en `apps/reviews-service/test/integration/property-reviews.repository.spec.ts`
+- [x] T049 [P] [US2] Escribir seguridad fallida para token de servicio ausente, issuer/audience/scope incorrectos, UUID malicioso y ausencia de PII en `apps/reviews-service/test/security/property-reviews-security.spec.ts`
 
 ### Implementation for US2
 
-- [ ] T050 [P] [US2] Implementar query/parser común de página con `page >=1`, `pageSize 1..100`, defaults 1/20 y respuesta `items|page|pageSize|total|totalPages` en `apps/reviews-service/src/domain/reviews/review-page.ts` y `apps/reviews-service/src/interfaces/http/dto/review-page.dto.ts` (depends on T046–T047)
-- [ ] T051 [US2] Extender `ReviewRepository`/Prisma con lectura por propertyId e índices del modelo, sin llamada a Accommodations, en `apps/reviews-service/src/application/ports/review.repository.ts` y `apps/reviews-service/src/infrastructure/persistence/prisma/review.repository.ts` (depends on T048,T050)
-- [ ] T052 [US2] Implementar `ListPropertyReviewsUseCase` y controller protegido por service JWT en `apps/reviews-service/src/application/list-property-reviews/list-property-reviews.use-case.ts` y `apps/reviews-service/src/interfaces/http/reviews/property-reviews.controller.ts` (depends on T021,T024,T046,T049–T051)
-- [ ] T053 [US2] Sincronizar Swagger de consulta por propiedad y ejecutar drift de schema/paginación en `apps/reviews-service/src/interfaces/openapi/property-reviews.openapi.ts` y `apps/reviews-service/test/contract/openapi-drift.spec.ts` (depends on T047,T052)
-- [ ] T054 [US2] Ejecutar y estabilizar T046–T049 demostrando contribución parcial a RQ-06, lista vacía y cero PII/dependencia Accommodations en `apps/reviews-service/test/{unit,integration,contract,security}/` (depends on T050–T053)
+- [x] T050 [P] [US2] Implementar query/parser común de página con `page >=1`, `pageSize 1..100`, defaults 1/20 y respuesta `items|page|pageSize|total|totalPages` en `apps/reviews-service/src/domain/reviews/review-page.ts` y `apps/reviews-service/src/interfaces/http/dto/review-page.dto.ts` (depends on T046–T047)
+- [x] T051 [US2] Extender `ReviewRepository`/Prisma con lectura por propertyId e índices del modelo, sin llamada a Accommodations, en `apps/reviews-service/src/application/ports/review.repository.ts` y `apps/reviews-service/src/infrastructure/persistence/prisma/review.repository.ts` (depends on T048,T050)
+- [x] T052 [US2] Implementar `ListPropertyReviewsUseCase` y controller protegido por service JWT en `apps/reviews-service/src/application/list-property-reviews/list-property-reviews.use-case.ts` y `apps/reviews-service/src/interfaces/http/reviews/property-reviews.controller.ts` (depends on T021,T024,T046,T049–T051)
+- [x] T053 [US2] Sincronizar Swagger de consulta por propiedad y ejecutar drift de schema/paginación en `apps/reviews-service/src/interfaces/openapi/property-reviews.openapi.ts` y `apps/reviews-service/test/contract/openapi-drift.spec.ts` (depends on T047,T052)
+- [x] T054 [US2] Ejecutar y estabilizar T046–T049 demostrando contribución parcial a RQ-06, lista vacía y cero PII/dependencia Accommodations en `apps/reviews-service/test/{unit,integration,contract,security}/` (depends on T050–T053)
 
 **Checkpoint**: US2 es consultable de forma independiente sobre proyección local y no declara RQ-06 completo.
 
@@ -125,17 +125,17 @@
 
 ### Tests for US3 — escribir primero
 
-- [ ] T055 [P] [US3] Escribir pruebas unitarias fallidas de ownership `principal.sub === path.userId`, paginación y proyección segura en `apps/reviews-service/test/unit/list-own-reviews.use-case.spec.ts`
-- [ ] T056 [P] [US3] Escribir contrato fallido de `GET /internal/v1/reviews/user/{userId}` con user bearer, UUID, page/pageSize, 200/400/401/403 y `ReviewPage` cerrado en `apps/reviews-service/test/contract/user-reviews.contract.spec.ts`
-- [ ] T057 [P] [US3] Escribir integración fallida de repositorio para filtro exclusivo por guestId, total y orden estable en `apps/reviews-service/test/integration/user-reviews.repository.spec.ts`
-- [ ] T058 [P] [US3] Escribir seguridad fallida para bearer inválido, historial ajeno, ADMIN sin capacidad nueva, header spoofing y precedencia 401/403 antes de DB en `apps/reviews-service/test/security/user-reviews-security.spec.ts`
+- [x] T055 [P] [US3] Escribir pruebas unitarias fallidas de ownership `principal.sub === path.userId`, paginación y proyección segura en `apps/reviews-service/test/unit/list-own-reviews.use-case.spec.ts`
+- [x] T056 [P] [US3] Escribir contrato fallido de `GET /internal/v1/reviews/user/{userId}` con user bearer, UUID, page/pageSize, 200/400/401/403 y `ReviewPage` cerrado en `apps/reviews-service/test/contract/user-reviews.contract.spec.ts`
+- [x] T057 [P] [US3] Escribir integración fallida de repositorio para filtro exclusivo por guestId, total y orden estable en `apps/reviews-service/test/integration/user-reviews.repository.spec.ts`
+- [x] T058 [P] [US3] Escribir seguridad fallida para bearer inválido, historial ajeno, ADMIN sin capacidad nueva, header spoofing y precedencia 401/403 antes de DB en `apps/reviews-service/test/security/user-reviews-security.spec.ts`
 
 ### Implementation for US3
 
-- [ ] T059 [US3] Extender `ReviewRepository`/Prisma con lectura por guestId y paginación común en `apps/reviews-service/src/application/ports/review.repository.ts` y `apps/reviews-service/src/infrastructure/persistence/prisma/review.repository.ts` (depends on T050,T057)
-- [ ] T060 [US3] Implementar política de ownership y `ListOwnReviewsUseCase` sin consultar Users en `apps/reviews-service/src/domain/reviews/review-ownership.policy.ts` y `apps/reviews-service/src/application/list-user-reviews/list-own-reviews.use-case.ts` (depends on T055,T059)
-- [ ] T061 [US3] Implementar controller con user bearer y presenter compartido para historial propio en `apps/reviews-service/src/interfaces/http/reviews/user-reviews.controller.ts` y `apps/reviews-service/src/modules/reviews/reviews.module.ts` (depends on T021,T024,T056,T058,T060)
-- [ ] T062 [US3] Sincronizar Swagger y ejecutar T055–T058 demostrando ownership, paginación y no divulgación en `apps/reviews-service/src/interfaces/openapi/user-reviews.openapi.ts` y `apps/reviews-service/test/{unit,integration,contract,security}/` (depends on T061)
+- [x] T059 [US3] Extender `ReviewRepository`/Prisma con lectura por guestId y paginación común en `apps/reviews-service/src/application/ports/review.repository.ts` y `apps/reviews-service/src/infrastructure/persistence/prisma/review.repository.ts` (depends on T050,T057)
+- [x] T060 [US3] Implementar política de ownership y `ListOwnReviewsUseCase` sin consultar Users en `apps/reviews-service/src/domain/reviews/review-ownership.policy.ts` y `apps/reviews-service/src/application/list-user-reviews/list-own-reviews.use-case.ts` (depends on T055,T059)
+- [x] T061 [US3] Implementar controller con user bearer y presenter compartido para historial propio en `apps/reviews-service/src/interfaces/http/reviews/user-reviews.controller.ts` y `apps/reviews-service/src/modules/reviews/reviews.module.ts` (depends on T021,T024,T056,T058,T060)
+- [x] T062 [US3] Sincronizar Swagger y ejecutar T055–T058 demostrando ownership, paginación y no divulgación en `apps/reviews-service/src/interfaces/openapi/user-reviews.openapi.ts` y `apps/reviews-service/test/{unit,integration,contract,security}/` (depends on T061)
 
 **Checkpoint**: las tres historias son funcionales e independientemente verificables.
 
@@ -145,18 +145,18 @@
 
 **Purpose**: integrar infraestructura, ejecutar evidencia distribuida disponible y cerrar calidad sin ampliar alcance.
 
-- [ ] T063 [P] Añadir `reviews-db`, `reviews-migrate`, `reviews-service`, secrets, redes y healthchecks al Compose raíz sin modificar responsabilidad de Bookings en `docker-compose.yml` y `.env.example`
-- [ ] T064 [P] Añadir gates Reviews build/lint/typecheck/unit/integration/contract/security/concurrency/performance/OpenAPI/imagen en `.github/workflows/ci.yml`
-- [ ] T065 [P] Implementar validador OpenAPI y drift generado↔fuente para ambos contratos en `scripts/validate-reviews-contracts.mjs` y `apps/reviews-service/test/contract/openapi-drift.spec.ts`
-- [ ] T066 [P] Crear dataset reproducible y gate p95 <500 ms/error inesperado <1 % para consultas por propiedad/usuario en `apps/reviews-service/test/fixtures/performance-dataset.ts` y `apps/reviews-service/test/performance/reviews-performance.spec.ts`
-- [ ] T067 [P] Ejecutar hardening transversal de JWT, spoofing, DTO cerrado, SQL injection, contenido hostil, PII/log redaction y códigos seguros en `apps/reviews-service/test/security/reviews-security.spec.ts`
-- [ ] T068 Crear E2E aislado bearer→Reviews→Bookings stub→PostgreSQL para creación, duplicado y consultas, sin RabbitMQ/Redis, en `apps/reviews-service/test/e2e/reviews-isolated.e2e-spec.ts` (depends on T045,T054,T062)
-- [ ] T069 Ejecutar consumer/provider y E2E real Reviews↔Bookings usando solo eligibility REST, el handoff versionado y service JWT con scope `reviews:eligibility`, sin importar código ni consultar `bookings_db`, en `apps/reviews-service/test/contract/bookings-provider.contract.spec.ts` y `apps/reviews-service/test/e2e/bookings-reviews.e2e-spec.ts` (depends on T033,T068; coordination dependency: Bookings T098)
+- [x] T063 [P] Añadir `reviews-db`, `reviews-migrate`, `reviews-service`, secrets, redes y healthchecks al Compose raíz sin modificar responsabilidad de Bookings en `docker-compose.yml` y `.env.example`
+- [x] T064 [P] Añadir gates Reviews build/lint/typecheck/unit/integration/contract/security/concurrency/performance/OpenAPI/imagen en `.github/workflows/ci.yml`
+- [x] T065 [P] Implementar validador OpenAPI y drift generado↔fuente para ambos contratos en `scripts/validate-reviews-contracts.mjs` y `apps/reviews-service/test/contract/openapi-drift.spec.ts`
+- [x] T066 [P] Crear dataset reproducible y gate p95 <500 ms/error inesperado <1 % para consultas por propiedad/usuario en `apps/reviews-service/test/fixtures/performance-dataset.ts` y `apps/reviews-service/test/performance/reviews-performance.spec.ts`
+- [x] T067 [P] Ejecutar hardening transversal de JWT, spoofing, DTO cerrado, SQL injection, contenido hostil, PII/log redaction y códigos seguros en `apps/reviews-service/test/security/reviews-security.spec.ts`
+- [x] T068 Crear E2E aislado bearer→Reviews→Bookings stub→PostgreSQL para creación, duplicado y consultas, sin RabbitMQ/Redis, en `apps/reviews-service/test/e2e/reviews-isolated.e2e-spec.ts` (depends on T045,T054,T062)
+- [x] T069 Ejecutar consumer/provider y E2E real Reviews↔Bookings usando solo eligibility REST, el handoff versionado y service JWT con scope `reviews:eligibility`, sin importar código ni consultar `bookings_db`, en `apps/reviews-service/test/contract/bookings-provider.contract.spec.ts` y `apps/reviews-service/test/e2e/bookings-reviews.e2e-spec.ts` (depends on T033,T068; coordination dependency: Bookings T098)
 - [ ] T070 Ejecutar integración Gateway↔Reviews para rutas públicas, bearer/service JWT, ownership, rate limit y Problem Details en `apps/reviews-service/test/e2e/gateway-reviews.e2e-spec.ts` (depends on T068; external dependency: routing/contratos del API Gateway)
-- [ ] T071 [P] Implementar shutdown ordenado y probar SIGTERM, no-root, filesystem read-only, secrets y readiness en `apps/reviews-service/src/infrastructure/lifecycle/graceful-shutdown.ts` y `apps/reviews-service/test/contract/shutdown.contract.spec.ts`
-- [ ] T072 Ejecutar todos los escenarios de `quickstart.md` y registrar comandos/exit codes/evidencia, distinguiendo stub de integración real, en `specs/003-reservas-pagos-resenas/reviews_service/quickstart.md` (depends on T063–T071)
-- [ ] T073 Actualizar README final con contratos, migraciones, seguridad, operación, límites RQ-06 parcial y gates externos en `apps/reviews-service/README.md` (depends on T072)
-- [ ] T074 Auditar trazabilidad RQ-11/RQ-06 parcial, cobertura >=70 %, p95, contratos, Compose, CI, revisión humana y dependencias no simuladas en `specs/003-reservas-pagos-resenas/reviews_service/validation-report.md` (depends on T072–T073)
+- [x] T071 [P] Implementar shutdown ordenado y probar SIGTERM, no-root, filesystem read-only, secrets y readiness en `apps/reviews-service/src/infrastructure/lifecycle/graceful-shutdown.ts` y `apps/reviews-service/test/contract/shutdown.contract.spec.ts`
+- [x] T072 Ejecutar todos los escenarios de `quickstart.md` y registrar comandos/exit codes/evidencia, distinguiendo stub de integración real, en `specs/003-reservas-pagos-resenas/reviews_service/quickstart.md` (depends on T063–T071)
+- [x] T073 Actualizar README final con contratos, migraciones, seguridad, operación, límites RQ-06 parcial y gates externos en `apps/reviews-service/README.md` (depends on T072)
+- [x] T074 Auditar trazabilidad RQ-11/RQ-06 parcial, cobertura >=70 %, p95, contratos, Compose, CI, revisión humana y dependencias no simuladas en `specs/003-reservas-pagos-resenas/reviews_service/validation-report.md` (depends on T072–T073)
 
 ---
 
@@ -247,7 +247,7 @@ Todos: T045 checkpoint US1
 
 ## Notes
 
-- Todas las tareas permanecen `[ ]`; no se implementó código.
+- T001–T037 están completadas; T038–T074 permanecen `[ ]` hasta su implementación y verificación.
 - `[P]` solo aparece cuando archivos y dependencias permiten ejecución independiente.
 - Cada tarea funcional contiene `[USn]` y ruta concreta.
 - No marcar T069/T070/T074 como evidencia real si se ejecutaron únicamente con stubs.

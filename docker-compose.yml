@@ -323,6 +323,72 @@ services:
       bookings-migrate: { condition: service_completed_successfully }
       bookings-rabbitmq: { condition: service_healthy }
 
+  reviews-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: reviews_db
+      POSTGRES_USER: stayhub_reviews
+      POSTGRES_PASSWORD_FILE: /run/secrets/reviews_db_password
+    secrets: [reviews_db_password]
+    volumes: [reviews_data:/var/lib/postgresql/data]
+    networks: [reviews-internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stayhub_reviews -d reviews_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  reviews-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/reviews/Dockerfile
+      target: migration
+    environment:
+      REVIEWS_DATABASE_URL_FILE: /run/secrets/reviews_database_url
+    secrets: [reviews_database_url]
+    networks: [reviews-internal]
+    restart: "no"
+    depends_on:
+      reviews-db: { condition: service_healthy }
+
+  reviews-service:
+    build:
+      context: .
+      dockerfile: infra/docker/reviews/Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: production
+      REVIEWS_PORT: "3007"
+      REVIEWS_DATABASE_URL_FILE: /run/secrets/reviews_database_url
+      REVIEWS_USER_JWT_PUBLIC_KEYS_JSON: ${REVIEWS_USER_JWT_PUBLIC_KEYS_JSON:?required}
+      REVIEWS_USER_JWT_ISSUER: ${REVIEWS_USER_JWT_ISSUER:?required}
+      REVIEWS_USER_JWT_AUDIENCE: ${REVIEWS_USER_JWT_AUDIENCE:?required}
+      REVIEWS_GATEWAY_JWT_PUBLIC_KEYS_JSON: ${REVIEWS_GATEWAY_JWT_PUBLIC_KEYS_JSON:?required}
+      REVIEWS_GATEWAY_JWT_ISSUER: ${REVIEWS_GATEWAY_JWT_ISSUER:?required}
+      REVIEWS_GATEWAY_JWT_AUDIENCE: ${REVIEWS_GATEWAY_JWT_AUDIENCE:?required}
+      REVIEWS_GATEWAY_JWT_SCOPE: ${REVIEWS_GATEWAY_JWT_SCOPE:-reviews:read}
+      REVIEWS_BOOKINGS_BASE_URL: ${REVIEWS_BOOKINGS_BASE_URL:-http://bookings-service:3005}
+      REVIEWS_BOOKINGS_TIMEOUT_MS: ${REVIEWS_BOOKINGS_TIMEOUT_MS:-1500}
+      REVIEWS_BOOKINGS_SERVICE_TOKEN_FILE: /run/secrets/reviews_bookings_service_token
+      REVIEWS_SHUTDOWN_GRACE_MS: ${REVIEWS_SHUTDOWN_GRACE_MS:-10000}
+      REVIEWS_LOG_LEVEL: ${REVIEWS_LOG_LEVEL:-info}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:?required}
+    secrets: [reviews_database_url, reviews_bookings_service_token]
+    networks: [reviews-internal, services]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3007/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      reviews-migrate: { condition: service_completed_successfully }
+
 networks:
   stayhub-internal:
     internal: true
@@ -334,12 +400,15 @@ networks:
     internal: true
   bookings-internal:
     internal: true
+  reviews-internal:
+    internal: true
 
 volumes:
   auth-db-data:
   users_data:
   search_db_data:
   bookings_data:
+  reviews_data:
 
 secrets:
   gateway_tls_cert:
@@ -364,3 +433,9 @@ secrets:
     file: ${BOOKINGS_DATABASE_URL_FILE:?required}
   bookings_rabbitmq_url:
     file: ${BOOKINGS_RABBITMQ_URL_FILE:?required}
+  reviews_db_password:
+    file: ${REVIEWS_DB_PASSWORD_FILE:?required}
+  reviews_database_url:
+    file: ${REVIEWS_DATABASE_URL_FILE:?required}
+  reviews_bookings_service_token:
+    file: ${REVIEWS_BOOKINGS_SERVICE_TOKEN_FILE:?required}

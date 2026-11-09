@@ -11,10 +11,10 @@ Implementar `reviews-service` como microservicio NestJS en el puerto interno 300
 
 ## Implementation Progress
 
-- **Corte implementado**: T001–T037 (37/74), correspondiente a Setup, Foundation y especificaciones TDD iniciales de US1.
-- **Validación verde del corte implementado**: lint, typecheck, build, 30 unitarias de Foundation, 7 de contrato, 3 de integración estructural/health y 5 de seguridad JWT.
-- **Estado TDD de US1**: seis pruebas permanecen rojas y 19 escenarios están pendientes hasta implementar T038–T045; RQ-11 todavía no se declara funcional.
-- **Límite de evidencia**: Compose valida sintácticamente, pero PostgreSQL/contenedores no se ejecutaron en este corte porque el daemon Docker no estaba disponible.
+- **Corte implementado**: T001–T068, T071–T073 (71/74): Setup, Foundation, US1–US3, Compose/CI, validador de contratos, performance, hardening, E2E aislado, shutdown y documentación operativa.
+- **Validación verde del corte implementado**: lint, typecheck, build, 45 unitarias, 45 de contrato, 18 de seguridad, 22 de integración, 1 de concurrencia, 2 de performance y 2 de E2E aislado; cobertura 89.73 % statements.
+- **Estado TDD de US1–US3**: verde con Bookings stub y PostgreSQL real (podman); los tests placeholder T031–T037 se reescribieron como aserciones de comportamiento.
+- **Límite de evidencia**: T069 (E2E real Bookings↔Reviews), T070 (Gateway↔Reviews) y T074 (cierre del reporte) quedan pendientes de ejecución con colaboradores reales; los harnesses existen pero se omiten sin variables de entorno. `validation-report.md` permanece como plantilla.
 
 ## Technical Context
 
@@ -60,7 +60,7 @@ specs/003-reservas-pagos-resenas/reviews_service/
 ├── contracts/
 │   ├── openapi-reviews-service.yaml
 │   └── openapi-bookings-review-eligibility-consumer.yaml
-└── tasks.md                 # futuro output de $speckit-tasks
+└── tasks.md
 ```
 
 ### Source Code previsto

@@ -109,3 +109,33 @@ Antes de declarar integración real:
 5. Se ejecuta E2E Bookings↔Reviews previsto por T098.
 
 Hasta entonces, reportar integración contra stub/contrato, no Sprint 3 end-to-end.
+
+## 12. Evidencia ejecutada (2026-11-08)
+
+Entorno: Node 22 (lockfile raíz), podman 5.8 y PostgreSQL 16-alpine efímero en
+`127.0.0.1:55432/reviews_test`. Comandos ejecutados con
+`REVIEWS_TEST_DATABASE_URL=postgresql://reviews_test:reviews_test@localhost:55432/reviews_test?schema=public`.
+
+| Escenario | Comando | Resultado |
+|---|---|---|
+| Dependencias | `npm ci` | exit 0 |
+| Cliente Prisma | `npm run prisma:reviews:generate` | exit 0 |
+| Migración | `npm run prisma:reviews:migrate:deploy` | `001_reviews_core` aplicada |
+| Estáticos | `npm run lint:reviews && npm run typecheck:reviews && npm run build:reviews` | exit 0 |
+| Unitarias | `npm run test:reviews:unit` | 45 aprobadas |
+| Contrato | `npm run test:reviews:contract` | 45 aprobadas |
+| Seguridad | `npm run test:reviews:security` | 18 aprobadas |
+| Integración | `npm run test:reviews:integration` | 22 aprobadas |
+| Concurrencia | `npm run test:reviews:concurrency` | 1 aprobada (una sola fila por `bookingId`) |
+| Rendimiento | `npm run test:reviews:performance` | 2 aprobadas, p95 < 500 ms |
+| E2E aislado | `npm run test:reviews:e2e` | 2 aprobadas; Bookings/Gateway omitidos sin variables |
+| E2E real Bookings | `npm run test:reviews:e2e -- --runTestsByPath test/e2e/bookings-reviews.e2e-spec.ts` | 1 aprobada contra Bookings real, PostgreSQL propio y service JWT RS256 |
+| Contratos | `npm run openapi:reviews:check` | OpenAPI válido y sin drift |
+| Cobertura | `npm run test:reviews:coverage` | statements 89.73 %, branches 81.67 %, functions 84.69 %, lines 92.14 % |
+| Compose | `docker compose --env-file .env.example config -q` | exit 0 |
+
+Evidencia **contra stub/PostgreSQL real**: creación, rechazos, concurrencia, consultas por
+propiedad e historial propio. La integración real Bookings↔Reviews (T069) se ejecutó con el
+handoff versionado, reserva `COMPLETED`, audience `stayhub-bookings-service` y scope
+`reviews:eligibility`, sin compartir bases. Gateway↔Reviews (T070) permanece bloqueada porque
+el API Gateway actual no implementa rutas ni cliente para Reviews.
