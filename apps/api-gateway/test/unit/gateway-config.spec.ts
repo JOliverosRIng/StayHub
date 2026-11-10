@@ -100,7 +100,18 @@ describe('loadGatewayConfig documented values (GW-009)', () => {
 
   it('defaults the TLS minimum version to TLSv1.2 when absent', () => {
     const config = loadGatewayConfig(without('GATEWAY_TLS_MIN_VERSION'), readFile);
-    expect(config.tls.minVersion).toBe('TLSv1.2');
+    expect(config.tls?.minVersion).toBe('TLSv1.2');
+  });
+
+  it('defaults to plain HTTP in development without TLS files', () => {
+    const environment = baseEnvironment();
+    environment['NODE_ENV'] = 'development';
+    delete environment['GATEWAY_TLS_CERT_FILE'];
+    delete environment['GATEWAY_TLS_KEY_FILE'];
+
+    const config = loadGatewayConfig(environment, readFile);
+
+    expect(config.tls).toBeNull();
   });
 
   it('omits the optional Swagger server URL when absent', () => {

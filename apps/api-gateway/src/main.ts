@@ -19,6 +19,7 @@ export interface GatewayHttpsOptions {
 }
 
 export function httpsOptionsFrom(config: GatewayConfig): GatewayHttpsOptions {
+  if (!config.tls) throw new Error('TLS is disabled');
   return {
     cert: readFileSync(config.tls.certFile),
     key: readFileSync(config.tls.keyFile),
@@ -32,7 +33,7 @@ export async function createGatewayApp(
 ): Promise<INestApplication> {
   const app = await NestFactory.create(rootModule, {
     bufferLogs: true,
-    httpsOptions: httpsOptionsFrom(config),
+    ...(config.tls ? { httpsOptions: httpsOptionsFrom(config) } : {}),
   });
   app.useLogger(new GatewayLogger());
   app.setGlobalPrefix(config.apiPrefix, { exclude: [...HEALTH_PREFIX_EXCLUDE] });
@@ -45,7 +46,8 @@ export async function startGateway(
   rootModule: Type<unknown> = AppModule,
 ): Promise<INestApplication> {
   const app = await createGatewayApp(config, rootModule);
-  await app.listen(config.port);
+  if (config.tls) await app.listen(config.port);
+  else await app.listen(config.port, '127.0.0.1');
   return app;
 }
 
