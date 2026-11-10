@@ -61,6 +61,7 @@ beforeAll(() => {
   writeFileSync(secretPath('redis.pass'), 'redis-password-long-enough');
 
   environment = {
+    NODE_ENV: 'test',
     GATEWAY_PORT: '8080',
     GATEWAY_API_PREFIX: '/api/v1',
     GATEWAY_TLS_CERT_FILE: secretPath('tls.crt'),
@@ -118,7 +119,7 @@ describe('GatewayConfigModule fail-fast (GW-009)', () => {
     apply();
     const module = await Test.createTestingModule({ imports: [GatewayConfigModule] }).compile();
     const config = module.get<GatewayConfig>(GATEWAY_CONFIG);
-    expect(config.tls.minVersion).toBe('TLSv1.3');
+    expect(config.tls?.minVersion).toBe('TLSv1.3');
     expect(config.serviceJwt.privateKey).toBe(
       '-----BEGIN PRIVATE KEY-----\nservice\n-----END PRIVATE KEY-----',
     );

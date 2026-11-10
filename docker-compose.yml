@@ -135,6 +135,37 @@ services:
     depends_on:
       users-migrate: { condition: service_completed_successfully }
 
+  api-gateway:
+    build:
+      context: .
+      dockerfile: infra/docker/gateway/Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: production
+      GATEWAY_PROTOCOL: https
+    env_file: ${GATEWAY_ENV_FILE:-.env}
+    secrets:
+      - gateway_tls_cert
+      - gateway_tls_key
+      - gateway_redis_password
+      - gateway_service_private_key
+    networks: [stayhub-edge, stayhub-internal, services]
+    ports:
+      - "8080:8080"
+    depends_on:
+      gateway-redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      users-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.env.NODE_TLS_REJECT_UNAUTHORIZED='0';fetch('https://127.0.0.1:8080/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: always
+
   search-db:
     image: postgis/postgis:16-3.4
     environment:
@@ -305,6 +336,8 @@ services:
       rabbitmq: { condition: service_started, required: false }
 
 networks:
+  stayhub-edge:
+    internal: true
   stayhub-internal:
     internal: true
   users-internal:

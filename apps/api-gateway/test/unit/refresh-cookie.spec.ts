@@ -156,3 +156,30 @@ describe('Cookie de refresh (GW-034)', () => {
     expect(bodyWrites).toHaveLength(0);
   });
 });
+
+describe('Local HTTP refresh cookies', () => {
+  it('supports login and logout cookies without TLS certificates in development', async () => {
+    const { config } = createTestGatewayConfig({
+      NODE_ENV: 'development',
+      GATEWAY_PROTOCOL: 'http',
+      GATEWAY_TLS_CERT_FILE: '',
+      GATEWAY_TLS_KEY_FILE: '',
+    });
+    expect(config.tls).toBeNull();
+    const Service = await loadRefreshCookieService();
+    const cookies = fakeResponse();
+    const service = new Service(config);
+
+    service.set(cookies.response, 'test-refresh');
+    service.clear(cookies.response);
+
+    const attributes = { secure: false, httpOnly: true, sameSite: 'strict', path: REFRESH_PATH };
+    expect(cookies.cookies[0]?.options).toMatchObject(attributes);
+    expect(cookies.cleared[0]?.options).toMatchObject(attributes);
+  });
+
+  it('rejects plain HTTP in production', () => {
+    expect(() => createTestGatewayConfig({ NODE_ENV: 'production', GATEWAY_PROTOCOL: 'http' }))
+      .toThrow('GATEWAY_PROTOCOL');
+  });
+});

@@ -24,6 +24,7 @@ on:
       - 'specs/003-reservas-pagos-resenas/payments_service/**'
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   auth-quality:
@@ -61,7 +62,7 @@ jobs:
           AUTH_DATABASE_URL: ${{ env.TEST_AUTH_DATABASE_URL }}
       - run: npm run lint:auth
       - run: npm run typecheck:auth
-      - run: npm run test:auth -- --coverage
+      - run: npm run test:auth:coverage
       - run: npm run openapi:auth:check
       - run: npm run build:auth
       - run: docker build --target runtime -f infra/docker/auth/Dockerfile .
@@ -87,9 +88,27 @@ jobs:
       - run: npm ci
       - run: npm run lint:gateway
       - run: npm run typecheck:gateway
-      - run: npm run test:coverage --workspace @stayhub/api-gateway
+      - run: npm run test:gateway:coverage
+      - run: npm run openapi:check:gateway
       - run: npm run build:gateway
       - run: docker build --target runtime -f infra/docker/gateway/Dockerfile .
+
+  # GW-061: perfil k6 del Plan §8 (100 usuarios ACTIVE, warm-up 30 s y dos escenarios de
+  # 25 req/s durante 2 min, p95 < 500 ms y errores < 1%). Requiere Auth y Users reales detrás del
+  # Gateway, por lo que SOLO se ejecuta cuando el repositorio define GATEWAY_PERF_BASE_URL y el
+  # secreto GATEWAY_PERF_BEARER (o las credenciales de login). No se inventan resultados.
+  gateway-performance:
+    runs-on: ubuntu-latest
+    if: vars.GATEWAY_PERF_BASE_URL != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+      - run: k6 run apps/api-gateway/test/performance/identity.k6.js
+        env:
+          GATEWAY_PERF_BASE_URL: ${{ vars.GATEWAY_PERF_BASE_URL }}
+          GATEWAY_PERF_BEARER: ${{ secrets.GATEWAY_PERF_BEARER }}
+          GATEWAY_PERF_USER_EMAIL: ${{ secrets.GATEWAY_PERF_USER_EMAIL }}
+          GATEWAY_PERF_USER_PASSWORD: ${{ secrets.GATEWAY_PERF_USER_PASSWORD }}
 
   users-quality:
     runs-on: ubuntu-latest
@@ -105,8 +124,8 @@ jobs:
           --health-cmd "pg_isready -U users -d users_db"
           --health-interval 5s --health-timeout 3s --health-retries 20
     env:
-      USERS_DATABASE_URL: postgresql://users:users_test_only@localhost:5432/users_db?schema=public
-      USERS_TEST_DATABASE_URL: postgresql://users:users_test_only@localhost:5432/users_db?schema=public
+      USERS_DATABASE_URL: postgresql://users:users_test_only@localhost:5432/users_db
+      USERS_TEST_DATABASE_URL: postgresql://users:users_test_only@localhost:5432/users_db
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -152,9 +171,9 @@ jobs:
           --health-cmd "rabbitmq-diagnostics -q ping"
           --health-interval 5s --health-timeout 5s --health-retries 20
     env:
-      PAYMENTS_DATABASE_URL: postgresql://payments_test:payments_test@localhost:5432/payments_test?schema=public
-      PAYMENTS_TEST_DATABASE_URL: postgresql://payments_test:payments_test@localhost:5432/payments_test?schema=public
-      PAYMENTS_TEST_RABBITMQ_URL: amqp://payments_test:payments_test@localhost:5672
+      PAYMENTS_DATABASE_URL: ******localhost:5432/payments_test?schema=public
+      PAYMENTS_TEST_DATABASE_URL: ******localhost:5432/payments_test?schema=public
+      PAYMENTS_TEST_RABBITMQ_URL: ******localhost:5672
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

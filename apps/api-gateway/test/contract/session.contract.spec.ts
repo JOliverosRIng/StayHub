@@ -242,7 +242,11 @@ async function clearEdgeCounters(): Promise<void> {
   }
 }
 
-describe('Contrato de sesión (GW-031)', () => {
+// Login aplica el límite de borde antes de llamar a Auth: sin Redis la suite no puede ejercer el
+// contrato (fallo cerrado 503). CI provee GATEWAY_TEST_REDIS_URL; localmente se salta.
+const suite = REDIS_URL === undefined ? describe.skip : describe;
+
+suite('Contrato de sesión (GW-031)', () => {
   let app: INestApplication;
   const originalEnv = process.env;
 
