@@ -3,6 +3,12 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { ApplicationError, DependencyUnavailableError, IdempotencyConflictError, InvalidCredentialsError, LoginRateLimitError, RefreshTokenInvalidError, RegistrationCancelledError, RegistrationConflictError, SessionInvalidError } from '@auth/application/errors/auth-errors';
 import { DomainError } from '@auth/domain/shared/domain-error';
 
+export interface FieldError {
+  readonly field: string;
+  readonly code: string;
+  readonly message?: string;
+}
+
 export interface ProblemDetails {
   readonly type: string;
   readonly title: string;
@@ -11,7 +17,7 @@ export interface ProblemDetails {
   readonly instance: string;
   readonly code: string;
   readonly traceId: string;
-  readonly errors?: readonly string[];
+  readonly errors?: readonly FieldError[];
 }
 
 export function mapProblem(
@@ -23,9 +29,7 @@ export function mapProblem(
     const status = exception.getStatus();
     const response = exception.getResponse();
     const object = typeof response === 'object' && response !== null ? response as Record<string, unknown> : {};
-    const errors = Array.isArray(object.errors)
-      ? object.errors.filter((value): value is string => typeof value === 'string')
-      : undefined;
+    const errors = readFieldErrors(object.errors);
     const code = typeof object.code === 'string' ? object.code : httpCode(status);
     return problem(status, code, safeTitle(status), safeDetail(status), instance, traceId, errors);
   }
@@ -55,7 +59,7 @@ function problem(
   detail: string,
   instance: string,
   traceId: string,
-  errors?: readonly string[],
+  errors?: readonly FieldError[],
 ): ProblemDetails {
   return {
     type: `https://stayhub.example/problems/${code.toLowerCase().replaceAll('_', '-')}`,
@@ -79,4 +83,17 @@ function safeDetail(status: number): string {
 
 function httpCode(status: number): string {
   return `HTTP_${status}`;
+}
+
+function readFieldErrors(value: unknown): readonly FieldError[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const errors = value.filter(isFieldError);
+  return errors.length === 0 ? undefined : errors;
+}
+
+function isFieldError(value: unknown): value is FieldError {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.field === 'string' && typeof record.code === 'string'
+    && (record.message === undefined || typeof record.message === 'string');
 }

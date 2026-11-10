@@ -23,6 +23,7 @@ const doc = YAML.parse(readFileSync(CONTRACT, 'utf8')) as {
 const PUBLIC_OPERATIONS: [string, string][] = [
   ['/auth/register', 'post'],
   ['/auth/login', 'post'],
+  ['/auth/logout', 'post'],
   ['/auth/refresh', 'post'],
   ['/auth/validate', 'get'],
   ['/users/{userId}/profile', 'get'],
@@ -35,7 +36,7 @@ describe('Contrato publico del Gateway (GW-021, D1)', () => {
     expect(doc.servers.map((server) => server.url)).toEqual(['https://localhost:8080/api/v1']);
   });
 
-  it('declara las siete operaciones publicas del Sprint 1', () => {
+  it('declara las ocho operaciones publicas del Sprint 1', () => {
     for (const [path, method] of PUBLIC_OPERATIONS) {
       expect(doc.paths[path]).toBeDefined();
       expect(doc.paths[path]?.[method]).toBeDefined();

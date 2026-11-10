@@ -1,0 +1,13 @@
+name: stayhub-gateway-dev
+services:
+  gateway-redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--requirepass', '${DEV_GATEWAY_REDIS_PASSWORD:?required}']
+    ports: ['127.0.0.1:56381:6379']
+    environment:
+      REDISCLI_AUTH: ${DEV_GATEWAY_REDIS_PASSWORD:?required}
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 20

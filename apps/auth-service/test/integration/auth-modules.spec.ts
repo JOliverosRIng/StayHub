@@ -141,7 +141,7 @@ describe('auth modules composition (AUTH-072)', () => {
       .send({ refreshToken });
 
     expect(replay.status).toBe(401);
-    expect((replay.body as { code: string }).code).toBe('REFRESH_TOKEN_INVALID');
+    expect((replay.body as { code: string }).code).toBe('REFRESH_REJECTED');
 
     const revoked = await request(server())
       .post('/internal/v1/sessions/validate')

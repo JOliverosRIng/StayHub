@@ -1,13 +1,13 @@
 # API Gateway — StayHub
 
-Unico punto de entrada publico del Sprint 1. Sirve HTTPS en el puerto **8080** con prefijo
-`/api/v1` y no expone ningun otro puerto. No posee dominio de negocio: no almacena datos, no
-hashea contrasenas, no emite tokens y no modifica perfiles.
+Unico punto de entrada publico del Sprint 1. En desarrollo sirve HTTP en el puerto **8080** con
+prefijo `/api/v1`; en produccion sirve HTTPS/TLS. No expone ningun otro puerto. No posee dominio
+de negocio: no almacena datos, no hashea contrasenas, no emite tokens y no modifica perfiles.
 
 ## Alcance
 
-- Termina TLS y enruta las operaciones de identidad hacia `auth-service`/`users-service` y las
-  tres operaciones de reseñas hacia `reviews-service`.
+- Sirve HTTP en desarrollo y termina TLS en produccion; enruta las operaciones de identidad hacia
+  `auth-service`/`users-service` y las tres operaciones de reseñas hacia `reviews-service`.
 - Elimina toda cabecera de identidad, forwarding o service-auth aportada por el cliente antes
   de rutear. Solo propaga el bearer validado, el `traceId` y las cabeceras de la allowlist.
 - Valida el access JWT (RS256) e introspecta `sid` en Auth. Si Auth no responde, falla cerrado
@@ -64,7 +64,10 @@ referencian por ruta mediante `*_FILE`; nunca se versionan secretos ni certifica
 
 Puntos que no son negociables:
 
-- `GATEWAY_PORT=8080` y `GATEWAY_API_PREFIX=/api/v1`. No existe listener HTTP publico alternativo.
+- `GATEWAY_PORT=8080` y `GATEWAY_API_PREFIX=/api/v1`. El listener es HTTP en desarrollo y HTTPS
+  en produccion; no existe otro puerto publico.
+- `GATEWAY_PROTOCOL`: por defecto `http` en `NODE_ENV=development` y `https` en el resto. `http`
+  solo se acepta en desarrollo; `https` exige `GATEWAY_TLS_CERT_FILE` y `GATEWAY_TLS_KEY_FILE`.
 - `GATEWAY_MAX_PHOTO_BYTES=5000000`: **5 MB decimales**, no 5 MiB (5242880).
 - El origen de red se toma del socket. Una cabecera `X-Forwarded-For` solo se acepta si el
   proxy inmediato esta en `GATEWAY_TRUSTED_PROXY_CIDRS`.

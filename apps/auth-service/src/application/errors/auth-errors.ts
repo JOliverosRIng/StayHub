@@ -23,7 +23,7 @@ export class IdempotencyConflictError extends ApplicationError {
 
 export class RegistrationConflictError extends ApplicationError {
   public constructor() {
-    super('REGISTRATION_CONFLICT', 'Registration conflicts with an existing identity', 'The request conflicts with a previous request');
+    super('EMAIL_ALREADY_REGISTERED', 'Registration conflicts with an existing identity', 'The request conflicts with a previous request');
   }
 }
 
@@ -41,7 +41,7 @@ export class SessionInvalidError extends ApplicationError {
 
 export class RefreshTokenInvalidError extends ApplicationError {
   public constructor() {
-    super('REFRESH_TOKEN_INVALID', 'Refresh token rejected', 'Authentication is required');
+    super('REFRESH_REJECTED', 'Refresh token rejected', 'Authentication is required');
   }
 }
 
@@ -53,7 +53,7 @@ export class DependencyUnavailableError extends ApplicationError {
 
 export class LoginRateLimitError extends ApplicationError {
   public constructor(public readonly retryAfterSeconds: number) {
-    super('LOGIN_RATE_LIMITED', 'Login failure limit exceeded', 'Too many authentication attempts');
+    super('RATE_LIMITED', 'Login failure limit exceeded', 'Too many authentication attempts');
   }
 }
 

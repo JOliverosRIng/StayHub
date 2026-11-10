@@ -9,7 +9,6 @@ const config: Config = {
   testMatch: [
     '<rootDir>/test/contract/users-registration.consumer.spec.ts',
     '<rootDir>/test/contract/users-login-identity.consumer.spec.ts',
-    '<rootDir>/test/contract/gateway.provider.spec.ts',
     '<rootDir>/test/integration/cross-service-registration.spec.ts',
     '<rootDir>/test/integration/cross-service-login.spec.ts',
     '<rootDir>/test/integration/gateway-auth.spec.ts',

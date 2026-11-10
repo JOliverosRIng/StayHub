@@ -1,9 +1,4 @@
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  password: string;
-}
+export type User = import("../api/session").SessionUser;
 
 export interface Room {
   id: string;

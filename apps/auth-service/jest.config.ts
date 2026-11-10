@@ -11,7 +11,6 @@ export const alias = {
 const crossServicePatterns = [
   'users-registration.consumer.spec.ts',
   'users-login-identity.consumer.spec.ts',
-  'gateway.provider.spec.ts',
   'cross-service-registration.spec.ts',
   'cross-service-login.spec.ts',
   'cross-service-profile.spec.ts',

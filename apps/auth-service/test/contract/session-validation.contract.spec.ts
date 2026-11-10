@@ -19,6 +19,12 @@ import { createRsaKeyPair, type IssueInboundServiceTokenOptions } from '../helpe
 
 const systemClock: Clock = { now: (): Date => new Date() };
 
+interface FieldErrorBody {
+  readonly field: string;
+  readonly code: string;
+  readonly message?: string;
+}
+
 interface ProblemBody {
   readonly type: string;
   readonly title: string;
@@ -27,7 +33,7 @@ interface ProblemBody {
   readonly instance: string;
   readonly code: string;
   readonly traceId: string;
-  readonly errors?: readonly string[];
+  readonly errors?: readonly FieldErrorBody[];
 }
 
 type ExecuteMock = jest.Mock<Promise<ValidatedSession>, [ValidateSessionCommand]>;
@@ -144,7 +150,7 @@ describe('session validation HTTP contract (AUTH-051)', () => {
 
       const response = await postValidate(app(), payload, { token });
 
-      expectProblem(response, 'VALIDATION_FAILED', 400);
+      expectProblem(response, 'VALIDATION_ERROR', 400);
       expect(execute).not.toHaveBeenCalled();
     });
   });
@@ -195,7 +201,7 @@ describe('session validation HTTP contract (AUTH-051)', () => {
 
       const response = await postValidate(app(), validBody());
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 
@@ -215,7 +221,7 @@ describe('session validation HTTP contract (AUTH-051)', () => {
 
       const response = await postValidate(app(), validBody(), { token });
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 
@@ -232,7 +238,7 @@ describe('session validation HTTP contract (AUTH-051)', () => {
 
       const response = await postValidate(app(), validBody(), { token });
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
   });

@@ -19,3 +19,5 @@ export interface Category {
   label: string;
   icon: string;
 }
+
+export type { User, Room, Booking, PendingBookingData } from "./types/index";

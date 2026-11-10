@@ -24,6 +24,12 @@ import { createRsaKeyPair, type IssueInboundServiceTokenOptions } from '../helpe
 const systemClock: Clock = { now: (): Date => new Date() };
 const PASSWORD = 'Correct-Horse-Battery-Staple-42';
 
+interface FieldErrorBody {
+  readonly field: string;
+  readonly code: string;
+  readonly message?: string;
+}
+
 interface ProblemBody {
   readonly type: string;
   readonly title: string;
@@ -32,7 +38,7 @@ interface ProblemBody {
   readonly instance: string;
   readonly code: string;
   readonly traceId: string;
-  readonly errors?: readonly string[];
+  readonly errors?: readonly FieldErrorBody[];
 }
 
 interface RegisterRequestInput {
@@ -304,7 +310,7 @@ describe('registration HTTP contract (AUTH-026)', () => {
 
       const response = await postRegistration(app(), body, { token, idempotencyKey });
 
-      expectProblem(response, 'VALIDATION_FAILED', 400);
+      expectProblem(response, 'VALIDATION_ERROR', 400);
       expect(execute).not.toHaveBeenCalled();
     });
   });
@@ -317,7 +323,7 @@ describe('registration HTTP contract (AUTH-026)', () => {
         idempotencyKey: randomUUID(),
       });
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 
@@ -340,7 +346,7 @@ describe('registration HTTP contract (AUTH-026)', () => {
         idempotencyKey: randomUUID(),
       });
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 
@@ -360,7 +366,7 @@ describe('registration HTTP contract (AUTH-026)', () => {
         idempotencyKey: randomUUID(),
       });
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
   });
@@ -377,7 +383,7 @@ describe('registration HTTP contract (AUTH-026)', () => {
         label: 'registration conflict',
         error: new RegistrationConflictError(),
         status: 409,
-        code: 'REGISTRATION_CONFLICT',
+        code: 'EMAIL_ALREADY_REGISTERED',
       },
       {
         label: 'cancelled registration',

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { BookingProvider } from './context/BookingContext';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -16,6 +16,8 @@ interface ReturnPath {
 }
 
 function AppRoutes() {
+  const auth = useAuth();
+  const [registeredEmail, setRegisteredEmail] = useState<string>();
   const [page, setPage] = useState<Page>('home');
   const [selectedRoomId, setSelectedRoomId] = useState<string | undefined>();
   const [returnPath, setReturnPath] = useState<ReturnPath | null>(null);
@@ -39,8 +41,9 @@ function AppRoutes() {
     window.scrollTo({ top: 0 });
   };
 
-  const handleRegisterSuccess = () => {
-    setPage('home');
+  const handleRegisterSuccess = (email: string) => {
+    setRegisteredEmail(email);
+    setPage('login');
     window.scrollTo({ top: 0 });
   };
 
@@ -55,11 +58,15 @@ function AppRoutes() {
     setPendingBooking(null);
   };
 
+  if (auth.status === 'checking') return <p role="status" className="p-8">Comprobando sesión…</p>;
+  if (auth.status === 'unavailable') return <div role="alert" className="p-8"><p>{auth.error}</p><button onClick={() => { void auth.retrySession(); }}>Reintentar</button><button onClick={() => { void auth.logout(); }}>Cerrar sesión</button></div>;
   if (page === 'login') {
     return (
       <Login
         onNavigate={navigate}
         onSuccess={handleLoginSuccess}
+        initialEmail={registeredEmail}
+        registered={!!registeredEmail}
       />
     );
   }

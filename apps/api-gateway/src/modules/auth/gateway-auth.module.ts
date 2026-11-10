@@ -20,6 +20,7 @@ import { RegistrationRateLimitService } from '@gateway/modules/rate-limit/regist
 import { AccessGuard, SESSION_INTROSPECTION } from './access.guard';
 import { GatewayJwtStrategy } from './jwt.strategy';
 import { LoginController } from './login.controller';
+import { LogoutController } from './logout.controller';
 import { RefreshController } from './refresh.controller';
 import { RefreshCookieService } from './refresh-cookie.service';
 import { RegisterController } from './register.controller';
@@ -34,7 +35,7 @@ import { ValidateController } from './validate.controller';
  */
 @Module({
   imports: [GatewayConfigModule, GatewayRedisModule, PassportModule],
-  controllers: [RegisterController, LoginController, RefreshController, ValidateController],
+  controllers: [RegisterController, LoginController, LogoutController, RefreshController, ValidateController],
   providers: [
     JwtVerifierService,
     { provide: JWT_VERIFIER, useExisting: JwtVerifierService },

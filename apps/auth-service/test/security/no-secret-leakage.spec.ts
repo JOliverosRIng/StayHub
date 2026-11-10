@@ -316,9 +316,9 @@ describe('no secret leakage (AUTH-083)', () => {
       .send({ [EVIL_FIELD]: MARKERS.hash, email: 'not-an-email', password: MARKERS.password });
 
     expect(response.status).toBe(400);
-    const errors = (response.body as { errors?: readonly string[] }).errors ?? [];
-    expect(errors.join('\n')).not.toContain(MARKERS.access);
-    expect(errors.join('\n')).not.toContain(MARKERS.hash);
+    const errors = (response.body as { errors?: readonly { field: string; code: string; message?: string }[] }).errors ?? [];
+    expect(JSON.stringify(errors)).not.toContain(MARKERS.access);
+    expect(JSON.stringify(errors)).not.toContain(MARKERS.hash);
     expectNoMarkers();
   });
 

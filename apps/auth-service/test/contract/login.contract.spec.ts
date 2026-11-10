@@ -25,6 +25,12 @@ const PASSWORD = 'Correct-Horse-Battery-Staple-42';
 const ABSOLUTE_EXPIRY = new Date('2026-10-05T00:00:00.000Z');
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+interface FieldErrorBody {
+  readonly field: string;
+  readonly code: string;
+  readonly message?: string;
+}
+
 interface ProblemBody {
   readonly type: string;
   readonly title: string;
@@ -33,7 +39,7 @@ interface ProblemBody {
   readonly instance: string;
   readonly code: string;
   readonly traceId: string;
-  readonly errors?: readonly string[];
+  readonly errors?: readonly FieldErrorBody[];
 }
 
 type ExecuteMock = jest.Mock<Promise<IssuedTokenPair>, [LoginCommand]>;
@@ -214,7 +220,7 @@ describe('login HTTP contract (AUTH-049)', () => {
 
       const response = await postLogin(app(), body, { token });
 
-      expectProblem(response, 'VALIDATION_FAILED', 400);
+      expectProblem(response, 'VALIDATION_ERROR', 400);
       expect(execute).not.toHaveBeenCalled();
     });
   });
@@ -261,7 +267,7 @@ describe('login HTTP contract (AUTH-049)', () => {
         { token },
       );
 
-      expectProblem(response, 'LOGIN_RATE_LIMITED', 429);
+      expectProblem(response, 'RATE_LIMITED', 429);
       expect(JSON.stringify(response.body)).not.toContain(PASSWORD);
     });
 
@@ -307,7 +313,7 @@ describe('login HTTP contract (AUTH-049)', () => {
         password: PASSWORD,
       });
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 
@@ -331,7 +337,7 @@ describe('login HTTP contract (AUTH-049)', () => {
         { token },
       );
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 
@@ -352,7 +358,7 @@ describe('login HTTP contract (AUTH-049)', () => {
         { token },
       );
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 

@@ -107,12 +107,29 @@ contexto autorizado y aplica exactamente 5.000.000 bytes.
 - [x] GW-056 [P] Ejecutar contrato consumer Gateway→Auth para registro/login/refresh/validate (Component: Gateway-Auth contract; Trace: RQ-02, FR-001–FR-013; Depends on: GW-030, GW-042; External dependency: G3 entrega provider) in `apps/api-gateway/test/contract/auth.consumer.spec.ts`
 - [x] GW-057 [P] Ejecutar contrato consumer Gateway→Users para perfil/foto, multipart 5.000.000 y streaming (Component: Gateway-Users contract; Trace: RQ-01, FR-011–FR-024; Depends on: GW-049, GW-054; External dependency: G2 entrega provider) in `apps/api-gateway/test/contract/users.consumer.spec.ts`
 - [ ] GW-058 Verificar integración real Gateway↔Auth con cookie, 401/429/503 y rol de sesión (Component: Gateway-Auth integration; Trace: RQ-02, FR-001–FR-013; Depends on: GW-056; External dependency: G3 operativo) in `apps/api-gateway/test/integration/gateway-auth.spec.ts`
+  - Contraparte del lado Auth ya creada y aislada por entorno en `apps/auth-service/test/integration/gateway-auth.spec.ts` (AUTH-081). GW-058 sigue bloqueada hasta correr contra Auth real.
 - [ ] GW-059 Verificar integración real Gateway↔Users con ownership, 5.000.000 bytes, timeout y 503 (Component: Gateway-Users integration; Trace: RQ-01, FR-011–FR-024; Depends on: GW-057; External dependency: G2 operativo) in `apps/api-gateway/test/integration/gateway-users.spec.ts`
 - [ ] GW-060 Ejecutar E2E HTTPS registro→login→perfil→cambio de correo→refresh y negativos, corrigiendo solo Gateway (Component: Sprint 1 E2E; Trace: RQ-01, RQ-02, SC-002–SC-004; Depends on: GW-058–GW-059; External dependency: G2/G3 operativos) in `apps/api-gateway/test/e2e/identity.e2e-spec.ts`
 - [ ] GW-061 [P] Ejecutar k6 HTTPS con 100 usuarios ACTIVE, warm-up 30 s y dos escenarios de 25 req/s por 2 minutos, p95<500 ms y errores<1% (Component: Gateway performance; Trace: Plan §8; Depends on: GW-058–GW-059) in `apps/api-gateway/test/performance/identity.k6.js` and `.github/workflows/ci.yml`
-- [ ] GW-062 [P] Auditar respuestas/logs/trazas para ausencia de contraseña, tokens, hashes, correo, foto y headers internos (Component: Secret audit; Trace: FR-024, Constitution V; Depends on: GW-030, GW-042, GW-049, GW-054) in `apps/api-gateway/test/security/no-secret-leakage.spec.ts`
-- [ ] GW-063 Verificar imagen no root, TLS, healthchecks, Redis, red interna, puerto 8080 y `restart: always` (Component: Runtime verification; Trace: Plan §7; Depends on: GW-007, GW-020, GW-058–GW-059) in `apps/api-gateway/test/integration/gateway-compose.spec.ts`
-- [ ] GW-064 Registrar cobertura ≥70%, contratos, seguridad, rendimiento, Compose, revisión y trazabilidad sin anticipar evidencia externa (Component: Gateway Definition of Done; Trace: SC-002–SC-004, SC-007, Constitution VIII; Depends on: GW-055–GW-063) in `specs/001-fundamentos-identidad/validation-report.md`
+- [x] GW-062 [P] Auditar respuestas/logs/trazas para ausencia de contraseña, tokens, hashes, correo, foto y headers internos (Component: Secret audit; Trace: FR-024, Constitution V; Depends on: GW-030, GW-042, GW-049, GW-054) in `apps/api-gateway/test/security/no-secret-leakage.spec.ts`
+- [x] GW-063 Verificar imagen no root, TLS, healthchecks, Redis, red interna, puerto 8080 y `restart: always` (Component: Runtime verification; Trace: Plan §7; Depends on: GW-007, GW-020, GW-058–GW-059) in `apps/api-gateway/test/integration/gateway-compose.spec.ts`
+- [x] GW-064 Registrar cobertura ≥70%, contratos, seguridad, rendimiento, Compose, revisión y trazabilidad sin anticipar evidencia externa (Component: Gateway Definition of Done; Trace: SC-002–SC-004, SC-007, Constitution VIII; Depends on: GW-055–GW-063) in `specs/001-fundamentos-identidad/validation-report.md`
+
+## Estado de cierre (2026-11-09)
+
+- **Completadas con evidencia local**: GW-062 (9 pruebas de fuga de secretos en respuestas, logs
+  JSON/OTLP y trazas OTel), GW-063 (10 pruebas de Dockerfile, Compose, TLS, healthchecks, Redis,
+  redes internas, 8080 y `restart: always`) y GW-064 (reporte actualizado con cobertura real).
+- **Implementadas pero BLOQUEADAS por dependencias externas** (no se marcan como hechas):
+  GW-058 (Auth G3 real), GW-059 (Users G2 real), GW-060 (E2E G1↔G2↔G3) y GW-061 (k6 contra
+  servicios reales). Sus suites/script existen y se saltan sin el entorno real; no producen
+  evidencia inventada.
+- **Verificación local**: 51 suites verdes, 568 pruebas verdes; 6 suites saltadas por dependencia
+  externa/Redis. Cobertura: 92,14% sentencias, 79,85% ramas, 92,99% funciones, 92,74% líneas
+  (umbral 70% cumplido). `check-public-openapi-syntax` y `validate-public-openapi` en exit 0.
+- **Infraestructura reparada**: `.github/workflows/ci.yml` ya no contiene marcadores de conflicto;
+  se restauró `api-gateway` en `docker-compose.yml` y los scripts `test:gateway:coverage` /
+  `openapi:check:gateway`. El job k6 queda condicionado a `GATEWAY_PERF_BASE_URL`.
 
 ## Dependencies & Parallelization
 
