@@ -1,0 +1,281 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stayhub.local/contracts/payment-events-v1.schema.json",
+  "title": "StayHub Payment Events v1",
+  "description": "Productor payments-service; exchange topic durable stayhub.payments. Routing keys: payment.approved, payment.declined, payment.failed, payment.refunded, payment.refund_failed, payment.review_required, payment.refund_review_required. Entrega at-least-once con deduplicación eventId e intención de orden por paymentId. REVIEW_REQUIRED expresa resultado desconocido, no fracaso financiero; sin PAN/CVV/token/clave idempotencia/gatewayReference/correo. Consumer Bookings/Notifications debe tolerar reentregas.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/approved"
+    },
+    {
+      "$ref": "#/$defs/declined"
+    },
+    {
+      "$ref": "#/$defs/refunded"
+    },
+    {
+      "$ref": "#/$defs/refundFailed"
+    },
+    {
+      "$ref": "#/$defs/failed"
+    },
+    {
+      "$ref": "#/$defs/reviewRequired"
+    },
+    {
+      "$ref": "#/$defs/refundReviewRequired"
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "paymentBase": {
+      "type": "object",
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "occurredAt",
+        "paymentId",
+        "bookingId",
+        "payerUserId",
+        "amountMinor",
+        "currency"
+      ],
+      "properties": {
+        "eventId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "eventType": {
+          "type": "string"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "paymentId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "bookingId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "payerUserId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "amountMinor": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9000000000000
+        },
+        "currency": {
+          "$ref": "#/$defs/currency",
+          "description": "COP/USD con ISO 4217 exponent 2; amountMinor es centésimas"
+        }
+      }
+    },
+    "approved": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/paymentBase"
+        }
+      ],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "properties": {
+        "eventType": {
+          "const": "payment.v1.approved"
+        }
+      }
+    },
+    "declined": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/paymentBase"
+        }
+      ],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": [
+        "failureCode"
+      ],
+      "properties": {
+        "eventType": {
+          "const": "payment.v1.declined"
+        },
+        "failureCode": {
+          "enum": [
+            "INSUFFICIENT_FUNDS",
+            "CARD_DECLINED",
+            "SUSPECTED_FRAUD"
+          ]
+        }
+      }
+    },
+    "refunded": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/paymentBase"
+        }
+      ],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": [
+        "refundId",
+        "refundedAmountMinor",
+        "totalRefundedAmountMinor",
+        "reason",
+        "paymentStatus"
+      ],
+      "properties": {
+        "eventType": {
+          "const": "payment.v1.refunded"
+        },
+        "refundId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "refundedAmountMinor": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9000000000000
+        },
+        "totalRefundedAmountMinor": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9000000000000
+        },
+        "reason": {
+          "enum": [
+            "GUEST_CANCELLATION",
+            "OWNER_CANCELLATION"
+          ]
+        },
+        "paymentStatus": {
+          "enum": [
+            "PARTIALLY_REFUNDED",
+            "REFUNDED"
+          ]
+        }
+      }
+    },
+    "refundFailed": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/paymentBase"
+        }
+      ],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": [
+        "refundId",
+        "reason",
+        "failureCode"
+      ],
+      "properties": {
+        "eventType": {
+          "const": "payment.v1.refund_failed"
+        },
+        "refundId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "reason": {
+          "enum": [
+            "GUEST_CANCELLATION",
+            "OWNER_CANCELLATION"
+          ]
+        },
+        "failureCode": {
+          "enum": [
+            "CARD_DECLINED",
+            "GATEWAY_UNAVAILABLE"
+          ]
+        }
+      },
+      "description": "Solo rechazo/fracaso definitivo; timeout ambiguo queda PENDING o REVIEW_REQUIRED."
+    },
+    "failed": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/paymentBase"
+        }
+      ],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": [
+        "failureCode"
+      ],
+      "properties": {
+        "eventType": {
+          "const": "payment.v1.failed"
+        },
+        "failureCode": {
+          "enum": [
+            "GATEWAY_UNAVAILABLE"
+          ]
+        }
+      },
+      "description": "Únicamente fallo definitivo de operación NO despachada, nunca timeout ambiguo ni reintentos agotados."
+    },
+    "reviewRequired": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/paymentBase"
+        }
+      ],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": [
+        "reasonCode"
+      ],
+      "properties": {
+        "eventType": {
+          "const": "payment.v1.review_required"
+        },
+        "reasonCode": {
+          "const": "RECONCILIATION_EXHAUSTED"
+        }
+      },
+      "description": "El cargo sigue incierto, activo y bloqueado contra nuevos cargos; requiere evidencia autoritativa."
+    },
+    "refundReviewRequired": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/paymentBase"
+        }
+      ],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": [
+        "refundId",
+        "reasonCode",
+        "refundAmountMinor"
+      ],
+      "properties": {
+        "eventType": {
+          "const": "payment.v1.refund_review_required"
+        },
+        "refundId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "reasonCode": {
+          "const": "RECONCILIATION_EXHAUSTED"
+        },
+        "refundAmountMinor": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9000000000000,
+          "description": "Monto del reembolso incierto en unidad menor, no saldo definitivamente reembolsado."
+        }
+      },
+      "description": "El resultado del reembolso es incierto; mantener bloqueado otro reembolso hasta evidencia."
+    }
+  }
+}
