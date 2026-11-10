@@ -9,7 +9,8 @@
     "apps/search-service",
     "apps/bookings-service",
     "apps/reviews-service",
-    "apps/web"
+    "apps/web",
+    "apps/payments-service"
   ],
   "engines": {
     "node": ">=20 <21"
@@ -103,12 +104,35 @@
     "prisma:reviews:generate": "npm run prisma:generate --workspace @stayhub/reviews-service",
     "prisma:reviews:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/reviews-service",
     "openapi:reviews:check": "node scripts/validate-reviews-contracts.mjs && npm run test:reviews:contract -- --runTestsByPath test/contract/openapi-drift.spec.ts",
+    "build:payments": "npm run build --workspace @stayhub/payments-service",
+    "lint:payments": "npm run lint --workspace @stayhub/payments-service",
+    "typecheck:payments": "npm run typecheck --workspace @stayhub/payments-service",
+    "test:payments": "npm run test --workspace @stayhub/payments-service",
+    "test:payments:unit": "npm run test:unit --workspace @stayhub/payments-service",
+    "test:payments:integration": "npm run test:integration --workspace @stayhub/payments-service",
+    "test:payments:contract": "npm run test:contract --workspace @stayhub/payments-service",
+    "test:payments:security": "npm run test:security --workspace @stayhub/payments-service",
+    "test:payments:performance": "npm run test:performance --workspace @stayhub/payments-service",
+    "test:payments:coverage": "npm run test:coverage --workspace @stayhub/payments-service",
+    "openapi:payments:check": "node scripts/validate-payments-openapi.mjs",
+    "prisma:payments:generate": "npm run prisma:generate --workspace @stayhub/payments-service",
+    "prisma:payments:migrate:dev": "npm run prisma:migrate:dev --workspace @stayhub/payments-service",
+    "prisma:payments:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/payments-service",
     "build:web": "npm run build --workspace @stayhub/web",
     "lint:web": "npm run lint --workspace @stayhub/web",
     "typecheck:web": "npm run typecheck --workspace @stayhub/web",
     "test:web": "npm run test --workspace @stayhub/web",
     "dev:web": "npm run dev --workspace @stayhub/web",
-    "env:web:https": "node scripts/setup-web-https.mjs"
+    "env:web:https": "node scripts/setup-web-https.mjs",
+    "build:notifications": "npm --prefix apps/notifications-service run build",
+    "lint:notifications": "npm --prefix apps/notifications-service run lint",
+    "typecheck:notifications": "npm --prefix apps/notifications-service run typecheck",
+    "test:notifications": "npm --prefix apps/notifications-service test",
+    "env:services:dev": "node scripts/generate-services-dev-env.mjs",
+    "dev:services:up": "npm run env:services:dev && docker compose -f docker-compose.services.yml up -d --build",
+    "dev:services:down": "docker compose -f docker-compose.services.yml down",
+    "test:services:smoke": "node scripts/services-smoke.mjs",
+    "token:services": "node scripts/services-dev-token.mjs"
   },
   "devDependencies": {
     "eslint-plugin-react-hooks": "^5.2.0",

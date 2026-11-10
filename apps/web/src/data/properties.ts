@@ -1,5 +1,10 @@
 import type { Property } from '../types';
 
+/**
+ * Development fallback only. Home shows these cards when the search service cannot be reached in
+ * `vite dev` (the Gateway does not expose /search yet); production builds show an error instead.
+ * Real data comes from `GET /search` (see `api/search.ts`).
+ */
 export const RECOMMENDED: Property[] = [
   { id: '1', image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600&h=450&fit=crop&auto=format', title: 'Casa de Adobe & Spa', location: 'Oaxaca, México', rating: 4.97, reviewCount: 134, pricePerNight: 148, tag: 'Top anfitrión' },
   { id: '2', image: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600&h=450&fit=crop&auto=format', title: 'Mónaco Sunset Bay', location: 'Mónaco, Europa', rating: 4.89, reviewCount: 87, pricePerNight: 316, tag: 'Más buscado' },
@@ -17,3 +22,8 @@ export const FEATURED: Property[] = [
   { id: '11', image: 'https://images.unsplash.com/photo-1615460549969-36fa19521a4f?w=600&h=450&fit=crop&auto=format', title: 'Casa San Agustín Casco', location: 'Cartagena, Colombia', rating: 4.97, reviewCount: 221, pricePerNight: 340 },
   { id: '12', image: 'https://images.unsplash.com/photo-1506059612708-99d6c258160e?w=600&h=450&fit=crop&auto=format', title: 'Lao Lao Alpine Suites', location: 'Bariloche, Argentina', rating: 4.90, reviewCount: 73, pricePerNight: 235, nights: 4 },
 ];
+
+export const DEV_FALLBACK_PROPERTIES: Property[] = [...RECOMMENDED, ...FEATURED];
+
+/** True only in `vite dev`/tests; statically false in production bundles. */
+export const DEV_FALLBACK_ENABLED = import.meta.env.DEV;

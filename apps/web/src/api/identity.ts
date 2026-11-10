@@ -13,6 +13,9 @@ export class ApiError extends Error {
       : status === 409 ? 'El correo o la solicitud ya están en uso.'
       : status === 429 ? `Demasiados intentos.${retryAfter ? ` Espera ${retryAfter} segundos.` : ' Intenta más tarde.'}`
       : status === 403 ? 'No tienes permiso para realizar esta operación.'
+      : status === 404 ? 'No encontramos el recurso solicitado.'
+      : status === 413 ? 'El archivo supera el tamaño permitido.'
+      : status === 415 ? 'El formato del archivo no está permitido.'
       : 'El servicio no está disponible. Intenta nuevamente.');
   }
 }

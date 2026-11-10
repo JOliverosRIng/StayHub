@@ -1,0 +1,140 @@
+import { randomUUID } from 'node:crypto';
+import { DomainError } from '../../domain/shared/domain-error';
+import type { Payment } from '../../domain/payments/payment.entity';
+import type { PaymentFailureCode } from '../../domain/payments/payment.policy';
+import type { NewOutboxEvent } from '../ports/outbox.repository';
+import type { Refund } from '../../domain/refunds/refund.entity';
+
+function basePayload(payment: Payment, eventId: string, eventType: string, occurredAt: Date): Record<string, unknown> {
+  return {
+    eventId,
+    eventType,
+    schemaVersion: 1,
+    occurredAt: occurredAt.toISOString(),
+    paymentId: payment.id,
+    bookingId: payment.bookingId,
+    payerUserId: payment.payerUserId,
+    amountMinor: payment.amount.amountMinor,
+    currency: payment.amount.currency,
+  };
+}
+
+function event(payment: Payment, eventType: string, payload: Record<string, unknown>, eventId: string): NewOutboxEvent {
+  return { id: eventId, aggregateId: payment.id, eventType, payload };
+}
+
+export function approvedPaymentEvent(
+  payment: Payment,
+  occurredAt: Date,
+  eventId = randomUUID(),
+): NewOutboxEvent {
+  if (payment.status !== 'APPROVED') throw new DomainError('STATE_CONFLICT', 'Approval event requires an approved payment');
+  const eventType = 'payment.v1.approved';
+  return event(payment, eventType, basePayload(payment, eventId, eventType, occurredAt), eventId);
+}
+
+export function declinedPaymentEvent(
+  payment: Payment,
+  occurredAt: Date,
+  failureCode: Extract<PaymentFailureCode, 'INSUFFICIENT_FUNDS' | 'CARD_DECLINED' | 'SUSPECTED_FRAUD'>,
+  eventId = randomUUID(),
+): NewOutboxEvent {
+  if (payment.status !== 'DECLINED' || payment.failureCode !== failureCode) {
+    throw new DomainError('STATE_CONFLICT', 'Decline event must match the confirmed payment result');
+  }
+  const eventType = 'payment.v1.declined';
+  return event(payment, eventType, { ...basePayload(payment, eventId, eventType, occurredAt), failureCode }, eventId);
+}
+
+export function failedPaymentEvent(
+  payment: Payment,
+  occurredAt: Date,
+  eventId = randomUUID(),
+): NewOutboxEvent {
+  if (payment.status !== 'FAILED' || payment.failureCode !== 'GATEWAY_UNAVAILABLE') {
+    throw new DomainError('STATE_CONFLICT', 'Failure event requires confirmed non-dispatch evidence');
+  }
+  const eventType = 'payment.v1.failed';
+  return event(payment, eventType, {
+    ...basePayload(payment, eventId, eventType, occurredAt),
+    failureCode: 'GATEWAY_UNAVAILABLE',
+  }, eventId);
+}
+
+export function reviewRequiredPaymentEvent(
+  payment: Payment,
+  occurredAt: Date,
+  eventId = randomUUID(),
+): NewOutboxEvent {
+  if (payment.status !== 'REVIEW_REQUIRED' || payment.failureCode !== 'RECONCILIATION_EXHAUSTED') {
+    throw new DomainError('STATE_CONFLICT', 'Review event requires an exhausted uncertain payment reconciliation');
+  }
+  const eventType = 'payment.v1.review_required';
+  return event(payment, eventType, {
+    ...basePayload(payment, eventId, eventType, occurredAt),
+    reasonCode: 'RECONCILIATION_EXHAUSTED',
+  }, eventId);
+}
+
+export function refundedPaymentEvent(
+  payment: Payment,
+  refund: Refund,
+  occurredAt: Date,
+  eventId = randomUUID(),
+): NewOutboxEvent {
+  if (
+    refund.status !== 'COMPLETED' ||
+    (payment.status !== 'PARTIALLY_REFUNDED' && payment.status !== 'REFUNDED')
+  ) {
+    throw new DomainError('STATE_CONFLICT', 'Refund event requires a completed refund and updated payment');
+  }
+  const eventType = 'payment.v1.refunded';
+  return event(payment, eventType, {
+    ...basePayload(payment, eventId, eventType, occurredAt),
+    refundId: refund.id,
+    refundedAmountMinor: refund.amount.amountMinor,
+    totalRefundedAmountMinor: payment.refundedAmount.amountMinor,
+    reason: refund.reason,
+    paymentStatus: payment.status,
+  }, eventId);
+}
+
+export function refundFailedPaymentEvent(
+  payment: Payment,
+  refund: Refund,
+  occurredAt: Date,
+  eventId = randomUUID(),
+): NewOutboxEvent {
+  if (
+    refund.status !== 'FAILED' ||
+    (refund.failureCode !== 'CARD_DECLINED' && refund.failureCode !== 'GATEWAY_UNAVAILABLE') ||
+    (payment.status !== 'APPROVED' && payment.status !== 'PARTIALLY_REFUNDED')
+  ) {
+    throw new DomainError('STATE_CONFLICT', 'Refund failure event requires a definitive failed refund');
+  }
+  const eventType = 'payment.v1.refund_failed';
+  return event(payment, eventType, {
+    ...basePayload(payment, eventId, eventType, occurredAt),
+    refundId: refund.id,
+    reason: refund.reason,
+    failureCode: refund.failureCode,
+  }, eventId);
+}
+
+export function refundReviewRequiredPaymentEvent(
+  payment: Payment,
+  refund: Refund,
+  occurredAt: Date,
+  eventId = randomUUID(),
+): NewOutboxEvent {
+  if (refund.status !== 'REVIEW_REQUIRED' || refund.failureCode !== 'RECONCILIATION_EXHAUSTED') {
+    throw new DomainError('STATE_CONFLICT', 'Refund review event requires an exhausted uncertain refund reconciliation');
+  }
+  const eventType = 'payment.v1.refund_review_required';
+  return event(payment, eventType, {
+    ...basePayload(payment, eventId, eventType, occurredAt),
+    refundId: refund.id,
+    reasonCode: 'RECONCILIATION_EXHAUSTED',
+    refundAmountMinor: refund.amount.amountMinor,
+  }, eventId);
+}
