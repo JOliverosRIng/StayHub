@@ -55,6 +55,7 @@ jobs:
     env:
       TEST_AUTH_DATABASE_URL: postgresql://auth_test:auth_test@localhost:5432/auth_test?schema=public
       TEST_AUTH_REDIS_URL: redis://localhost:6379/15
+      AUTH_TEST_ALLOW_CLEANUP: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
