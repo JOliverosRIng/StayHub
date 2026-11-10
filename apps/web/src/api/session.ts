@@ -134,6 +134,22 @@ export class SessionStore {
     catch { this.publish({ status: 'anonymous', currentUser: null,
       logoutFailed: true, error: 'No pudimos completar el cierre en el servidor. Reintenta antes de cerrar el navegador.' }); }
   };
+  /** Current bearer for external HTTP clients; never persisted. */
+  accessToken = (): string | undefined => this.pair?.accessToken;
+  /**
+   * For external HTTP clients after a 401: renews once (deduplicated with other callers) and returns
+   * the new bearer. Refresh failure clears or marks the session exactly like `authorized`.
+   */
+  recoverFromUnauthorized = async (): Promise<string> => {
+    if (!this.pair) throw new ApiError(401);
+    const generation = this.generation;
+    try { await this.renew(true); }
+    catch (failure) { if (generation === this.generation) this.handleFailure(failure); throw failure; }
+    if (generation !== this.generation || !this.pair) throw new ApiError(401);
+    return this.pair.accessToken;
+  };
+  /** A request retried with a fresh bearer was still rejected: the session is no longer valid. */
+  expire = () => { if (this.pair) this.handleFailure(new ApiError(401)); };
   authorized = async <T,>(path: string, init?: RequestInit): Promise<T> => {
     if (!this.pair) throw new ApiError(401);
     const generation = this.generation;

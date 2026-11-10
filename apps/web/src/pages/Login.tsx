@@ -8,6 +8,8 @@ interface LoginProps {
   onSuccess: () => void;
   initialEmail?: string;
   registered?: boolean;
+  /** Context from a guarded route, e.g. why the user must sign in. */
+  notice?: string;
 }
 
 function validate(email: string, password: string) {
@@ -20,7 +22,7 @@ function validate(email: string, password: string) {
   return errs;
 }
 
-export function Login({ onNavigate, onSuccess, initialEmail = '', registered = false }: LoginProps) {
+export function Login({ onNavigate, onSuccess, initialEmail = '', registered = false, notice }: LoginProps) {
   const { login } = useAuth();
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
@@ -86,6 +88,7 @@ export function Login({ onNavigate, onSuccess, initialEmail = '', registered = f
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Te damos la bienvenida a StayHub</h1>
           <p className="text-sm text-gray-500 mb-8">Accede a tu cuenta para continuar explorando.</p>
 
+          {notice && <p role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</p>}
           {registered && <p role="status" className="mb-4 text-green-700">Cuenta creada. Inicia sesión para continuar.</p>}
           <form aria-busy={loading} className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
             {errors.general && (
