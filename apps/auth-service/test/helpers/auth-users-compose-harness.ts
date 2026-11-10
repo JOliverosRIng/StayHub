@@ -227,6 +227,7 @@ services:
   const up = compose(engine, [...base, 'up', '-d', '--build'], { cwd: REPO_ROOT, timeoutMs: 1_800_000 });
   if (up.status !== 0) {
     compose(engine, [...base, 'down', '-v', '--remove-orphans'], { cwd: REPO_ROOT, timeoutMs: 180_000 });
+    removeComposeImages(project);
     rmSync(directory, { recursive: true, force: true });
     throw new Error(`compose up falló:\n${up.stderr.slice(-4_000)}\n${up.stdout.slice(-2_000)}`);
   }
@@ -263,6 +264,7 @@ services:
     logs,
     dispose: (): Promise<void> => {
       compose(engine, [...base, 'down', '-v', '--remove-orphans'], { cwd: REPO_ROOT, timeoutMs: 180_000 });
+      removeComposeImages(project);
       rmSync(directory, { recursive: true, force: true });
       return Promise.resolve();
     },
