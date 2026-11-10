@@ -6,17 +6,18 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateReviewUseCase } from '@reviews/application/create-review/create-review.use-case';
 import { CreateReviewDto } from '@reviews/interfaces/http/dto/create-review.dto';
 import {
   UserAuthGuard,
   type UserAuthenticatedRequest,
 } from '@reviews/interfaces/http/guards/user-auth.guard';
+import { ApiCreateReviewContract } from '@reviews/interfaces/openapi/reviews.openapi';
 import { presentReview, type ReviewView } from './review.presenter';
 
 @ApiTags('reviews')
-@ApiBearerAuth()
+@ApiBearerAuth('userBearer')
 @Controller('internal/v1/reviews')
 @UseGuards(UserAuthGuard)
 export class ReviewsController {
@@ -24,7 +25,7 @@ export class ReviewsController {
 
   @Post()
   @ApiOperation({ operationId: 'createReview', summary: 'Create a review for a completed stay' })
-  @ApiCreatedResponse({ description: 'Review created for the authenticated guest.' })
+  @ApiCreateReviewContract()
   public async create(
     @Body() body: CreateReviewDto,
     @Req() request: UserAuthenticatedRequest & { traceId?: string },

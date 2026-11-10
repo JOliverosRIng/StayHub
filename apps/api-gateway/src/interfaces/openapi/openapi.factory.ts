@@ -99,6 +99,7 @@ export function buildPublicOpenApi(config: GatewayConfig): OpenAPIObject {
     .addServer(serverUrl)
     .addTag('Authentication', 'Public registration, session lifecycle and token validation.')
     .addTag('Profile', 'Authenticated profile reads, edits and photo download.')
+    .addTag('Reviews', 'Create and query property reviews through the API Gateway.')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'bearerAuth')
     .addApiKey({ type: 'apiKey', in: 'cookie', name: 'stayhub_refresh' }, 'refreshCookie')
     .build();

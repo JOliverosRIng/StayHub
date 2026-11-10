@@ -74,6 +74,77 @@ services:
       retries: 10
     restart: always
 
+  api-gateway:
+    build:
+      context: .
+      dockerfile: infra/docker/gateway/Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: production
+      GATEWAY_PORT: "8080"
+      GATEWAY_API_PREFIX: /api/v1
+      GATEWAY_TLS_CERT_FILE: /run/secrets/gateway_tls_cert
+      GATEWAY_TLS_KEY_FILE: /run/secrets/gateway_tls_key
+      GATEWAY_TLS_MIN_VERSION: ${GATEWAY_TLS_MIN_VERSION:-TLSv1.2}
+      GATEWAY_AUTH_BASE_URL: ${GATEWAY_AUTH_BASE_URL:-http://auth-service:3001}
+      GATEWAY_USERS_BASE_URL: ${GATEWAY_USERS_BASE_URL:-http://users-service:3002}
+      GATEWAY_REVIEWS_BASE_URL: ${GATEWAY_REVIEWS_BASE_URL:-http://reviews-service:3007}
+      GATEWAY_JWT_PUBLIC_KEYS_JSON: ${GATEWAY_JWT_PUBLIC_KEYS_JSON:?required}
+      GATEWAY_JWT_ISSUER: ${GATEWAY_JWT_ISSUER:?required}
+      GATEWAY_JWT_AUDIENCE: ${GATEWAY_JWT_AUDIENCE:?required}
+      GATEWAY_SERVICE_KID: ${GATEWAY_SERVICE_KID:?required}
+      GATEWAY_SERVICE_PRIVATE_KEY_FILE: /run/secrets/gateway_service_private_key
+      GATEWAY_SERVICE_ISSUER: ${GATEWAY_SERVICE_ISSUER:?required}
+      GATEWAY_SERVICE_AUDIENCE: ${GATEWAY_SERVICE_AUDIENCE:?required}
+      GATEWAY_SERVICE_SCOPE: ${GATEWAY_SERVICE_SCOPE:?required}
+      GATEWAY_SERVICE_TTL_SECONDS: ${GATEWAY_SERVICE_TTL_SECONDS:-60}
+      GATEWAY_REVIEWS_SERVICE_AUDIENCE: ${GATEWAY_REVIEWS_SERVICE_AUDIENCE:-stayhub-reviews-service}
+      GATEWAY_REVIEWS_SERVICE_SCOPE: ${GATEWAY_REVIEWS_SERVICE_SCOPE:-reviews:read}
+      GATEWAY_REDIS_URL: ${GATEWAY_REDIS_URL:?required}
+      GATEWAY_REDIS_PASSWORD_FILE: /run/secrets/gateway_redis_password
+      GATEWAY_REDIS_NAMESPACE: ${GATEWAY_REDIS_NAMESPACE:-gateway:edge}
+      GATEWAY_TRUSTED_PROXY_CIDRS: ${GATEWAY_TRUSTED_PROXY_CIDRS:-10.0.0.0/8,172.16.0.0/12}
+      GATEWAY_REGISTER_RATE_LIMIT: ${GATEWAY_REGISTER_RATE_LIMIT:-10}
+      GATEWAY_REGISTER_RATE_WINDOW_SECONDS: ${GATEWAY_REGISTER_RATE_WINDOW_SECONDS:-600}
+      GATEWAY_LOGIN_RATE_LIMIT: ${GATEWAY_LOGIN_RATE_LIMIT:-30}
+      GATEWAY_LOGIN_RATE_WINDOW_SECONDS: ${GATEWAY_LOGIN_RATE_WINDOW_SECONDS:-300}
+      GATEWAY_MAX_PHOTO_BYTES: ${GATEWAY_MAX_PHOTO_BYTES:-5000000}
+      GATEWAY_AUTH_TIMEOUT_MS: ${GATEWAY_AUTH_TIMEOUT_MS:-3000}
+      GATEWAY_AUTH_CIRCUIT_FAILURE_THRESHOLD: ${GATEWAY_AUTH_CIRCUIT_FAILURE_THRESHOLD:-5}
+      GATEWAY_AUTH_CIRCUIT_RESET_MS: ${GATEWAY_AUTH_CIRCUIT_RESET_MS:-30000}
+      GATEWAY_USERS_TIMEOUT_MS: ${GATEWAY_USERS_TIMEOUT_MS:-5000}
+      GATEWAY_USERS_CIRCUIT_FAILURE_THRESHOLD: ${GATEWAY_USERS_CIRCUIT_FAILURE_THRESHOLD:-5}
+      GATEWAY_USERS_CIRCUIT_RESET_MS: ${GATEWAY_USERS_CIRCUIT_RESET_MS:-30000}
+      GATEWAY_REVIEWS_TIMEOUT_MS: ${GATEWAY_REVIEWS_TIMEOUT_MS:-3000}
+      GATEWAY_REVIEWS_CIRCUIT_FAILURE_THRESHOLD: ${GATEWAY_REVIEWS_CIRCUIT_FAILURE_THRESHOLD:-5}
+      GATEWAY_REVIEWS_CIRCUIT_RESET_MS: ${GATEWAY_REVIEWS_CIRCUIT_RESET_MS:-30000}
+      GATEWAY_INTROSPECTION_TIMEOUT_MS: ${GATEWAY_INTROSPECTION_TIMEOUT_MS:-2000}
+      GATEWAY_OTEL_EXPORTER_OTLP_ENDPOINT: ${GATEWAY_OTEL_EXPORTER_OTLP_ENDPOINT:?required}
+      GATEWAY_OTEL_SERVICE_NAME: ${GATEWAY_OTEL_SERVICE_NAME:-stayhub-api-gateway}
+      GATEWAY_SWAGGER_SERVER_URL: ${GATEWAY_SWAGGER_SERVER_URL:-https://localhost:8080/api/v1}
+    secrets:
+      - gateway_tls_cert
+      - gateway_tls_key
+      - gateway_redis_password
+      - gateway_service_private_key
+    networks: [stayhub-internal, services]
+    ports: ["8080:8080"]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.env.NODE_TLS_REJECT_UNAUTHORIZED='0';fetch('https://127.0.0.1:8080/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      gateway-redis: { condition: service_healthy }
+      auth-service: { condition: service_healthy }
+      users-service: { condition: service_healthy }
+      reviews-service: { condition: service_healthy }
+
   users-db:
     image: postgres:16-bookworm
     environment:

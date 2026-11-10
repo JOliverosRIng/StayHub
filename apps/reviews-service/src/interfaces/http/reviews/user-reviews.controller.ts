@@ -7,7 +7,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { ListOwnReviewsUseCase } from '@reviews/application/list-user-reviews/list-own-reviews.use-case';
 import { ReviewPageDto } from '@reviews/interfaces/http/dto/review-page.dto';
 import {
@@ -15,10 +15,11 @@ import {
   type UserAuthenticatedRequest,
 } from '@reviews/interfaces/http/guards/user-auth.guard';
 import { assertUuid, parsePagination } from '@reviews/interfaces/http/http-params';
+import { ApiOwnReviewsContract } from '@reviews/interfaces/openapi/reviews.openapi';
 import { presentReviewPage } from './review.presenter';
 
 @ApiTags('reviews')
-@ApiBearerAuth()
+@ApiBearerAuth('userBearer')
 @Controller('internal/v1/reviews')
 @UseGuards(UserAuthGuard)
 export class UserReviewsController {
@@ -30,7 +31,7 @@ export class UserReviewsController {
     summary: 'List the authenticated user own reviews',
   })
   @ApiParam({ name: 'userId', required: true, schema: { type: 'string', format: 'uuid' } })
-  @ApiOkResponse({ description: 'Own review page ordered by createdAt DESC, id DESC', type: ReviewPageDto })
+  @ApiOwnReviewsContract()
   public async list(
     @Param('userId') userId: string,
     @Req() request: UserAuthenticatedRequest,

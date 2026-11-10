@@ -1,7 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import type { Request } from 'express';
 import { extractSingleBearer } from '@reviews/interfaces/http/auth/bearer-token';
-import { ClosedValidationPipe } from '@reviews/interfaces/http/validation.pipe';
+import {
+  ClosedValidationPipe,
+  mapValidationErrors,
+} from '@reviews/interfaces/http/validation.pipe';
 import { assertUuid, parsePagination } from '@reviews/interfaces/http/http-params';
 import { problemStatusFor } from '@reviews/interfaces/http/problem.filter';
 
@@ -14,6 +17,19 @@ describe('HTTP adapters', () => {
   });
   it('configures closed validation globally', () => {
     const pipe = new ClosedValidationPipe(); expect(pipe).toBeDefined(); expect(BadRequestException).toBeDefined();
+  });
+  it('maps class-validator failures to the closed Problem Details shape without values', () => {
+    const errors = mapValidationErrors([
+      {
+        property: 'comment',
+        value: 'private comment',
+        target: { comment: 'private comment' },
+        constraints: { isString: 'comment must be a string' },
+        children: [],
+      },
+    ]);
+    expect(errors).toEqual([{ field: 'comment', code: 'VALIDATION_IS_STRING' }]);
+    expect(JSON.stringify(errors)).not.toContain('private comment');
   });
   it('validates UUID and bounded integer pagination without coercing malformed values', () => {
     expect(assertUuid('00000000-0000-4000-8000-000000000001', 'id')).toContain('0000');

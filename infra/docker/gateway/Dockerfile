@@ -5,7 +5,11 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json nest-cli.json tsconfig.base.json ./
 COPY apps/api-gateway/package.json apps/api-gateway/package.json
-COPY apps/web/package.json apps/web/package.json
+COPY apps/auth-service/package.json apps/auth-service/package.json
+COPY apps/users-service/package.json apps/users-service/package.json
+COPY apps/search-service/package.json apps/search-service/package.json
+COPY apps/bookings-service/package.json apps/bookings-service/package.json
+COPY apps/reviews-service/package.json apps/reviews-service/package.json
 RUN npm ci
 
 FROM dependencies AS build

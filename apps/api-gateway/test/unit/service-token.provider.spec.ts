@@ -1,6 +1,9 @@
 import { decodeJwt, decodeProtectedHeader, importSPKI, jwtVerify } from 'jose';
 
-import { ServiceTokenProvider } from '@gateway/infrastructure/service-auth/service-token.provider';
+import {
+  ReviewsServiceTokenProvider,
+  ServiceTokenProvider,
+} from '@gateway/infrastructure/service-auth/service-token.provider';
 
 import { createTestGatewayConfig } from '../support/gateway-config-fixture';
 
@@ -104,5 +107,25 @@ describe('ServiceTokenProvider (GW-015)', () => {
     expect(payload.iss).not.toBe('https://auth.stayhub.internal');
     expect(payload.aud).not.toBe('stayhub-api');
     expect(payload.sub).toBe('api-gateway');
+  });
+});
+
+describe('ReviewsServiceTokenProvider', () => {
+  it('separa audience y scope de Reviews sin cambiar la identidad firmante del Gateway', async () => {
+    const { config, servicePublicKeyPem } = createTestGatewayConfig();
+    const token = await new ReviewsServiceTokenProvider(config).issue();
+    const verified = await jwtVerify(token, await importSPKI(servicePublicKeyPem, 'RS256'), {
+      algorithms: ['RS256'],
+      issuer: 'stayhub-api-gateway',
+      audience: 'stayhub-reviews-service',
+    });
+
+    expect(verified.payload.sub).toBe('api-gateway');
+    expect(verified.payload.scope).toBe('reviews:read');
+    await expect(
+      jwtVerify(token, await importSPKI(servicePublicKeyPem, 'RS256'), {
+        audience: 'stayhub-auth-service',
+      }),
+    ).rejects.toBeDefined();
   });
 });

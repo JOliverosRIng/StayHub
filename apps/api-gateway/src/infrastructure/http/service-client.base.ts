@@ -49,6 +49,8 @@ export interface ServiceClientOptions {
   readonly responseHeaderAllowlist?: readonly string[];
   /** Reintentos adicionales para operaciones reintentables (por defecto 2). */
   readonly maxRetries?: number;
+  /** Cabecera de correlación aceptada por el destino. */
+  readonly traceHeaderName?: 'x-trace-id' | 'x-request-id';
 }
 
 export interface ServiceClientDependencies {
@@ -93,6 +95,7 @@ const RESERVED_REQUEST_HEADERS: ReadonlySet<string> = new Set<string>([
   ...STRIPPED_REQUEST_HEADERS,
   'authorization',
   'x-trace-id',
+  'x-request-id',
   'content-type',
   'content-length',
   'idempotency-key',
@@ -187,7 +190,7 @@ export class ServiceClientBase {
     const token = await this.serviceToken.issue();
     const headers: Record<string, string> = {
       authorization: `Bearer ${token}`,
-      'x-trace-id': call.traceId,
+      [this.options.traceHeaderName ?? 'x-trace-id']: call.traceId,
       accept: 'application/json',
     };
 

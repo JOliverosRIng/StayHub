@@ -5,7 +5,8 @@ export class ReviewComment {
   public static create(value: unknown): ReviewComment {
     if (typeof value !== 'string') throw new DomainError('INVALID_COMMENT');
     const normalized = value.trim();
-    if (normalized.length < 1 || normalized.length > 2000) throw new DomainError('INVALID_COMMENT');
+    const unicodeLength = Array.from(normalized).length;
+    if (unicodeLength < 1 || unicodeLength > 2000) throw new DomainError('INVALID_COMMENT');
     return new ReviewComment(normalized);
   }
 }

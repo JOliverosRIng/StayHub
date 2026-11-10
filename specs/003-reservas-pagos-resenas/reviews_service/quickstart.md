@@ -1,6 +1,6 @@
 # Quickstart de validación: reviews-service
 
-Esta guía define evidencia esperada. No afirma que Reviews o Bookings estén implementados.
+Esta guía conserva los escenarios esperados y registra la evidencia ejecutada para Reviews y su integración con Bookings. La integración con API Gateway continúa pendiente.
 
 ## 1. Prerrequisitos
 
@@ -100,7 +100,7 @@ Comprobar live/ready, no-root, secretos por archivo, puerto interno 3007, filesy
 
 ## 11. Handoff con Bookings
 
-Antes de declarar integración real:
+La integración real exige:
 
 1. Bookings completa T079–T088.
 2. Se compara consumer contract con provider OpenAPI.
@@ -108,7 +108,7 @@ Antes de declarar integración real:
 4. Se valida scope/audience, true/false, 401/403/404/503 y no-disclosure.
 5. Se ejecuta E2E Bookings↔Reviews previsto por T098.
 
-Hasta entonces, reportar integración contra stub/contrato, no Sprint 3 end-to-end.
+Los cinco pasos se ejecutaron para T069 y su evidencia está registrada en la sección siguiente. Esto no completa T070 ni el cierre distribuido mediante API Gateway.
 
 ## 12. Evidencia ejecutada (2026-11-08)
 
@@ -122,7 +122,7 @@ Entorno: Node 22 (lockfile raíz), podman 5.8 y PostgreSQL 16-alpine efímero en
 | Cliente Prisma | `npm run prisma:reviews:generate` | exit 0 |
 | Migración | `npm run prisma:reviews:migrate:deploy` | `001_reviews_core` aplicada |
 | Estáticos | `npm run lint:reviews && npm run typecheck:reviews && npm run build:reviews` | exit 0 |
-| Unitarias | `npm run test:reviews:unit` | 45 aprobadas |
+| Unitarias | `npm run test:reviews:unit` | 47 aprobadas |
 | Contrato | `npm run test:reviews:contract` | 45 aprobadas |
 | Seguridad | `npm run test:reviews:security` | 18 aprobadas |
 | Integración | `npm run test:reviews:integration` | 22 aprobadas |
@@ -137,5 +137,11 @@ Entorno: Node 22 (lockfile raíz), podman 5.8 y PostgreSQL 16-alpine efímero en
 Evidencia **contra stub/PostgreSQL real**: creación, rechazos, concurrencia, consultas por
 propiedad e historial propio. La integración real Bookings↔Reviews (T069) se ejecutó con el
 handoff versionado, reserva `COMPLETED`, audience `stayhub-bookings-service` y scope
-`reviews:eligibility`, sin compartir bases. Gateway↔Reviews (T070) permanece bloqueada porque
-el API Gateway actual no implementa rutas ni cliente para Reviews.
+`reviews:eligibility`, sin compartir bases. Gateway↔Reviews ya cuenta con cliente, las tres rutas
+públicas, JWT de servicio específico, propagación de bearer/`x-request-id`, ownership y mapeo de
+Problem Details. Las pruebas del adaptador/routing aprobaron y el E2E
+`gateway-reviews-real.e2e-spec.ts` pasó con Gateway + Reviews reales y PostgreSQL 16 temporal en
+Docker; Auth y Bookings permanecieron como dobles contractuales por ser dependencias externas del
+flujo. T070 continúa abierta únicamente porque la tarea también exige un rate limit específico de
+Reviews y el spec aún no define una cuota. El paso a paso está en
+`docs/gateway-reviews-testing.md`.

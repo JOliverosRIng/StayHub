@@ -247,7 +247,9 @@ Todos: T045 checkpoint US1
 
 ## Notes
 
-- T001–T037 están completadas; T038–T074 permanecen `[ ]` hasta su implementación y verificación.
+- T001–T069 y T071–T074 están completadas; el routing y E2E Gateway↔Reviews ya aprobaron con ambos
+  servicios reales y PostgreSQL 16. T070 permanece `[ ]` solo porque exige rate limit y el spec no
+  define una cuota que pueda implementarse sin inventar un requisito.
 - `[P]` solo aparece cuando archivos y dependencias permiten ejecución independiente.
 - Cada tarea funcional contiene `[USn]` y ruta concreta.
 - No marcar T069/T070/T074 como evidencia real si se ejecutaron únicamente con stubs.

@@ -1,13 +1,14 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { ListPropertyReviewsUseCase } from '@reviews/application/list-property-reviews/list-property-reviews.use-case';
 import { ReviewPageDto } from '@reviews/interfaces/http/dto/review-page.dto';
 import { ServiceAuthGuard } from '@reviews/interfaces/http/guards/service-auth.guard';
 import { assertUuid, parsePagination } from '@reviews/interfaces/http/http-params';
+import { ApiPropertyReviewsContract } from '@reviews/interfaces/openapi/reviews.openapi';
 import { presentReviewPage } from './review.presenter';
 
 @ApiTags('reviews')
-@ApiBearerAuth()
+@ApiBearerAuth('serviceJwt')
 @Controller('internal/v1/properties')
 @UseGuards(ServiceAuthGuard)
 export class PropertyReviewsController {
@@ -19,7 +20,7 @@ export class PropertyReviewsController {
     summary: 'List public reviews of a property',
   })
   @ApiParam({ name: 'propertyId', required: true, schema: { type: 'string', format: 'uuid' } })
-  @ApiOkResponse({ description: 'Stable page ordered by createdAt DESC, id DESC', type: ReviewPageDto })
+  @ApiPropertyReviewsContract()
   public async list(
     @Param('propertyId') propertyId: string,
     @Query('page') page?: string,

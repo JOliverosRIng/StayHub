@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
+    "apps/api-gateway",
     "apps/auth-service",
     "apps/users-service",
     "apps/search-service",
@@ -13,6 +14,15 @@
     "node": ">=20 <21"
   },
   "scripts": {
+    "build:gateway": "npm run build --workspace @stayhub/api-gateway",
+    "lint:gateway": "npm run lint --workspace @stayhub/api-gateway",
+    "typecheck:gateway": "npm run typecheck --workspace @stayhub/api-gateway",
+    "test:gateway": "npm run test --workspace @stayhub/api-gateway",
+    "test:gateway:unit": "npm run test:unit --workspace @stayhub/api-gateway",
+    "test:gateway:integration": "npm run test:integration --workspace @stayhub/api-gateway",
+    "test:gateway:contract": "npm run test:contract --workspace @stayhub/api-gateway",
+    "test:gateway:security": "npm run test:security --workspace @stayhub/api-gateway",
+    "test:gateway:reviews:e2e": "npm run test:e2e --workspace @stayhub/api-gateway -- test/e2e/gateway-reviews-real.e2e-spec.ts",
     "build:auth": "npm run build --workspace @stayhub/auth-service",
     "lint:auth": "npm run lint --workspace @stayhub/auth-service",
     "typecheck:auth": "npm run typecheck --workspace @stayhub/auth-service",
@@ -85,10 +95,10 @@
   "test:reviews:coverage": "npm run test:coverage --workspace @stayhub/reviews-service",
   "prisma:reviews:generate": "npm run prisma:generate --workspace @stayhub/reviews-service",
     "prisma:reviews:migrate:deploy": "npm run prisma:migrate:deploy --workspace @stayhub/reviews-service",
-    "build": "npm run build:auth && npm run build:users && npm run build:search && npm run build:bookings && npm run build:reviews",
-    "lint": "npm run lint:auth && npm run lint:users && npm run lint:search && npm run lint:bookings && npm run lint:reviews",
-    "typecheck": "npm run typecheck:auth && npm run typecheck:users && npm run typecheck:search && npm run typecheck:bookings && npm run typecheck:reviews",
-    "test": "npm run test:auth && npm run test:users && npm run test:search && npm run test:bookings && npm run test:reviews"
+    "build": "npm run build:gateway && npm run build:auth && npm run build:users && npm run build:search && npm run build:bookings && npm run build:reviews",
+    "lint": "npm run lint:gateway && npm run lint:auth && npm run lint:users && npm run lint:search && npm run lint:bookings && npm run lint:reviews",
+    "typecheck": "npm run typecheck:gateway && npm run typecheck:auth && npm run typecheck:users && npm run typecheck:search && npm run typecheck:bookings && npm run typecheck:reviews",
+    "test": "npm run test:gateway && npm run test:auth && npm run test:users && npm run test:search && npm run test:bookings && npm run test:reviews"
   },
   "devDependencies": {
     "eslint-plugin-react-hooks": "^5.2.0",

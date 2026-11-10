@@ -9,6 +9,6 @@ export class ServiceJwtVerifier {
   public verify(token: string): Promise<AuthenticatedPrincipal> {
     const scope = this.config.gatewayJwt.scope;
     if (!scope) throw new Error('Gateway JWT scope is not configured');
-    return verifyJwt(token, this.config.gatewayJwt, { requireScope: scope });
+    return verifyJwt(token, this.config.gatewayJwt, { requireScope: scope, subjectKind: 'service' });
   }
 }

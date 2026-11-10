@@ -21,7 +21,7 @@ describe('Reviews JWT security', () => {
     };
   });
 
-  const sign = async (claims: Record<string, unknown>, issuer = 'stayhub-auth', audience = 'stayhub-api', kid = 'key'): Promise<string> => new SignJWT(claims).setProtectedHeader({ alg: 'RS256', kid }).setIssuer(issuer).setAudience(audience).setSubject(SUBJECT).setIssuedAt().setExpirationTime('5m').sign(privateKey);
+  const sign = async (claims: Record<string, unknown>, issuer = 'stayhub-auth', audience = 'stayhub-api', kid = 'key', subject = SUBJECT): Promise<string> => new SignJWT(claims).setProtectedHeader({ alg: 'RS256', kid }).setIssuer(issuer).setAudience(audience).setSubject(subject).setIssuedAt().setExpirationTime('5m').sign(privateKey);
 
   it('accepts a complete RS256 user principal', async () => {
     const token = await sign({ role: 'GUEST', sid: SESSION, jti: JTI }); await expect(new UserJwtVerifier(config).verify(token)).resolves.toMatchObject({ sub: SUBJECT, role: 'GUEST', sid: SESSION, jti: JTI });
@@ -42,9 +42,10 @@ describe('Reviews JWT security', () => {
     await expect(new UserJwtVerifier(config).verify('eyJhbGciOiJIUzI1NiIsImtpZCI6ImtleSJ9.e30.invalid')).rejects.toThrow('Unsupported token header');
   });
   it('requires the Gateway scope with its own issuer and audience', async () => {
-    const valid = await sign({ scope: 'reviews:read' }, 'stayhub-gateway', 'stayhub-reviews-service');
-    await expect(new ServiceJwtVerifier(config).verify(valid)).resolves.toMatchObject({ sub: SUBJECT, scopes: ['reviews:read'] });
-    const wrong = await sign({ scope: 'bookings:invoke' }, 'stayhub-gateway', 'stayhub-reviews-service'); await expect(new ServiceJwtVerifier(config).verify(wrong)).rejects.toThrow();
+    const valid = await sign({ scope: 'reviews:read' }, 'stayhub-gateway', 'stayhub-reviews-service', 'key', 'api-gateway');
+    await expect(new ServiceJwtVerifier(config).verify(valid)).resolves.toMatchObject({ sub: 'api-gateway', scopes: ['reviews:read'] });
+    const wrong = await sign({ scope: 'bookings:invoke' }, 'stayhub-gateway', 'stayhub-reviews-service', 'key', 'api-gateway'); await expect(new ServiceJwtVerifier(config).verify(wrong)).rejects.toThrow();
+    const unsafeSubject = await sign({ scope: 'reviews:read' }, 'stayhub-gateway', 'stayhub-reviews-service', 'key', '../gateway'); await expect(new ServiceJwtVerifier(config).verify(unsafeSubject)).rejects.toThrow();
   });
   it('rejects duplicate or spoofed Authorization headers before verification', () => {
     const duplicate = { rawHeaders: ['Authorization', 'Bearer a', 'Authorization', 'Bearer b'], headers: { authorization: 'Bearer a, Bearer b' } } as Request;

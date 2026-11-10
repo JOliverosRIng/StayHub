@@ -5,6 +5,7 @@ export const alias = {
   '^@gateway/infrastructure/(.*)$': '<rootDir>/src/infrastructure/$1',
   '^@gateway/interfaces/(.*)$': '<rootDir>/src/interfaces/$1',
   '^@gateway/modules/(.*)$': '<rootDir>/src/modules/$1',
+  '^@reviews/(.*)$': '<rootDir>/../reviews-service/src/$1',
 };
 
 const project = (name: string): Config => ({

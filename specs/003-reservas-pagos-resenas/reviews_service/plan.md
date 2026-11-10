@@ -11,10 +11,13 @@ Implementar `reviews-service` como microservicio NestJS en el puerto interno 300
 
 ## Implementation Progress
 
-- **Corte implementado**: T001–T068, T071–T073 (71/74): Setup, Foundation, US1–US3, Compose/CI, validador de contratos, performance, hardening, E2E aislado, shutdown y documentación operativa.
-- **Validación verde del corte implementado**: lint, typecheck, build, 45 unitarias, 45 de contrato, 18 de seguridad, 22 de integración, 1 de concurrencia, 2 de performance y 2 de E2E aislado; cobertura 89.73 % statements.
+- **Corte implementado**: T001–T069 y T071–T074 (73/74): Setup, Foundation, US1–US3, Compose/CI, contratos, performance, hardening, E2E aislado, integración real con Bookings, shutdown y auditoría.
+- **Validación verde del corte implementado**: lint, typecheck, build, 47 unitarias, 45 de contrato, 18 de seguridad, 22 de integración, 1 de concurrencia, 2 de performance y 2 de E2E aislado; cobertura histórica del gate completo 89.73 % statements.
 - **Estado TDD de US1–US3**: verde con Bookings stub y PostgreSQL real (podman); los tests placeholder T031–T037 se reescribieron como aserciones de comportamiento.
-- **Límite de evidencia**: T069 (E2E real Bookings↔Reviews), T070 (Gateway↔Reviews) y T074 (cierre del reporte) quedan pendientes de ejecución con colaboradores reales; los harnesses existen pero se omiten sin variables de entorno. `validation-report.md` permanece como plantilla.
+- **Límite de evidencia**: el E2E Gateway↔Reviews aprobó con ambos servicios NestJS reales y
+  PostgreSQL 16 temporal; Auth/Bookings fueron dobles contractuales por ser dependencias externas.
+  T070 permanece pendiente solo por la cuota de rate limit todavía no definida. T069 y T074 cuentan
+  con evidencia registrada en `validation-report.md`.
 
 ## Technical Context
 
@@ -174,7 +177,9 @@ Contrato fuente: `contracts/openapi-reviews-service.yaml`.
 | GET | `/internal/v1/properties/:propertyId/reviews` | Gateway | Listar reseñas públicas. |
 | GET | `/internal/v1/reviews/user/:userId` | Usuario propio | Listar reseñas propias. |
 
-Gateway conserva las rutas de `tendencias.md`: `POST /reviews`, `GET /properties/:id/reviews`, `GET /reviews/user/:id`, normalmente bajo `/api/v1`. El routing es dependencia externa.
+Gateway conserva las rutas de `tendencias.md`: `POST /reviews`, `GET /properties/:id/reviews`,
+`GET /reviews/user/:id`, bajo `/api/v1`. El routing está implementado; su ejecución con Reviews
+real sigue siendo el gate externo de T070.
 
 Consumer contract: `contracts/openapi-bookings-review-eligibility-consumer.yaml`. Antes de integrar se congelan audience/scope, `eligible=false` frente a 404, 403/503, schemas cerrados y fixture T081/T088.
 

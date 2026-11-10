@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
 import Ajv2020 from 'ajv/dist/2020';
 import addFormats from 'ajv-formats';
 import SwaggerParser from '@apidevtools/swagger-parser';
@@ -18,10 +18,26 @@ import { PropertyReviewsController } from '@reviews/interfaces/http/reviews/prop
 import { presentReview, presentReviewPage } from '@reviews/interfaces/http/reviews/review.presenter';
 import { ReviewsController } from '@reviews/interfaces/http/reviews/reviews.controller';
 import { UserReviewsController } from '@reviews/interfaces/http/reviews/user-reviews.controller';
+import { buildReviewsOpenApiConfig } from '@reviews/interfaces/openapi/reviews.openapi';
 
 interface DereferencedApi {
   paths?: Record<string, Record<string, { operationId?: string; responses?: Record<string, unknown> }>>;
   components?: { schemas?: Record<string, object> };
+}
+
+interface GeneratedOperation {
+  responses?: Record<string, { content?: Record<string, { schema?: Record<string, unknown> }> }>;
+  requestBody?: { content?: Record<string, { schema?: Record<string, unknown> }> };
+  security?: Array<Record<string, string[]>>;
+}
+
+function generatedOperation(
+  app: INestApplication,
+  path: string,
+  method: 'get' | 'post',
+): GeneratedOperation {
+  const document = SwaggerModule.createDocument(app, buildReviewsOpenApiConfig());
+  return document.paths?.[path]?.[method] as unknown as GeneratedOperation;
 }
 
 const contractPath = resolve(
@@ -74,19 +90,23 @@ describe('reviews OpenAPI drift', () => {
   });
 
   it('exposes the implemented create route in generated Swagger', () => {
-    const document = SwaggerModule.createDocument(
-      app,
-      new DocumentBuilder()
-        .setTitle('StayHub Reviews Service')
-        .setVersion('1.0.0')
-        .addBearerAuth()
-        .build(),
-    );
-
-    const operation = document.paths?.['/internal/v1/reviews']?.post;
+    const operation = generatedOperation(app, '/internal/v1/reviews', 'post');
     expect(operation).toBeDefined();
-    expect(operation?.operationId).toBe('createReview');
-    expect(operation?.responses?.['201']).toBeDefined();
+    expect(Object.keys(operation.responses ?? {}).sort()).toEqual(
+      ['201', '400', '401', '403', '404', '409', '503'].sort(),
+    );
+    expect(operation.security).toContainEqual({ userBearer: [] });
+    expect(operation.requestBody?.content?.['application/json']?.schema).toMatchObject({
+      additionalProperties: false,
+      required: expect.arrayContaining(['bookingId', 'rating', 'comment']),
+    });
+    expect(operation.responses?.['201']?.content?.['application/json']?.schema).toMatchObject({
+      additionalProperties: false,
+      required: expect.arrayContaining(['id', 'propertyId', 'rating', 'comment', 'createdAt']),
+    });
+    expect(
+      operation.responses?.['400']?.content?.['application/problem+json']?.schema,
+    ).toMatchObject({ additionalProperties: false, required: expect.arrayContaining(['errors']) });
   });
 
   it('validates the presenter response against the Review schema', async () => {
@@ -120,19 +140,18 @@ describe('reviews OpenAPI drift', () => {
   });
 
   it('exposes the implemented property listing route in generated Swagger', () => {
-    const document = SwaggerModule.createDocument(
+    const operation = generatedOperation(
       app,
-      new DocumentBuilder()
-        .setTitle('StayHub Reviews Service')
-        .setVersion('1.0.0')
-        .addBearerAuth()
-        .build(),
+      '/internal/v1/properties/{propertyId}/reviews',
+      'get',
     );
-
-    const operation = document.paths?.['/internal/v1/properties/{propertyId}/reviews']?.get;
     expect(operation).toBeDefined();
-    expect(operation?.operationId).toBe('listPropertyReviews');
-    expect(operation?.responses?.['200']).toBeDefined();
+    expect(Object.keys(operation.responses ?? {}).sort()).toEqual(['200', '400', '401', '403']);
+    expect(operation.security).toContainEqual({ serviceJwt: [] });
+    expect(operation.responses?.['200']?.content?.['application/json']?.schema).toMatchObject({
+      additionalProperties: false,
+      required: expect.arrayContaining(['items', 'page', 'pageSize', 'total', 'totalPages']),
+    });
   });
 
   it('validates the page presenter response against the ReviewPage schema', async () => {
@@ -166,18 +185,13 @@ describe('reviews OpenAPI drift', () => {
   });
 
   it('exposes the implemented own history route in generated Swagger', () => {
-    const document = SwaggerModule.createDocument(
-      app,
-      new DocumentBuilder()
-        .setTitle('StayHub Reviews Service')
-        .setVersion('1.0.0')
-        .addBearerAuth()
-        .build(),
-    );
-
-    const operation = document.paths?.['/internal/v1/reviews/user/{userId}']?.get;
+    const operation = generatedOperation(app, '/internal/v1/reviews/user/{userId}', 'get');
     expect(operation).toBeDefined();
-    expect(operation?.operationId).toBe('listOwnReviews');
-    expect(operation?.responses?.['200']).toBeDefined();
+    expect(Object.keys(operation.responses ?? {}).sort()).toEqual(['200', '400', '401', '403']);
+    expect(operation.security).toContainEqual({ userBearer: [] });
+    expect(operation.responses?.['200']?.content?.['application/json']?.schema).toMatchObject({
+      additionalProperties: false,
+      required: expect.arrayContaining(['items', 'page', 'pageSize', 'total', 'totalPages']),
+    });
   });
 });

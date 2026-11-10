@@ -130,6 +130,12 @@ describe('POST /internal/v1/reviews contract', () => {
       .expect(400);
 
     expect(response.body).toMatchObject({ status: 400 });
+    expect(Array.isArray(response.body.errors)).toBe(true);
+    for (const error of response.body.errors as Array<Record<string, unknown>>) {
+      expect(Object.keys(error).sort()).toEqual(['code', 'field']);
+    }
+    expect(JSON.stringify(response.body.errors)).not.toContain('target');
+    expect(JSON.stringify(response.body.errors)).not.toContain('value');
     expect(create).not.toHaveBeenCalled();
   });
 
