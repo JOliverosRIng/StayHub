@@ -31,7 +31,7 @@ describe('Cross-service recovery Auth<->Users (task-07)', () => {
   beforeAll(async () => {
     harness = await provisionAuthUsersHarness({
       usersFaultProxy: true,
-      authEnv: { AUTH_RECONCILER_INTERVAL_SECONDS: '3600' },
+      authEnv: { AUTH_RECONCILER_INTERVAL_SECONDS: '3600', AUTH_USERS_TIMEOUT_MS: '1000' },
     });
   }, 900_000);
 
@@ -158,6 +158,35 @@ describe('Cross-service recovery Auth<->Users (task-07)', () => {
       expect(credentialStatus(h(), key)).toBe('ACTIVE');
       expect((await login(h(), body.email)).status).toBe(200);
     });
+  });
+
+  describe('INT-14b literal client timeout against real Users', () => {
+    it('an unresponsive Users response makes Auth abort and answer a safe 503, then the retry converges', async () => {
+      proxy().inject({ method: 'POST', path: CREATE, mode: 'hang', times: 2 });
+      const key = randomUUID();
+      const body = registerBody('int14-timeout');
+
+      const first = await register(h(), body, key);
+      expect(first.status).toBe(503);
+      expect(first.body).toMatchObject({ status: 503, code: 'DEPENDENCY_UNAVAILABLE' });
+
+      // Las dos peticiones idempotentes llegaron a Users (201) pero Auth abortó por timeout.
+      const hangs = proxy().hits().filter((hit) => hit.fault === 'hang');
+      expect(hangs).toHaveLength(2);
+      expect(hangs.map((hit) => hit.upstreamStatus)).toEqual([201, 201]);
+
+      // La escritura remota existió, pero Auth no la confirmó: estado reanudable.
+      expect(usersRows(key)).toBe(1);
+      expect(usersStatus(h(), key)).toBe('PENDING');
+      expect(registrationState(h(), key)).toBe('STARTED');
+
+      const retry = await register(h(), body, key);
+      expect(retry.status).toBe(201);
+      expect(usersRows(key)).toBe(1);
+      expect(usersStatus(h(), key)).toBe('ACTIVE');
+      expect(registrationState(h(), key)).toBe('COMPLETED');
+      expect((await login(h(), body.email)).status).toBe(200);
+    }, 60_000);
   });
 
   it('leaves no ACTIVE identity with a revoked or missing credential', () => {

@@ -150,7 +150,7 @@ describe('session validation HTTP contract (AUTH-051)', () => {
 
       const response = await postValidate(app(), payload, { token });
 
-      expectProblem(response, 'VALIDATION_FAILED', 400);
+      expectProblem(response, 'VALIDATION_ERROR', 400);
       expect(execute).not.toHaveBeenCalled();
     });
   });
@@ -201,7 +201,7 @@ describe('session validation HTTP contract (AUTH-051)', () => {
 
       const response = await postValidate(app(), validBody());
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 
@@ -221,7 +221,7 @@ describe('session validation HTTP contract (AUTH-051)', () => {
 
       const response = await postValidate(app(), validBody(), { token });
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 
@@ -238,7 +238,7 @@ describe('session validation HTTP contract (AUTH-051)', () => {
 
       const response = await postValidate(app(), validBody(), { token });
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
   });

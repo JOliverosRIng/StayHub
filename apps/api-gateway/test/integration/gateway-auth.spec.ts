@@ -140,7 +140,7 @@ describeReal('Integración real Gateway ↔ Auth (GW-058)', () => {
     expect(JSON.stringify(loggedIn.json)).not.toContain('refreshToken');
 
     // El rol proviene de Auth (autoritativo) y el Gateway lo respeta en /validate.
-    const principal = loggedIn.json['principal'] as Record<string, unknown> | undefined;
+    const principal = loggedIn.json['user'] as Record<string, unknown> | undefined;
     const accessToken = loggedIn.json['accessToken'] as string;
     const validated = await call(config, 'GET', `${prefix}/auth/validate`, {
       headers: { authorization: `Bearer ${accessToken}` },

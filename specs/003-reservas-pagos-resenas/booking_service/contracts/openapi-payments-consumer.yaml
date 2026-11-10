@@ -1,0 +1,88 @@
+openapi: 3.1.0
+info:
+  title: Payments API consumed by Bookings
+  version: 1.0.0
+  description: Contrato consumer propuesto; Payments conserva autoridad financiera.
+servers:
+  - url: http://payments-service:3006
+paths:
+  /internal/v1/payment-orders:
+    post:
+      operationId: createPaymentOrder
+      security: [ { serviceJwt: [] } ]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 16, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [bookingId, guestId, amount, currency]
+              properties:
+                bookingId: { type: string, format: uuid }
+                guestId: { type: string, format: uuid }
+                amount: { type: string, pattern: '^\d{1,10}(\.\d{2})$' }
+                currency: { type: string, pattern: '^[A-Z]{3}$' }
+      responses:
+        '201':
+          description: Orden creada idempotentemente.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [paymentOrderId, status]
+                properties:
+                  paymentOrderId: { type: string, format: uuid }
+                  status: { enum: [PENDING] }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/refunds:
+    post:
+      operationId: requestRefund
+      security: [ { serviceJwt: [] } ]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 16, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [bookingId, paymentOrderId, mode]
+              properties:
+                bookingId: { type: string, format: uuid }
+                paymentOrderId: { type: string, format: uuid }
+                mode: { enum: [POLICY, FULL] }
+                policyVersion: { type: string, maxLength: 80 }
+      responses:
+        '202': { description: Solicitud aceptada idempotentemente. }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    serviceJwt: { type: http, scheme: bearer, bearerFormat: JWT RS256 }
+  responses:
+    Problem:
+      description: Problem Details remoto.
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            required: [status, code, traceId]
+            properties:
+              status: { type: integer }
+              code: { type: string }
+              traceId: { type: string }

@@ -74,6 +74,78 @@ services:
       retries: 10
     restart: always
 
+  api-gateway:
+    build:
+      context: .
+      dockerfile: infra/docker/gateway/Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: production
+      GATEWAY_PROTOCOL: https
+      GATEWAY_PORT: "8080"
+      GATEWAY_API_PREFIX: /api/v1
+      GATEWAY_TLS_CERT_FILE: /run/secrets/gateway_tls_cert
+      GATEWAY_TLS_KEY_FILE: /run/secrets/gateway_tls_key
+      GATEWAY_TLS_MIN_VERSION: ${GATEWAY_TLS_MIN_VERSION:-TLSv1.2}
+      GATEWAY_AUTH_BASE_URL: ${GATEWAY_AUTH_BASE_URL:-http://auth-service:3001}
+      GATEWAY_USERS_BASE_URL: ${GATEWAY_USERS_BASE_URL:-http://users-service:3002}
+      GATEWAY_REVIEWS_BASE_URL: ${GATEWAY_REVIEWS_BASE_URL:-http://reviews-service:3007}
+      GATEWAY_JWT_PUBLIC_KEYS_JSON: ${GATEWAY_JWT_PUBLIC_KEYS_JSON:?required}
+      GATEWAY_JWT_ISSUER: ${GATEWAY_JWT_ISSUER:?required}
+      GATEWAY_JWT_AUDIENCE: ${GATEWAY_JWT_AUDIENCE:?required}
+      GATEWAY_SERVICE_KID: ${GATEWAY_SERVICE_KID:?required}
+      GATEWAY_SERVICE_PRIVATE_KEY_FILE: /run/secrets/gateway_service_private_key
+      GATEWAY_SERVICE_ISSUER: ${GATEWAY_SERVICE_ISSUER:?required}
+      GATEWAY_SERVICE_AUDIENCE: ${GATEWAY_SERVICE_AUDIENCE:?required}
+      GATEWAY_SERVICE_SCOPE: ${GATEWAY_SERVICE_SCOPE:?required}
+      GATEWAY_SERVICE_TTL_SECONDS: ${GATEWAY_SERVICE_TTL_SECONDS:-60}
+      GATEWAY_REVIEWS_SERVICE_AUDIENCE: ${GATEWAY_REVIEWS_SERVICE_AUDIENCE:-stayhub-reviews-service}
+      GATEWAY_REVIEWS_SERVICE_SCOPE: ${GATEWAY_REVIEWS_SERVICE_SCOPE:-reviews:read}
+      GATEWAY_REDIS_URL: ${GATEWAY_REDIS_URL:?required}
+      GATEWAY_REDIS_PASSWORD_FILE: /run/secrets/gateway_redis_password
+      GATEWAY_REDIS_NAMESPACE: ${GATEWAY_REDIS_NAMESPACE:-gateway:edge}
+      GATEWAY_TRUSTED_PROXY_CIDRS: ${GATEWAY_TRUSTED_PROXY_CIDRS:-10.0.0.0/8,172.16.0.0/12}
+      GATEWAY_REGISTER_RATE_LIMIT: ${GATEWAY_REGISTER_RATE_LIMIT:-10}
+      GATEWAY_REGISTER_RATE_WINDOW_SECONDS: ${GATEWAY_REGISTER_RATE_WINDOW_SECONDS:-600}
+      GATEWAY_LOGIN_RATE_LIMIT: ${GATEWAY_LOGIN_RATE_LIMIT:-30}
+      GATEWAY_LOGIN_RATE_WINDOW_SECONDS: ${GATEWAY_LOGIN_RATE_WINDOW_SECONDS:-300}
+      GATEWAY_MAX_PHOTO_BYTES: ${GATEWAY_MAX_PHOTO_BYTES:-5000000}
+      GATEWAY_AUTH_TIMEOUT_MS: ${GATEWAY_AUTH_TIMEOUT_MS:-3000}
+      GATEWAY_AUTH_CIRCUIT_FAILURE_THRESHOLD: ${GATEWAY_AUTH_CIRCUIT_FAILURE_THRESHOLD:-5}
+      GATEWAY_AUTH_CIRCUIT_RESET_MS: ${GATEWAY_AUTH_CIRCUIT_RESET_MS:-30000}
+      GATEWAY_USERS_TIMEOUT_MS: ${GATEWAY_USERS_TIMEOUT_MS:-5000}
+      GATEWAY_USERS_CIRCUIT_FAILURE_THRESHOLD: ${GATEWAY_USERS_CIRCUIT_FAILURE_THRESHOLD:-5}
+      GATEWAY_USERS_CIRCUIT_RESET_MS: ${GATEWAY_USERS_CIRCUIT_RESET_MS:-30000}
+      GATEWAY_REVIEWS_TIMEOUT_MS: ${GATEWAY_REVIEWS_TIMEOUT_MS:-3000}
+      GATEWAY_REVIEWS_CIRCUIT_FAILURE_THRESHOLD: ${GATEWAY_REVIEWS_CIRCUIT_FAILURE_THRESHOLD:-5}
+      GATEWAY_REVIEWS_CIRCUIT_RESET_MS: ${GATEWAY_REVIEWS_CIRCUIT_RESET_MS:-30000}
+      GATEWAY_INTROSPECTION_TIMEOUT_MS: ${GATEWAY_INTROSPECTION_TIMEOUT_MS:-2000}
+      GATEWAY_OTEL_EXPORTER_OTLP_ENDPOINT: ${GATEWAY_OTEL_EXPORTER_OTLP_ENDPOINT:?required}
+      GATEWAY_OTEL_SERVICE_NAME: ${GATEWAY_OTEL_SERVICE_NAME:-stayhub-api-gateway}
+      GATEWAY_SWAGGER_SERVER_URL: ${GATEWAY_SWAGGER_SERVER_URL:-https://localhost:8080/api/v1}
+    secrets:
+      - gateway_tls_cert
+      - gateway_tls_key
+      - gateway_redis_password
+      - gateway_service_private_key
+    networks: [stayhub-edge, stayhub-internal, services]
+    ports: ["8080:8080"]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: always
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.env.NODE_TLS_REJECT_UNAUTHORIZED='0';fetch('https://127.0.0.1:8080/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      gateway-redis: { condition: service_healthy }
+      auth-service: { condition: service_healthy }
+      users-service: { condition: service_healthy }
+      reviews-service: { condition: service_healthy }
+
   users-db:
     image: postgres:16-bookworm
     environment:
@@ -134,37 +206,6 @@ services:
       retries: 10
     depends_on:
       users-migrate: { condition: service_completed_successfully }
-
-  api-gateway:
-    build:
-      context: .
-      dockerfile: infra/docker/gateway/Dockerfile
-      target: runtime
-    environment:
-      NODE_ENV: production
-      GATEWAY_PROTOCOL: https
-    env_file: ${GATEWAY_ENV_FILE:-.env}
-    secrets:
-      - gateway_tls_cert
-      - gateway_tls_key
-      - gateway_redis_password
-      - gateway_service_private_key
-    networks: [stayhub-edge, stayhub-internal, services]
-    ports:
-      - "8080:8080"
-    depends_on:
-      gateway-redis:
-        condition: service_healthy
-      auth-service:
-        condition: service_healthy
-      users-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "node", "-e", "process.env.NODE_TLS_REJECT_UNAUTHORIZED='0';fetch('https://127.0.0.1:8080/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    restart: always
 
   search-db:
     image: postgis/postgis:16-3.4
@@ -265,6 +306,161 @@ services:
       search-redis: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
 
+  bookings-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: bookings_db
+      POSTGRES_USER: stayhub_bookings
+      POSTGRES_PASSWORD_FILE: /run/secrets/bookings_db_password
+    secrets: [bookings_db_password]
+    volumes: [bookings_data:/var/lib/postgresql/data]
+    networks: [bookings-internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stayhub_bookings -d bookings_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  bookings-rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: stayhub_bookings
+      RABBITMQ_DEFAULT_PASS: ${BOOKINGS_RABBITMQ_PASSWORD:?required}
+      RABBITMQ_DEFAULT_VHOST: /bookings
+    networks: [bookings-internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  bookings-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/bookings/Dockerfile
+      target: migration
+    environment:
+      BOOKINGS_DATABASE_URL_FILE: /run/secrets/bookings_database_url
+    secrets: [bookings_database_url]
+    networks: [bookings-internal]
+    restart: "no"
+    depends_on:
+      bookings-db: { condition: service_healthy }
+
+  bookings-service:
+    build:
+      context: .
+      dockerfile: infra/docker/bookings/Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: production
+      BOOKINGS_PORT: "3005"
+      BOOKINGS_DATABASE_URL_FILE: /run/secrets/bookings_database_url
+      BOOKINGS_SERVICE_JWT_PUBLIC_KEYS_JSON: ${BOOKINGS_SERVICE_JWT_PUBLIC_KEYS_JSON:?required}
+      BOOKINGS_SERVICE_JWT_ISSUER: ${BOOKINGS_SERVICE_JWT_ISSUER:?required}
+      BOOKINGS_SERVICE_JWT_AUDIENCE: ${BOOKINGS_SERVICE_JWT_AUDIENCE:?required}
+      BOOKINGS_SERVICE_JWT_SCOPE: ${BOOKINGS_SERVICE_JWT_SCOPE:-bookings:invoke}
+      BOOKINGS_REVIEWS_JWT_SCOPE: ${BOOKINGS_REVIEWS_JWT_SCOPE:-reviews:eligibility}
+      BOOKINGS_REVIEWS_JWT_AUDIENCE: ${BOOKINGS_REVIEWS_JWT_AUDIENCE:-stayhub-bookings-service}
+      BOOKINGS_ACCOMMODATIONS_URL: ${BOOKINGS_ACCOMMODATIONS_URL:?required}
+      BOOKINGS_PAYMENTS_URL: ${BOOKINGS_PAYMENTS_URL:?required}
+      BOOKINGS_DEPENDENCY_TIMEOUT_MS: ${BOOKINGS_DEPENDENCY_TIMEOUT_MS:-3000}
+      BOOKINGS_PAYMENT_HOLD_MINUTES: ${BOOKINGS_PAYMENT_HOLD_MINUTES:?required}
+      BOOKINGS_CANCELLATION_POLICY_VERSION: ${BOOKINGS_CANCELLATION_POLICY_VERSION:?required}
+      BOOKINGS_CANCELLATION_POLICY_JSON: ${BOOKINGS_CANCELLATION_POLICY_JSON:?required}
+      BOOKINGS_RABBITMQ_URL_FILE: /run/secrets/bookings_rabbitmq_url
+      BOOKINGS_RABBITMQ_EXCHANGE: ${BOOKINGS_RABBITMQ_EXCHANGE:-stayhub.bookings.v1}
+      BOOKINGS_RABBITMQ_QUEUE: ${BOOKINGS_RABBITMQ_QUEUE:-stayhub.bookings.payment-events.v1}
+      BOOKINGS_RABBITMQ_DLQ: ${BOOKINGS_RABBITMQ_DLQ:-stayhub.bookings.payment-events.v1.dlq}
+      BOOKINGS_RABBITMQ_PREFETCH: ${BOOKINGS_RABBITMQ_PREFETCH:-10}
+      BOOKINGS_RABBITMQ_MAX_RETRIES: ${BOOKINGS_RABBITMQ_MAX_RETRIES:-3}
+      BOOKINGS_SHUTDOWN_GRACE_MS: ${BOOKINGS_SHUTDOWN_GRACE_MS:-10000}
+      BOOKINGS_LOG_LEVEL: ${BOOKINGS_LOG_LEVEL:-info}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:?required}
+    secrets: [bookings_database_url, bookings_rabbitmq_url]
+    networks: [bookings-internal, services]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: always
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3005/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      bookings-migrate: { condition: service_completed_successfully }
+      bookings-rabbitmq: { condition: service_healthy }
+
+  reviews-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: reviews_db
+      POSTGRES_USER: stayhub_reviews
+      POSTGRES_PASSWORD_FILE: /run/secrets/reviews_db_password
+    secrets: [reviews_db_password]
+    volumes: [reviews_data:/var/lib/postgresql/data]
+    networks: [reviews-internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stayhub_reviews -d reviews_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  reviews-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/reviews/Dockerfile
+      target: migration
+    environment:
+      REVIEWS_DATABASE_URL_FILE: /run/secrets/reviews_database_url
+    secrets: [reviews_database_url]
+    networks: [reviews-internal]
+    restart: "no"
+    depends_on:
+      reviews-db: { condition: service_healthy }
+
+  reviews-service:
+    build:
+      context: .
+      dockerfile: infra/docker/reviews/Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: production
+      REVIEWS_PORT: "3007"
+      REVIEWS_DATABASE_URL_FILE: /run/secrets/reviews_database_url
+      REVIEWS_USER_JWT_PUBLIC_KEYS_JSON: ${REVIEWS_USER_JWT_PUBLIC_KEYS_JSON:?required}
+      REVIEWS_USER_JWT_ISSUER: ${REVIEWS_USER_JWT_ISSUER:?required}
+      REVIEWS_USER_JWT_AUDIENCE: ${REVIEWS_USER_JWT_AUDIENCE:?required}
+      REVIEWS_GATEWAY_JWT_PUBLIC_KEYS_JSON: ${REVIEWS_GATEWAY_JWT_PUBLIC_KEYS_JSON:?required}
+      REVIEWS_GATEWAY_JWT_ISSUER: ${REVIEWS_GATEWAY_JWT_ISSUER:?required}
+      REVIEWS_GATEWAY_JWT_AUDIENCE: ${REVIEWS_GATEWAY_JWT_AUDIENCE:?required}
+      REVIEWS_GATEWAY_JWT_SCOPE: ${REVIEWS_GATEWAY_JWT_SCOPE:-reviews:read}
+      REVIEWS_BOOKINGS_BASE_URL: ${REVIEWS_BOOKINGS_BASE_URL:-http://bookings-service:3005}
+      REVIEWS_BOOKINGS_TIMEOUT_MS: ${REVIEWS_BOOKINGS_TIMEOUT_MS:-1500}
+      REVIEWS_BOOKINGS_SERVICE_TOKEN_FILE: /run/secrets/reviews_bookings_service_token
+      REVIEWS_SHUTDOWN_GRACE_MS: ${REVIEWS_SHUTDOWN_GRACE_MS:-10000}
+      REVIEWS_LOG_LEVEL: ${REVIEWS_LOG_LEVEL:-info}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:?required}
+    secrets: [reviews_database_url, reviews_bookings_service_token]
+    networks: [reviews-internal, services]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3007/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      reviews-migrate: { condition: service_completed_successfully }
+
   payments-db:
     image: postgres:16-bookworm
     environment:
@@ -348,11 +544,17 @@ networks:
     internal: true
   services:
     internal: true
+  bookings-internal:
+    internal: true
+  reviews-internal:
+    internal: true
 
 volumes:
   auth-db-data:
   users_data:
   search_db_data:
+  bookings_data:
+  reviews_data:
   payments_db_data:
 
 secrets:
@@ -372,6 +574,19 @@ secrets:
     file: ${USERS_JWT_PUBLIC_KEY_FILE:?required}
   users_service_public:
     file: ${USERS_SERVICE_JWT_PUBLIC_KEY_FILE:?required}
+  bookings_db_password:
+    file: ${BOOKINGS_DB_PASSWORD_FILE:?required}
+  bookings_database_url:
+    file: ${BOOKINGS_DATABASE_URL_FILE:?required}
+  bookings_rabbitmq_url:
+    file: ${BOOKINGS_RABBITMQ_URL_FILE:?required}
+  reviews_db_password:
+    file: ${REVIEWS_DB_PASSWORD_FILE:?required}
+  reviews_database_url:
+    file: ${REVIEWS_DATABASE_URL_FILE:?required}
+  reviews_bookings_service_token:
+    file: ${REVIEWS_BOOKINGS_SERVICE_TOKEN_FILE:?required}
+
   payments_db_password:
     file: ${PAYMENTS_DB_PASSWORD_FILE:?required}
   payments_database_url:

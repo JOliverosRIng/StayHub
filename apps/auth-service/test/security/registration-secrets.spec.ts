@@ -195,7 +195,7 @@ describe('registration secrets (AUTH-033)', () => {
 
     const conflict = await request(serverOf(app)).get('/boom/conflict');
     expect(conflict.status).toBe(409);
-    expect(conflict.body).toMatchObject({ status: 409, code: 'REGISTRATION_CONFLICT' });
+    expect(conflict.body).toMatchObject({ status: 409, code: 'EMAIL_ALREADY_REGISTERED' });
   });
 
   it('preserves the traceId when a guard rejects before the controller', async () => {

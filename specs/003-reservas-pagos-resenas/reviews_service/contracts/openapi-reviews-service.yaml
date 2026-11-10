@@ -1,0 +1,139 @@
+openapi: 3.1.0
+info:
+  title: StayHub Reviews Service API
+  version: 1.0.0
+  description: API interna detrás del Gateway para crear y consultar reseñas verificadas.
+servers:
+  - url: http://reviews-service:3007
+paths:
+  /internal/v1/reviews:
+    post:
+      operationId: createReview
+      summary: Crear reseña de una estadía completada
+      security: [{ userBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateReview' }
+      responses:
+        '201':
+          description: Reseña creada.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Review' } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/properties/{propertyId}/reviews:
+    get:
+      operationId: listPropertyReviews
+      summary: Listar reseñas públicas de una propiedad
+      security: [{ serviceJwt: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PropertyId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página ordenada por createdAt DESC, id DESC.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ReviewPage' } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /internal/v1/reviews/user/{userId}:
+    get:
+      operationId: listOwnReviews
+      summary: Listar reseñas del usuario autenticado
+      security: [{ userBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de reseñas propias.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ReviewPage' } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    userBearer: { type: http, scheme: bearer, bearerFormat: JWT RS256 }
+    serviceJwt: { type: http, scheme: bearer, bearerFormat: JWT RS256 }
+  parameters:
+    PropertyId:
+      name: propertyId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+  responses:
+    Problem:
+      description: Problem Details seguro con código estable y traceId.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    CreateReview:
+      type: object
+      additionalProperties: false
+      required: [bookingId, rating, comment]
+      properties:
+        bookingId: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string, minLength: 1, maxLength: 2000 }
+    Review:
+      type: object
+      additionalProperties: false
+      required: [id, propertyId, rating, comment, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        propertyId: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string, minLength: 1, maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+    ReviewPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Review' } }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, detail, instance, code, traceId, errors]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        detail: { type: string }
+        instance: { type: string }
+        code: { type: string }
+        traceId: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, code]
+            properties:
+              field: { type: string }
+              code: { type: string }

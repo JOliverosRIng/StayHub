@@ -1,0 +1,58 @@
+services:
+  reviews-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: reviews_db
+      POSTGRES_USER: reviews
+      POSTGRES_PASSWORD_FILE: /run/secrets/reviews_db_password
+    secrets: [reviews_db_password]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reviews -d reviews_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [reviews-internal]
+
+  reviews-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/reviews/Dockerfile
+      target: migration
+    environment:
+      REVIEWS_DATABASE_URL_FILE: /run/secrets/reviews_database_url
+    secrets: [reviews_database_url]
+    depends_on:
+      reviews-db: { condition: service_healthy }
+    networks: [reviews-internal]
+
+  reviews-service:
+    build:
+      context: .
+      dockerfile: infra/docker/reviews/Dockerfile
+      target: runtime
+    env_file: apps/reviews-service/.env.example
+    environment:
+      REVIEWS_DATABASE_URL_FILE: /run/secrets/reviews_database_url
+    secrets: [reviews_database_url, reviews_bookings_service_token]
+    depends_on:
+      reviews-migrate: { condition: service_completed_successfully }
+    read_only: true
+    tmpfs: [/tmp]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3007/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [reviews-internal]
+
+secrets:
+  reviews_db_password:
+    file: ./secrets/reviews_db_password.txt
+  reviews_database_url:
+    file: ./secrets/reviews_database_url.txt
+  reviews_bookings_service_token:
+    file: ./secrets/reviews_bookings_service_token.txt
+
+networks:
+  reviews-internal:
+    internal: true

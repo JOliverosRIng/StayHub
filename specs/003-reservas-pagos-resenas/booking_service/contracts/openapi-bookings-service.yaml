@@ -1,0 +1,222 @@
+openapi: 3.1.0
+info:
+  title: StayHub Bookings Service API
+  version: 1.0.0
+  description: API interna detrás del Gateway. Bookings es autoridad de disponibilidad transaccional.
+servers:
+  - url: http://bookings-service:3005
+security:
+  - serviceJwt: []
+paths:
+  /bookings:
+    post:
+      operationId: createBooking
+      summary: Crear reserva y hold de pago
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateBooking' }
+      responses:
+        '201':
+          description: Reserva creada en PENDING_PAYMENT.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /bookings/history:
+    get:
+      operationId: getOwnerBookingHistory
+      summary: Consultar reservas recibidas por el propietario
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/BookingStatus' } }
+        - { name: guestId, in: query, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Página ordenada por createdAt DESC, id DESC.
+          content: { application/json: { schema: { $ref: '#/components/schemas/BookingPage' } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /bookings/{bookingId}:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    get:
+      operationId: getBooking
+      summary: Consultar una reserva autorizada
+      responses:
+        '200':
+          description: Reserva propia o recibida.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: cancelBooking
+      summary: Cancelar como huésped o propietario
+      requestBody:
+        required: false
+        description: "reason es obligatorio cuando el actor es OWNER."
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '200':
+          description: Reserva cancelada; el reembolso puede quedar pendiente.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /bookings/{bookingId}/check-in:
+    post:
+      operationId: checkInBooking
+      summary: Registrar check-in básico
+      parameters: [ { $ref: '#/components/parameters/BookingId' } ]
+      responses:
+        '200': { description: Check-in registrado, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /bookings/{bookingId}/check-out:
+    post:
+      operationId: checkOutBooking
+      summary: Registrar check-out y completar estadía
+      parameters: [ { $ref: '#/components/parameters/BookingId' } ]
+      responses:
+        '200': { description: Estadía completada, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /internal/v1/bookings/{bookingId}/review-eligibility:
+    get:
+      operationId: getReviewEligibility
+      summary: Validar que un huésped completó la estadía
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+        - { name: guestId, in: query, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Resultado autoritativo para Reviews.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [bookingId, guestId, propertyId, eligible]
+                properties:
+                  bookingId: { type: string, format: uuid }
+                  guestId: { type: string, format: uuid }
+                  propertyId: { type: string, format: uuid }
+                  eligible: { type: boolean }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    serviceJwt: { type: http, scheme: bearer, bearerFormat: JWT RS256 }
+  parameters:
+    BookingId:
+      name: bookingId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 16, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
+  responses:
+    Problem:
+      description: Problem Details seguro con traceId.
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+  schemas:
+    CreateBooking:
+      type: object
+      additionalProperties: false
+      required: [propertyId, roomId, checkIn, checkOut, guests]
+      properties:
+        propertyId: { type: string, format: uuid }
+        roomId: { type: string, format: uuid }
+        checkIn: { type: string, format: date, description: Inicio inclusivo. }
+        checkOut: { type: string, format: date, description: Fin exclusivo. }
+        guests: { type: integer, minimum: 1 }
+    BookingStatus:
+      type: string
+      enum: [PENDING_PAYMENT, CONFIRMED, CHECKED_IN, COMPLETED, PAYMENT_FAILED, EXPIRED, CANCELLED_BY_GUEST, CANCELLED_BY_OWNER]
+    PaymentStatus:
+      type: string
+      enum: [NOT_STARTED, ORDER_PENDING, PENDING, CAPTURED, FAILED, REFUND_PENDING, PARTIALLY_REFUNDED, REFUNDED]
+    Money:
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: { type: string, pattern: '^\d{1,10}(\.\d{2})$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+    Booking:
+      type: object
+      required: [id, guestId, propertyId, roomId, propertyName, roomName, checkIn, checkOut, guests, nights, nightlyPrice, total, status, paymentStatus, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        guestId: { type: string, format: uuid }
+        ownerId: { type: string, format: uuid, description: Solo se expone al OWNER correspondiente. }
+        propertyId: { type: string, format: uuid }
+        roomId: { type: string, format: uuid }
+        propertyName: { type: string, maxLength: 120 }
+        roomName: { type: string, maxLength: 120 }
+        checkIn: { type: string, format: date }
+        checkOut: { type: string, format: date }
+        guests: { type: integer, minimum: 1 }
+        nights: { type: integer, minimum: 1 }
+        nightlyPrice: { $ref: '#/components/schemas/Money' }
+        total: { $ref: '#/components/schemas/Money' }
+        status: { $ref: '#/components/schemas/BookingStatus' }
+        paymentStatus: { $ref: '#/components/schemas/PaymentStatus' }
+        paymentOrderId: { type: [string, 'null'], format: uuid }
+        holdExpiresAt: { type: [string, 'null'], format: date-time }
+        cancellationReason: { type: [string, 'null'], maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    BookingPage:
+      type: object
+      required: [items, page, pageSize, total, hasNext]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Booking' } }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        hasNext: { type: boolean }
+    Problem:
+      type: object
+      required: [type, title, status, detail, instance, code, traceId, errors]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        code:
+          type: string
+          enum: [VALIDATION_ERROR, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BOOKING_CONFLICT, IDEMPOTENCY_CONFLICT, STATE_CONFLICT, CANCELLATION_NOT_ALLOWED, DEPENDENCY_UNAVAILABLE, UNAVAILABLE]
+        traceId: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            required: [field, code]
+            properties:
+              field: { type: string }
+              code: { type: string }

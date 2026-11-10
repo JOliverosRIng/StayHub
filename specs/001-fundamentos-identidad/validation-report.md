@@ -272,10 +272,10 @@ reales o Compose y se tratan en los pendientes externos, no como verdes.
 
 | Tarea | Estado | Motivo |
 |---|---|---|
-| AUTH-076 | PARCIAL | La parte Auth↔Users está acreditada contra Users real, pero falta la aprobación contractual de G2 y el timeout literal contra Users real |
-| AUTH-079 | PARCIAL | La saga y la reconciliación están acreditadas con procesos Node y bases en contenedor; falta Compose real y timeout contra Users real |
-| AUTH-078 | BLOQUEADA | No existe `test/contract/gateway.provider.spec.ts`; requiere que G1 congele `openapi-public.yaml` y sus expectativas de consumidor |
-| AUTH-081 | BLOQUEADA | No existe `test/integration/gateway-auth.spec.ts`; requiere routing, cookie segura y cliente Auth reales de G1 |
+| AUTH-076 | COMPLETADA | 9 suites / 39 pruebas de `test:auth-users` verdes contra Users real (incluye timeout literal INT-14b). Ver «Sincronización Auth ↔ Gateway…» (2026-11-10) |
+| AUTH-079 | COMPLETADA | Registro + recuperación tras timeout ejecutados **en Compose** (`auth-users-compose.spec.ts`, `network_mode: host`): 2 pruebas verdes |
+| AUTH-078 | COMPLETADA (provider local) | `test/contract/gateway.provider.spec.ts` verde contra el pacto GW-056 y códigos alineados; ver «Sincronización Auth ↔ Gateway» (2026-11-10) |
+| AUTH-081 | COMPLETADA | Integración real Gateway↔Auth auto-hospedada: 3 pruebas verdes (flujo público, 401 y 429). Ver «AUTH-081 — integración G1↔Auth» |
 | CI remota | NO EJECUTADA | Los cambios están sin commitear y no se hizo push; la corrección del job se validó localmente |
 
 ## Límites de esta evidencia
@@ -289,3 +289,73 @@ reales o Compose y se tratan en los pendientes externos, no como verdes.
 - El ajuste de `dev-env-generator.spec.ts` es exclusivamente de prueba: en Windows
   no es posible verificar bits de permiso POSIX, y el generador sigue aplicando
   `chmod 0o600` en plataformas que lo soportan.
+
+---
+
+# Sincronización Auth ↔ Gateway y timeout literal Auth↔Users (2026-11-10)
+
+## Alineación de códigos Problem Details con el consumidor G1
+
+Se alinearon los `code` que emite Auth con la expectativa congelada por el Gateway (GW-056/pact):
+
+| Caso | Antes | Ahora |
+|---|---|---|
+| 400 validación | `VALIDATION_FAILED` | `VALIDATION_ERROR` |
+| 401 service JWT | `HTTP_401` | `SERVICE_UNAUTHORIZED` |
+| 401 refresh | `REFRESH_TOKEN_INVALID` | `REFRESH_REJECTED` |
+| 409 registro | `REGISTRATION_CONFLICT` | `EMAIL_ALREADY_REGISTERED` |
+| 429 login | `LOGIN_RATE_LIMITED` | `RATE_LIMITED` |
+
+`INVALID_CREDENTIALS`, `SESSION_INVALID`, `DEPENDENCY_UNAVAILABLE`, `IDEMPOTENCY_CONFLICT` y
+`REGISTRATION_CANCELLED` no cambian.
+
+## AUTH-078 — provider contra el pacto GW-056
+
+- `apps/auth-service/test/contract/gateway.provider.spec.ts`: 18 pruebas verdes sobre las cuatro
+  operaciones internas, statuses 200/201/400/401/409/429/503, `Problem` + `traceId`, service JWT,
+  `Idempotency-Key` y `Retry-After`. Corre en `test:contract` (retirado de `crossServicePatterns`).
+- Comandos ejecutados desde la raíz:
+  - `npm run test:auth:contract` → exit 0, 8 suites / 160 pruebas.
+  - `npm run test:auth:security` → exit 0, 4 suites / 66 pruebas.
+  - `npm run openapi:auth:check` → exit 0, 11 comprobaciones.
+  - `npm run test:contract -w @stayhub/api-gateway` → exit 0, 11 suites (2 skipped).
+
+## AUTH-081 — integración G1↔Auth
+
+- `apps/auth-service/test/integration/gateway-auth.spec.ts`: variante externa aislada por entorno
+  (`CROSS_SERVICE_PROVIDERS=true` + `CROSS_SERVICE_GATEWAY_URL`) para stacks ya desplegados.
+- `apps/auth-service/test/integration/gateway-auth-selfhosted.spec.ts`: variante auto-hospedada que
+  levanta Auth+Users reales (harness), un Redis de borde y el API Gateway real (`dist`) y ejecuta
+  registro→login→validate→refresh→logout, cookie `HttpOnly`/`SameSite=Strict`/path, rotación, 401 y 429.
+- **Ejecutado** el 2026-11-10:
+  `AUTH_USERS_TEST_HOST_NETWORK=true AUTH_GATEWAY_E2E_SELF_HOSTED=true npx jest --config jest.auth-users.config.ts`
+  → 3 pruebas verdes. El 503 fail-closed se cubre en GW-058.
+
+## AUTH-076 / AUTH-079 — timeout literal Auth↔Users
+
+- `users-fault-proxy.ts` incorpora el modo `hang`: reenvía a Users real y nunca responde, forzando
+  el aborto del cliente por `AUTH_USERS_TIMEOUT_MS`.
+- `cross-service-recovery.spec.ts` añade INT-14b con `AUTH_USERS_TIMEOUT_MS=1000`: dos timeouts
+  idempotentes → 503 `DEPENDENCY_UNAVAILABLE`, identidad remota `PENDING`, estado reanudable y
+  reintento con la misma `Idempotency-Key` que converge a `COMPLETED`.
+- **Ejecutado** con `AUTH_USERS_TEST_HOST_NETWORK=true` (fallback para Docker rootless: los
+  contenedores de PostgreSQL/Redis usan `--network host` y escuchan en un puerto libre del host,
+  de modo que Prisma y los procesos `node dist` conectan por `127.0.0.1`). Resultado real:
+  `npx jest --config jest.auth-users.config.ts --runInBand` → **9 suites / 39 pruebas verdes**,
+  incluidas `cross-service-{registration,login,profile,recovery,reconciliation,restart}`,
+  `users-registration.consumer`, `users-login-identity.consumer` y `auth-users-smoke`.
+- **Ejecutado en Compose** con `test/integration/auth-users-compose.spec.ts` (Auth+Users reales,
+  PostgreSQL/Redis desechables, `network_mode: host` y puertos fijos 3001/3002): registro completo
+  por Auth con login OK, y recuperación tras timeout (Users pausado → 503 `DEPENDENCY_UNAVAILABLE`;
+  `unpause` + reintento con la misma `Idempotency-Key` → 201 y login OK) sin consultar `users_db`.
+  Evidencia 2026-11-10: `AUTH_079_COMPOSE=true npx jest --config jest.auth-users.config.ts`
+  → **2 pruebas verdes**.
+
+## Estado de tareas tras la sincronización
+
+- `AUTH-078`: `[X]` (provider local ejecutado).
+- `AUTH-076`: `[X]` (acreditada por las 9 suites Auth↔Users, incluido el timeout literal).
+- `AUTH-081`: `[X]` (integración real Gateway↔Auth auto-hospedada, 3 pruebas verdes).
+- `AUTH-079`: `[X]` (registro + recuperación en Compose, 2 pruebas verdes).
+- `specs/001-fundamentos-identidad/tasks.md`: bloque AUTH resincronizado con el sub-backlog
+  (84/84 marcadas; antes 43/84).

@@ -9,6 +9,7 @@ import { TraceInterceptor } from '@gateway/interfaces/http/trace.interceptor';
 import { GatewayValidationPipe } from '@gateway/interfaces/http/validation.pipe';
 import { GatewayAuthModule } from '@gateway/modules/auth/gateway-auth.module';
 import { HealthModule } from '@gateway/modules/health/health.module';
+import { ReviewsProxyModule } from '@gateway/modules/reviews/reviews-proxy.module';
 import { UsersProxyModule } from '@gateway/modules/users/users-proxy.module';
 
 /**
@@ -22,7 +23,14 @@ import { UsersProxyModule } from '@gateway/modules/users/users-proxy.module';
  * cliente y luego se establece/propaga el `traceId`.
  */
 @Module({
-  imports: [GatewayConfigModule, GatewayRedisModule, GatewayAuthModule, HealthModule, UsersProxyModule],
+  imports: [
+    GatewayConfigModule,
+    GatewayRedisModule,
+    GatewayAuthModule,
+    HealthModule,
+    UsersProxyModule,
+    ReviewsProxyModule,
+  ],
   providers: [
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
     { provide: APP_PIPE, useClass: GatewayValidationPipe },

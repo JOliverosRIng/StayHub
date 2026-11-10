@@ -52,6 +52,36 @@
         ]
       }
     },
+    "bookings-service": {
+      "type": "application",
+      "root": "apps/bookings-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/bookings-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/bookings-service/tsconfig.build.json",
+        "assets": [
+          {
+            "include": "infrastructure/persistence/generated/client/**/*",
+            "outDir": "dist/apps/bookings-service"
+          }
+        ]
+      }
+    },
+    "reviews-service": {
+      "type": "application",
+      "root": "apps/reviews-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/reviews-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/reviews-service/tsconfig.build.json",
+        "assets": [
+          {
+            "include": "infrastructure/persistence/generated/client/**/*",
+            "outDir": "dist/apps/reviews-service"
+          }
+        ]
+      }
+    },
     "payments-service": {
       "type": "application",
       "root": "apps/payments-service",

@@ -49,6 +49,19 @@ export default tseslint.config(
     },
   },
   {
+    files: ['apps/bookings-service/**/*.ts'],
+    languageOptions: { parserOptions: { project: './apps/bookings-service/tsconfig.json', tsconfigRootDir: import.meta.dirname } },
+    rules: { '@typescript-eslint/explicit-function-return-type': 'error', '@typescript-eslint/no-explicit-any': 'error' },
+  },
+  {
+    files: ['apps/bookings-service/src/domain/**/*.ts', 'apps/bookings-service/src/application/**/*.ts'],
+    rules: { 'no-restricted-imports': ['error', { patterns: [{ group: ['@nestjs/*', '@prisma/*', '.prisma/*', 'prisma'], message: 'bookings core cannot depend on NestJS or Prisma.' }, { group: ['@bookings/infrastructure/*', '@bookings/interfaces/*', '@bookings/modules/*'], message: 'bookings core cannot depend on outer layers.' }] }] },
+  },
+  {
+    files: ['apps/bookings-service/test/**/*.ts'],
+    rules: { '@typescript-eslint/explicit-function-return-type': 'off', '@typescript-eslint/no-unsafe-assignment': 'off', '@typescript-eslint/no-unsafe-call': 'off', '@typescript-eslint/no-unsafe-member-access': 'off', '@typescript-eslint/require-await': 'off' },
+  },
+  {
     files: [
       'apps/search-service/src/domain/**/*.ts',
       'apps/search-service/src/application/**/*.ts',

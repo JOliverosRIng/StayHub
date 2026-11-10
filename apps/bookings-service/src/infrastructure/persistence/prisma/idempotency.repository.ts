@@ -1,0 +1,2 @@
+import { Injectable } from '@nestjs/common'; import { PrismaService } from './prisma.service'; import type { IdempotencyRecord } from '../generated/client';
+@Injectable() export class IdempotencyRepository { public constructor(private readonly prisma:PrismaService){} public find(guestId:string,key:string):Promise<IdempotencyRecord|null>{return this.prisma.idempotencyRecord.findUnique({where:{guestId_key:{guestId,key}}});} }

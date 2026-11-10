@@ -1,0 +1,69 @@
+openapi: 3.1.0
+info:
+  title: StayHub Reviews to Bookings Eligibility Contract
+  version: 1.0.0
+  description: Contrato consumidor mínimo; Bookings permanece como provider y autoridad.
+servers:
+  - url: http://bookings-service:3005
+paths:
+  /internal/v1/bookings/{bookingId}/review-eligibility:
+    get:
+      operationId: getReviewEligibility
+      summary: Validar que el huésped completó la estadía
+      security: [{ reviewsServiceJwt: [] }]
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: guestId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Resultado autoritativo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewEligibility' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    reviewsServiceJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT RS256
+      description: Service JWT de Reviews con audience Bookings y scope exclusivo de elegibilidad.
+  responses:
+    Problem:
+      description: Problem Details sin información de reservas ajenas.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    ReviewEligibility:
+      type: object
+      additionalProperties: false
+      required: [bookingId, guestId, propertyId, eligible]
+      properties:
+        bookingId: { type: string, format: uuid }
+        guestId: { type: string, format: uuid }
+        propertyId: { type: string, format: uuid }
+        eligible: { type: boolean }
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, detail, instance, code, traceId, errors]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        detail: { type: string }
+        instance: { type: string }
+        code: { type: string }
+        traceId: { type: string }
+        errors: { type: array, items: { type: object } }

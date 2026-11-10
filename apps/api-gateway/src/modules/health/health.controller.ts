@@ -13,7 +13,7 @@ import { Public } from '@gateway/modules/auth/public.decorator';
  *
  * - `/health/live`: informa que el proceso está vivo; no consulta dependencias (Plan §7).
  * - `/health/ready`: exige configuración esencial, material TLS legible, Redis de borde
- *   disponible (GW-014) y destinos Auth/Users resolubles; falla cerrado con 503 si algo falta.
+ *   disponible (GW-014) y destinos Auth/Users/Reviews resolubles; falla cerrado con 503 si algo falta.
  *
  * Ambas rutas viven en la raíz, fuera del prefijo `/api/v1`; la exclusión la aplica el
  * bootstrap (GW-010) reutilizando {@link HEALTH_PREFIX_EXCLUDE}.
@@ -105,17 +105,22 @@ export class HealthController {
   }
 
   private hasEssentialConfig(): boolean {
-    const { tls, authBaseUrl, usersBaseUrl, redis } = this.config;
+    const { tls, authBaseUrl, usersBaseUrl, reviewsBaseUrl, redis } = this.config;
     return (
       (!tls || (nonEmpty(tls.certFile) && nonEmpty(tls.keyFile))) &&
       nonEmpty(authBaseUrl) &&
       nonEmpty(usersBaseUrl) &&
+      nonEmpty(reviewsBaseUrl) &&
       nonEmpty(redis.url)
     );
   }
 
   private async destinationsResolvable(): Promise<boolean> {
-    const hosts = [hostOf(this.config.authBaseUrl), hostOf(this.config.usersBaseUrl)];
+    const hosts = [
+      hostOf(this.config.authBaseUrl),
+      hostOf(this.config.usersBaseUrl),
+      hostOf(this.config.reviewsBaseUrl),
+    ];
     if (hosts.some((host) => host === undefined)) return false;
     const resolved = await Promise.all(
       hosts.map((host) => this.resolver.resolves(host as string)),

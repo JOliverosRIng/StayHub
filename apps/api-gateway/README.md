@@ -1,4 +1,4 @@
-# API Gateway — StayHub (Grupo 1)
+# API Gateway — StayHub
 
 Unico punto de entrada publico del Sprint 1. En desarrollo sirve HTTP en el puerto **8080** con
 prefijo `/api/v1`; en produccion sirve HTTPS/TLS. No expone ningun otro puerto. No posee dominio
@@ -6,15 +6,26 @@ de negocio: no almacena datos, no hashea contrasenas, no emite tokens y no modif
 
 ## Alcance
 
-- Sirve HTTP en desarrollo y termina TLS en produccion; enruta las siete operaciones publicas
-  hacia `auth-service` o `users-service`.
+- Sirve HTTP en desarrollo y termina TLS en produccion; enruta las operaciones de identidad hacia
+  `auth-service`/`users-service` y las tres operaciones de reseñas hacia `reviews-service`.
 - Elimina toda cabecera de identidad, forwarding o service-auth aportada por el cliente antes
   de rutear. Solo propaga el bearer validado, el `traceId` y las cabeceras de la allowlist.
 - Valida el access JWT (RS256) e introspecta `sid` en Auth. Si Auth no responde, falla cerrado
   con `503`.
 - Aplica los limites antiabuso de borde en su Redis propio: 10 registros por origen cada
   10 minutos y 30 intentos de login por origen cada 5 minutos. Redis caido produce `503`.
-- Mapea los errores de Auth y Users a Problem Details sin convertir un error remoto en exito.
+- Mapea los errores de Auth, Users y Reviews a Problem Details sin convertir un error remoto en exito.
+
+## Integración con Reviews (Sprint 3)
+
+| Ruta pública | Destino interno | Credencial saliente |
+|---|---|---|
+| `POST /api/v1/reviews` | `POST /internal/v1/reviews` | bearer del usuario validado (`GUEST`) |
+| `GET /api/v1/properties/:propertyId/reviews` | `GET /internal/v1/properties/:propertyId/reviews` | JWT de servicio, audience Reviews y scope `reviews:read` |
+| `GET /api/v1/reviews/user/:userId` | `GET /internal/v1/reviews/user/:userId` | bearer del usuario validado, con ownership previo en Gateway |
+
+El Gateway no crea ni consulta reseñas directamente. Solo valida borde, enruta, propaga
+`x-request-id` hacia Reviews y conserva respuestas/errores contractuales.
 
 Estructura de capas (Constitucion II). El Gateway **no tiene `domain/`** porque no posee
 dominio de negocio:
@@ -68,15 +79,15 @@ Puntos que no son negociables:
 | Red | Uso |
 |---|---|
 | `stayhub-internal` | auth-db, auth-redis, auth-migrate, auth-service, gateway-redis, api-gateway |
-| `stayhub-edge` | api-gateway, unica superficie con puerto publicado |
+| `services` | comunicación del Gateway con Users y Reviews; no publica los microservicios |
 
 `gateway-redis` es una instancia separada de `auth-redis`, con credenciales y namespace
 propios (`GATEWAY_REDIS_NAMESPACE`). El healthcheck lee la contrasena desde su fichero de
 secretos para no exponerla en los argumentos del proceso.
 
-`api-gateway` declara `restart: always`, igual que `auth-service`.
+`api-gateway` declara `restart: unless-stopped`; `auth-service` conserva su política propia.
 
-## Fuera de alcance en Sprint 1
+## Fuera de alcance
 
-Sin `domain/`, sin RabbitMQ, sin logica de alojamientos, busquedas, reservas, pagos, resenas,
+Sin `domain/`, sin RabbitMQ, sin logica de alojamientos, busquedas, reservas, pagos,
 recuperacion de contrasena, verificacion de correo, MFA ni aprovisionamiento de `ADMIN`.

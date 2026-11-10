@@ -1,0 +1,24 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../src/infrastructure/persistence/generated/client"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("REVIEWS_DATABASE_URL")
+}
+
+model Review {
+  id         String   @id @db.Uuid
+  bookingId  String   @unique @db.Uuid
+  propertyId String   @db.Uuid
+  guestId    String   @db.Uuid
+  rating     Int      @db.SmallInt
+  comment    String   @db.VarChar(2000)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([propertyId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([guestId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("reviews")
+}

@@ -49,8 +49,10 @@ export interface GatewayConfig {
   readonly tls: TlsConfig | null;
   readonly authBaseUrl: string;
   readonly usersBaseUrl: string;
+  readonly reviewsBaseUrl: string;
   readonly userJwt: UserJwtConfig;
   readonly serviceJwt: ServiceJwtConfig;
+  readonly reviewsServiceJwt: Pick<ServiceJwtConfig, 'audience' | 'scope'>;
   readonly redis: RedisConfig;
   readonly trustedProxyCidrs: readonly string[];
   readonly registerRateLimit: RateLimitPolicy;
@@ -58,6 +60,7 @@ export interface GatewayConfig {
   readonly maxPhotoBytes: 5000000;
   readonly auth: CircuitPolicy;
   readonly users: CircuitPolicy;
+  readonly reviews: CircuitPolicy;
   readonly introspectionTimeoutMs: number;
   readonly otlpEndpoint: string;
   readonly otelServiceName: string;
@@ -92,6 +95,7 @@ export function loadGatewayConfig(
     },
     authBaseUrl: url(environment, 'GATEWAY_AUTH_BASE_URL', ['http:', 'https:']),
     usersBaseUrl: url(environment, 'GATEWAY_USERS_BASE_URL', ['http:', 'https:']),
+    reviewsBaseUrl: url(environment, 'GATEWAY_REVIEWS_BASE_URL', ['http:', 'https:']),
     userJwt: {
       publicKeys: publicKeys(environment, 'GATEWAY_JWT_PUBLIC_KEYS_JSON'),
       issuer: required(environment, 'GATEWAY_JWT_ISSUER'),
@@ -104,6 +108,10 @@ export function loadGatewayConfig(
       audience: required(environment, 'GATEWAY_SERVICE_AUDIENCE'),
       scope: required(environment, 'GATEWAY_SERVICE_SCOPE'),
       ttlSeconds: integer(environment, 'GATEWAY_SERVICE_TTL_SECONDS', 1, 300),
+    },
+    reviewsServiceJwt: {
+      audience: required(environment, 'GATEWAY_REVIEWS_SERVICE_AUDIENCE'),
+      scope: required(environment, 'GATEWAY_REVIEWS_SERVICE_SCOPE'),
     },
     redis: {
       url: url(environment, 'GATEWAY_REDIS_URL', ['redis:', 'rediss:']),
@@ -122,6 +130,7 @@ export function loadGatewayConfig(
     maxPhotoBytes: exactInteger(environment, 'GATEWAY_MAX_PHOTO_BYTES', 5000000),
     auth: circuit(environment, 'GATEWAY_AUTH_'),
     users: circuit(environment, 'GATEWAY_USERS_'),
+    reviews: circuit(environment, 'GATEWAY_REVIEWS_'),
     introspectionTimeoutMs: integer(environment, 'GATEWAY_INTROSPECTION_TIMEOUT_MS', 100, 30_000),
     otlpEndpoint: url(environment, 'GATEWAY_OTEL_EXPORTER_OTLP_ENDPOINT', ['http:', 'https:']),
     otelServiceName: required(environment, 'GATEWAY_OTEL_SERVICE_NAME'),
