@@ -98,9 +98,12 @@ describe('Configuración persistente compartida Auth<->Users (task-02)', () => {
     expect(accessPublic).toBe(publicFrom(env.get('AUTH_JWT_PRIVATE_KEY') ?? ''));
     expect(servicePublic).toBe(publicFrom(env.get('AUTH_OUTBOUND_SERVICE_PRIVATE_KEY') ?? ''));
 
-    expect(statSync(join(root, '.env')).mode & 0o777).toBe(0o600);
-    for (const file of SECRET_FILES) {
-      expect(statSync(join(root, 'secrets', file)).mode & 0o777).toBe(0o600);
+    // Windows only emulates the read-only bit, so POSIX permission bits cannot be asserted there.
+    if (process.platform !== 'win32') {
+      expect(statSync(join(root, '.env')).mode & 0o777).toBe(0o600);
+      for (const file of SECRET_FILES) {
+        expect(statSync(join(root, 'secrets', file)).mode & 0o777).toBe(0o600);
+      }
     }
 
     const usersPrivate = [...env.entries()]
