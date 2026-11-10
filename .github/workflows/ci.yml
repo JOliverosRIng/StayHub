@@ -3,12 +3,16 @@ name: Services CI
 on:
   pull_request:
     paths:
+      - '.github/workflows/ci.yml'
       - 'apps/api-gateway/**'
       - 'apps/auth-service/**'
       - 'apps/users-service/**'
+      - 'apps/notifications-service/**'
+      - 'apps/payments-service/**'
       - 'infra/docker/gateway/**'
       - 'infra/docker/auth/**'
       - 'infra/docker/users/**'
+      - 'infra/docker/payments/**'
       - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
@@ -19,9 +23,14 @@ on:
       - 'specs/001-fundamentos-identidad/contracts/openapi-public.yaml'
       - 'specs/001-fundamentos-identidad/contracts/openapi-auth-service.yaml'
       - 'specs/001-fundamentos-identidad/contracts/openapi-users-service.yaml'
+      - 'specs/003-notificaciones/**'
+      - 'specs/003-reservas-pagos-resenas/payments_service/**'
   push:
     branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   auth-quality:
@@ -147,3 +156,84 @@ jobs:
         with:
           name: users-coverage
           path: coverage/users
+
+  notifications-quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: notifications_db
+          POSTGRES_USER: notifications
+          POSTGRES_PASSWORD: notifications_test_only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U notifications -d notifications_db"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NOTIFICATIONS_DATABASE_URL: postgresql://notifications:notifications_test_only@localhost:5432/notifications_db
+    defaults:
+      run:
+        working-directory: apps/notifications-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: apps/notifications-service/package-lock.json
+      - run: npm ci
+      - run: npm run prisma:generate
+      - run: npm run prisma:migrate:deploy
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test -- --coverage
+      - run: npm run build
+      - run: npm run openapi:validate
+
+  payments-quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: payments_test
+          POSTGRES_USER: payments_test
+          POSTGRES_PASSWORD: payments_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U payments_test -d payments_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3.13-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: payments_test
+          RABBITMQ_DEFAULT_PASS: payments_test
+        ports: ['5672:5672']
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      PAYMENTS_DATABASE_URL: postgresql://payments_test:payments_test@localhost:5432/payments_test?schema=public
+      PAYMENTS_TEST_DATABASE_URL: postgresql://payments_test:payments_test@localhost:5432/payments_test?schema=public
+      PAYMENTS_TEST_RABBITMQ_URL: amqp://payments_test:payments_test@localhost:5672
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:payments:generate
+      - run: npm run prisma:payments:migrate:deploy
+      - run: npm run lint:payments
+      - run: npm run typecheck:payments
+      - run: npm run test:payments:coverage
+      - run: npm run openapi:payments:check
+      - run: npm run build:payments
+      - run: docker build --target runtime -f infra/docker/payments/Dockerfile .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: payments-coverage
+          path: coverage/payments

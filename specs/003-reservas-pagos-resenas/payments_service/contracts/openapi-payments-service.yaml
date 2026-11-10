@@ -1,0 +1,354 @@
+openapi: 3.1.0
+info:
+  title: StayHub Payments Service
+  version: 1.0.0
+  description: |
+    Cobros, reembolsos y consulta de estado de transacciones.
+    La pasarela de pago es simulada (mock) con ledger recuperable de desarrollo/pruebas. No se reciben datos de tarjeta, solo un token opaco.
+    Errores en `application/problem+json`. Contrato INTERNO: Payments no está publicado en Gateway en este incremento; los usuarios finales no acceden directamente a este puerto.
+servers:
+  - url: http://payments-service:3006
+    description: Red interna Docker
+tags:
+  - name: Payments
+  - name: Refunds
+  - name: Health
+security:
+  - serviceJwt: []
+paths:
+  /payments:
+    post:
+      tags: [Payments]
+      operationId: createPayment
+      summary: Cobrar una reserva
+      description: |
+        Solo `bookings-service` (JWT de servicio con scope `payments:charge`).
+        Resultado de negocio: `APPROVED` y `DECLINED` responden 201; resultado ambiguo responde 202 con `PENDING`. Agotamiento sin evidencia escala a REVIEW_REQUIRED y bloquea otro cobro, nunca es rechazo definitivo.
+      security:
+        - serviceJwt: [payments:charge]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePaymentRequest' }
+      responses:
+        '201':
+          description: Pago procesado (aprobado o rechazado) o reproducción idempotente.
+          headers:
+            Idempotent-Replay: { $ref: '#/components/headers/IdempotentReplay' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '202':
+          description: Resultado ambiguo de la pasarela. El pago queda `PENDING`; sin evidencia tras agotar consultas, `REVIEW_REQUIRED` conserva bloqueo.
+          headers:
+            Location:
+              description: URL de estado del pago.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/GatewayUnavailable' }
+  /payments/{id}/refund:
+    post:
+      tags: [Refunds]
+      operationId: refundPayment
+      summary: Reembolsar total o parcialmente un pago aprobado
+      description: |
+        Solo `bookings-service` (scope `payments:refund`). Payments valida reglas mecánicas (estado, saldo, motivo) y no decide políticas de cancelación.
+        Con `reason = OWNER_CANCELLATION` solo se acepta el reembolso completo del saldo.
+      security:
+        - serviceJwt: [payments:refund]
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefundRequest' }
+      responses:
+        '201':
+          description: Reembolso procesado (completado o fallido) o reproducción idempotente.
+          headers:
+            Idempotent-Replay: { $ref: '#/components/headers/IdempotentReplay' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+        '202':
+          description: Resultado ambiguo de la pasarela. El reembolso queda `PENDING`; luego puede pasar a REVIEW_REQUIRED y sigue bloqueando nuevos reembolsos.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/RefundAmountInvalid' }
+        '503': { $ref: '#/components/responses/GatewayUnavailable' }
+  /payments/{id}/status:
+    get:
+      tags: [Payments]
+      operationId: getPaymentStatus
+      summary: Consultar el estado de un pago
+      description: |
+        Acceso interno: pagador dueño (`sub == payerUserId`), rol `ADMIN` o servicio con scope `payments:read`. No existe publicación web en Gateway en esta entrega.
+        Un usuario que no es el pagador recibe 404 igual que si el pago no existiera.
+      security:
+        - userJwt: []
+        - serviceJwt: [payments:read]
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Estado del pago.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentStatus' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /health/live:
+    get:
+      tags: [Health]
+      operationId: getLiveness
+      summary: Liveness
+      security: []
+      responses:
+        '200':
+          description: Proceso vivo.
+  /health/ready:
+    get:
+      tags: [Health]
+      operationId: getReadiness
+      summary: Readiness (base de datos y migración; RabbitMQ degradado no bloquea)
+      security: []
+      responses:
+        '200':
+          description: Listo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Readiness' }
+        '503':
+          description: No listo.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /health/metrics:
+    get:
+      tags: [Health]
+      operationId: getPaymentsMetrics
+      summary: Métricas Prometheus internas.
+      security: []
+      responses:
+        '200':
+          description: Métricas Prometheus.
+          content:
+            text/plain:
+              schema: { type: string }
+components:
+  securitySchemes:
+    serviceJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT RS256 de servicio (issuer `stayhub-bookings-service`, audience `stayhub-payments-service`) con scopes `payments:charge`, `payments:refund`, `payments:read`.
+    userJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access JWT RS256 emitido por Auth (issuer `https://auth.stayhub.internal`, audience `stayhub-api`). Roles `GUEST`, `OWNER`, `ADMIN`.
+  headers:
+    IdempotentReplay:
+      description: "`true` cuando la respuesta se reprodujo desde un registro de idempotencia."
+      schema: { type: string, enum: ['true'] }
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID por operación lógica y alcance (charge; refund:<paymentId>) y llamador. Replay con mismo cuerpo devuelve respuesta original, incluso 202. Una operación PENDING/REVIEW_REQUIRED conserva su reserva aun tras TTL. Nunca exponer la clave en logs/eventos.
+      schema: { type: string, format: uuid }
+    PaymentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    Currency:
+      type: string
+      description: "ISO 4217. COP y USD tienen 2 decimales: 100 unidades menores = 1 COP o USD; lista efectiva configurable (`PAYMENTS_ALLOWED_CURRENCIES`)."
+      enum: [COP, USD]
+    PaymentStatusValue:
+      type: string
+      enum: [PENDING, REVIEW_REQUIRED, APPROVED, DECLINED, FAILED, PARTIALLY_REFUNDED, REFUNDED]
+    RefundStatusValue:
+      type: string
+      enum: [PENDING, REVIEW_REQUIRED, COMPLETED, FAILED]
+    FailureCode:
+      type: [string, 'null']
+      enum: [INSUFFICIENT_FUNDS, CARD_DECLINED, SUSPECTED_FRAUD, GATEWAY_UNAVAILABLE, GATEWAY_TIMEOUT, RECONCILIATION_EXHAUSTED, null]
+    PaymentMethod:
+      type: object
+      additionalProperties: false
+      required: [type, token]
+      properties:
+        type: { type: string, const: CARD_TOKEN }
+        token:
+          type: string
+          minLength: 8
+          maxLength: 64
+          pattern: '^[A-Za-z0-9_-]+$'
+          description: Token opaco. Nunca un número de tarjeta.
+    CreatePaymentRequest:
+      type: object
+      additionalProperties: false
+      required: [bookingId, payerUserId, amountMinor, currency, paymentMethod]
+      properties:
+        bookingId: { type: string, format: uuid }
+        payerUserId: { type: string, format: uuid }
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9000000000000
+          description: 'Unidad menor ISO 4217 (COP/USD: 2 decimales); 35000000 representa COP 350000. Se exige Number.isSafeInteger y límite configurable.'
+        currency: { $ref: '#/components/schemas/Currency' }
+        paymentMethod: { $ref: '#/components/schemas/PaymentMethod' }
+    Payment:
+      type: object
+      additionalProperties: false
+      required: [id, bookingId, payerUserId, amountMinor, currency, status, refundedAmountMinor, failureCode, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        bookingId: { type: string, format: uuid }
+        payerUserId: { type: string, format: uuid }
+        amountMinor: { type: integer, format: int64, minimum: 1, maximum: 9000000000000 }
+        currency: { $ref: '#/components/schemas/Currency' }
+        status: { $ref: '#/components/schemas/PaymentStatusValue' }
+        refundedAmountMinor: { type: integer, format: int64, minimum: 0, maximum: 9000000000000 }
+        failureCode: { $ref: '#/components/schemas/FailureCode' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PaymentStatus:
+      type: object
+      additionalProperties: false
+      required: [paymentId, bookingId, status, amountMinor, currency, refundedAmountMinor, failureCode, updatedAt]
+      properties:
+        paymentId: { type: string, format: uuid }
+        bookingId: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/PaymentStatusValue' }
+        amountMinor: { type: integer, format: int64, minimum: 1, maximum: 9000000000000 }
+        currency: { $ref: '#/components/schemas/Currency' }
+        refundedAmountMinor: { type: integer, format: int64, minimum: 0, maximum: 9000000000000 }
+        failureCode: { $ref: '#/components/schemas/FailureCode' }
+        updatedAt: { type: string, format: date-time }
+    RefundReason:
+      type: string
+      enum: [GUEST_CANCELLATION, OWNER_CANCELLATION]
+    RefundRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9000000000000
+          description: Opcional. Unidades menores ISO 4217, COP/USD = 2 decimales. Omitido equivale al saldo reembolsable completo. Con `OWNER_CANCELLATION` solo se acepta el saldo completo.
+        reason: { $ref: '#/components/schemas/RefundReason' }
+    Refund:
+      type: object
+      additionalProperties: false
+      required: [id, paymentId, amountMinor, currency, reason, status, failureCode, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        paymentId: { type: string, format: uuid }
+        amountMinor: { type: integer, format: int64, minimum: 1, maximum: 9000000000000 }
+        currency: { $ref: '#/components/schemas/Currency' }
+        reason: { $ref: '#/components/schemas/RefundReason' }
+        status: { $ref: '#/components/schemas/RefundStatusValue' }
+        failureCode: { $ref: '#/components/schemas/FailureCode' }
+        createdAt: { type: string, format: date-time }
+    Readiness:
+      type: object
+      required: [status, checks]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        checks:
+          type: object
+          required: [database, migration, rabbitmq]
+          properties:
+            database: { type: string, enum: [up, down] }
+            migration: { type: string, enum: [applied, pending] }
+            rabbitmq: { type: string, enum: [up, degraded] }
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field: { type: string }
+        message: { type: string }
+    Problem:
+      type: object
+      required: [type, title, status, detail, instance, code, traceId, errors]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        code:
+          type: string
+          enum: [VALIDATION_ERROR, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, IDEMPOTENCY_CONFLICT, STATE_CONFLICT, REFUND_AMOUNT_INVALID, GATEWAY_UNAVAILABLE, INTERNAL_ERROR]
+        traceId: { type: string }
+        errors:
+          type: array
+          items: { $ref: '#/components/schemas/FieldError' }
+  responses:
+    ValidationError:
+      description: Solicitud inválida.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unauthenticated:
+      description: JWT ausente, inválido o expirado.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Scope o rol insuficiente.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Recurso inexistente o no visible para el llamador.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: Conflicto de idempotencia o de estado (`IDEMPOTENCY_CONFLICT`, `STATE_CONFLICT`).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    RefundAmountInvalid:
+      description: Monto de reembolso inválido para el saldo o el motivo.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    GatewayUnavailable:
+      description: Fallo PREVIO AL DESPACHO confirmado; ninguna operación financiera pudo ejecutarse. Timeout o despacho incierto se responde 202/PENDING, no 503. No se almacena para replay.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
