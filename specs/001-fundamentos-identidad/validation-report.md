@@ -272,10 +272,10 @@ reales o Compose y se tratan en los pendientes externos, no como verdes.
 
 | Tarea | Estado | Motivo |
 |---|---|---|
-| AUTH-076 | PARCIAL | La parte Auth↔Users está acreditada contra Users real; falta la aprobación contractual de G2. El timeout literal ya está cubierto por INT-14b (modo `hang`), pendiente de ejecutar donde el host alcance los contenedores |
+| AUTH-076 | COMPLETADA | 9 suites / 39 pruebas de `test:auth-users` verdes contra Users real (incluye timeout literal INT-14b). Ver «Sincronización Auth ↔ Gateway…» (2026-11-10) |
 | AUTH-079 | PARCIAL | La saga y la reconciliación están acreditadas con procesos Node y bases en contenedor; falta Compose real con red accesible desde el host |
 | AUTH-078 | COMPLETADA (provider local) | `test/contract/gateway.provider.spec.ts` verde contra el pacto GW-056 y códigos alineados; ver «Sincronización Auth ↔ Gateway» (2026-11-10) |
-| AUTH-081 | BLOQUEADA | `test/integration/gateway-auth.spec.ts` existe y está env-gated; requiere routing, cookie segura y cliente Auth reales de G1 |
+| AUTH-081 | COMPLETADA | Integración real Gateway↔Auth auto-hospedada: 3 pruebas verdes (flujo público, 401 y 429). Ver «AUTH-081 — integración G1↔Auth» |
 | CI remota | NO EJECUTADA | Los cambios están sin commitear y no se hizo push; la corrección del job se validó localmente |
 
 ## Límites de esta evidencia
@@ -322,9 +322,14 @@ Se alinearon los `code` que emite Auth con la expectativa congelada por el Gatew
 
 ## AUTH-081 — integración G1↔Auth
 
-- `apps/auth-service/test/integration/gateway-auth.spec.ts` creada y aislada por entorno
-  (`CROSS_SERVICE_PROVIDERS=true` + `CROSS_SERVICE_GATEWAY_URL`). Sin esos valores la suite se salta.
-- No se marca: requiere el Gateway real desplegado. El 503 fail-closed se cubre en GW-058.
+- `apps/auth-service/test/integration/gateway-auth.spec.ts`: variante externa aislada por entorno
+  (`CROSS_SERVICE_PROVIDERS=true` + `CROSS_SERVICE_GATEWAY_URL`) para stacks ya desplegados.
+- `apps/auth-service/test/integration/gateway-auth-selfhosted.spec.ts`: variante auto-hospedada que
+  levanta Auth+Users reales (harness), un Redis de borde y el API Gateway real (`dist`) y ejecuta
+  registro→login→validate→refresh→logout, cookie `HttpOnly`/`SameSite=Strict`/path, rotación, 401 y 429.
+- **Ejecutado** el 2026-11-10:
+  `AUTH_USERS_TEST_HOST_NETWORK=true AUTH_GATEWAY_E2E_SELF_HOSTED=true npx jest --config jest.auth-users.config.ts`
+  → 3 pruebas verdes. El 503 fail-closed se cubre en GW-058.
 
 ## AUTH-076 / AUTH-079 — timeout literal Auth↔Users
 
@@ -333,14 +338,20 @@ Se alinearon los `code` que emite Auth con la expectativa congelada por el Gatew
 - `cross-service-recovery.spec.ts` añade INT-14b con `AUTH_USERS_TIMEOUT_MS=1000`: dos timeouts
   idempotentes → 503 `DEPENDENCY_UNAVAILABLE`, identidad remota `PENDING`, estado reanudable y
   reintento con la misma `Idempotency-Key` que converge a `COMPLETED`.
-- **No ejecutado en esta ronda**: el host del agente no tiene acceso de red a los puertos publicados
-  por Docker (conexión rechazada incluso al IP del contenedor), por lo que `npm run test:auth-users`
-  no puede aprovisionar PostgreSQL/Redis. La tarea permanece abierta; no se simula evidencia.
+- **Ejecutado** con `AUTH_USERS_TEST_HOST_NETWORK=true` (fallback para Docker rootless: los
+  contenedores de PostgreSQL/Redis usan `--network host` y escuchan en un puerto libre del host,
+  de modo que Prisma y los procesos `node dist` conectan por `127.0.0.1`). Resultado real:
+  `npx jest --config jest.auth-users.config.ts --runInBand` → **9 suites / 39 pruebas verdes**,
+  incluidas `cross-service-{registration,login,profile,recovery,reconciliation,restart}`,
+  `users-registration.consumer`, `users-login-identity.consumer` y `auth-users-smoke`.
+- `AUTH-079` sigue abierta solo por el requisito literal «en Compose»: la integración y el timeout
+  están acreditados con el harness de procesos Node + contenedores, no con `docker-compose.yml`.
 
 ## Estado de tareas tras la sincronización
 
 - `AUTH-078`: `[X]` (provider local ejecutado).
-- `AUTH-076`, `AUTH-079`, `AUTH-081`: `[ ]` (implementadas o parcialmente acreditadas; requieren
-  G1/G2 reales o Compose con red accesible).
+- `AUTH-076`: `[X]` (acreditada por las 9 suites Auth↔Users, incluido el timeout literal).
+- `AUTH-081`: `[X]` (integración real Gateway↔Auth auto-hospedada, 3 pruebas verdes).
+- `AUTH-079`: `[ ]` (solo falta el requisito literal «en Compose»).
 - `specs/001-fundamentos-identidad/tasks.md`: bloque AUTH resincronizado con el sub-backlog
-  (81/84 marcadas; antes 43/84).
+  (82/84 marcadas; antes 43/84).

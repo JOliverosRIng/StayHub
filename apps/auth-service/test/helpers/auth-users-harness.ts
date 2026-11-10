@@ -25,6 +25,11 @@ const DEFAULT_POSTGRES_IMAGE = 'postgres:16-alpine';
 const DEFAULT_REDIS_IMAGE = 'redis:7-alpine';
 const OTEL_ENDPOINT = 'http://127.0.0.1:4318';
 
+// En Docker rootless el reenvío de puertos publicados no siempre es alcanzable desde el host.
+// Con este flag los contenedores usan `--network host` y sus servicios escuchan en un puerto
+// libre del host, de modo que el proceso de pruebas puede conectar por 127.0.0.1.
+const HOST_NETWORK = process.env['AUTH_USERS_TEST_HOST_NETWORK'] === 'true';
+
 const REQUIRED_ENV_KEYS = [
   'AUTH_JWT_ISSUER',
   'AUTH_JWT_AUDIENCE',
@@ -215,10 +220,12 @@ async function waitForPostgres(
   name: string,
   user: string,
   database: string,
+  port?: number,
 ): Promise<void> {
   const deadline = Date.now() + 90_000;
   for (;;) {
-    const result = run(engine, ['exec', name, 'pg_isready', '-U', user, '-d', database], {
+    const portArgs = port === undefined ? [] : ['-p', String(port)];
+    const result = run(engine, ['exec', name, 'pg_isready', ...portArgs, '-U', user, '-d', database], {
       timeoutMs: 15_000,
     });
     if (result.status === 0) return;
@@ -229,10 +236,16 @@ async function waitForPostgres(
   }
 }
 
-async function waitForRedis(engine: ContainerEngine, name: string, password: string): Promise<void> {
+async function waitForRedis(
+  engine: ContainerEngine,
+  name: string,
+  password: string,
+  port?: number,
+): Promise<void> {
   const deadline = Date.now() + 60_000;
   for (;;) {
-    const result = run(engine, ['exec', name, 'redis-cli', '-a', password, 'ping'], {
+    const portArgs = port === undefined ? [] : ['-p', String(port)];
+    const result = run(engine, ['exec', name, 'redis-cli', ...portArgs, '-a', password, 'ping'], {
       timeoutMs: 15_000,
     });
     if (result.stdout.includes('PONG')) return;
@@ -365,8 +378,16 @@ async function issueUsersServiceToken(
     .sign(key);
 }
 
-function queryDatabase(engine: ContainerEngine, container: string, user: string, database: string, sql: string): string[] {
-  const result = run(engine, ['exec', container, 'psql', '-U', user, '-d', database, '-At', '-v', 'ON_ERROR_STOP=1', '-c', sql], {
+function queryDatabase(
+  engine: ContainerEngine,
+  container: string,
+  user: string,
+  database: string,
+  sql: string,
+  port?: number,
+): string[] {
+  const portArgs = port === undefined ? [] : ['-p', String(port)];
+  const result = run(engine, ['exec', container, 'psql', ...portArgs, '-U', user, '-d', database, '-At', '-v', 'ON_ERROR_STOP=1', '-c', sql], {
     timeoutMs: 30_000,
   });
   if (result.status !== 0) {
@@ -489,52 +510,51 @@ export async function provisionAuthUsersHarness(
     const usersDbName = `stayhub-auth-users-test-${suffix}-users-db`;
     const redisName = `stayhub-auth-users-test-${suffix}-redis`;
 
-    startContainer(engine, [
+    const postgresArgs = (
+      name: string,
+      db: string,
+      user: string,
+      password: string,
+      port: number,
+    ): string[] => [
       '--name',
-      authDbName,
+      name,
+      ...(HOST_NETWORK ? ['--network', 'host'] : []),
       '-e',
-      'POSTGRES_DB=auth_test',
+      `POSTGRES_DB=${db}`,
       '-e',
-      'POSTGRES_USER=stayhub_auth',
+      `POSTGRES_USER=${user}`,
       '-e',
-      `POSTGRES_PASSWORD=${authDbPassword}`,
-      '-p',
-      `127.0.0.1:${authDbPort}:5432`,
+      `POSTGRES_PASSWORD=${password}`,
+      ...(HOST_NETWORK ? [] : ['-p', `127.0.0.1:${port}:5432`]),
       postgresImage,
-    ]);
+      ...(HOST_NETWORK ? ['-c', `port=${port}`] : []),
+    ];
+
+    startContainer(engine, postgresArgs(authDbName, 'auth_test', 'stayhub_auth', authDbPassword, authDbPort));
     created.containers.push(authDbName);
 
-    startContainer(engine, [
-      '--name',
-      usersDbName,
-      '-e',
-      'POSTGRES_DB=users_db',
-      '-e',
-      'POSTGRES_USER=users',
-      '-e',
-      `POSTGRES_PASSWORD=${usersDbPassword}`,
-      '-p',
-      `127.0.0.1:${usersDbPort}:5432`,
-      postgresImage,
-    ]);
+    startContainer(engine, postgresArgs(usersDbName, 'users_db', 'users', usersDbPassword, usersDbPort));
     created.containers.push(usersDbName);
 
     startContainer(engine, [
       '--name',
       redisName,
-      '-p',
-      `127.0.0.1:${redisPort}:6379`,
+      ...(HOST_NETWORK ? ['--network', 'host'] : []),
+      ...(HOST_NETWORK ? [] : ['-p', `127.0.0.1:${redisPort}:6379`]),
       redisImage,
       'redis-server',
+      '--port',
+      String(HOST_NETWORK ? redisPort : 6379),
       '--requirepass',
       redisPassword,
     ]);
     created.containers.push(redisName);
 
     await Promise.all([
-      waitForPostgres(engine, authDbName, 'stayhub_auth', 'auth_test'),
-      waitForPostgres(engine, usersDbName, 'users', 'users_db'),
-      waitForRedis(engine, redisName, redisPassword),
+      waitForPostgres(engine, authDbName, 'stayhub_auth', 'auth_test', HOST_NETWORK ? authDbPort : undefined),
+      waitForPostgres(engine, usersDbName, 'users', 'users_db', HOST_NETWORK ? usersDbPort : undefined),
+      waitForRedis(engine, redisName, redisPassword, HOST_NETWORK ? redisPort : undefined),
     ]);
 
     const authDatabaseUrl = `postgresql://stayhub_auth:${authDbPassword}@127.0.0.1:${authDbPort}/auth_test?schema=public`;
@@ -581,9 +601,9 @@ export async function provisionAuthUsersHarness(
         if (result.status !== 0) throw new Error(`No se pudo reiniciar ${name}: ${result.stderr.trim()}`);
       }
       await Promise.all([
-        waitForPostgres(engine, authDbName, 'stayhub_auth', 'auth_test'),
-        waitForPostgres(engine, usersDbName, 'users', 'users_db'),
-        waitForRedis(engine, redisName, redisPassword),
+        waitForPostgres(engine, authDbName, 'stayhub_auth', 'auth_test', HOST_NETWORK ? authDbPort : undefined),
+        waitForPostgres(engine, usersDbName, 'users', 'users_db', HOST_NETWORK ? usersDbPort : undefined),
+        waitForRedis(engine, redisName, redisPassword, HOST_NETWORK ? redisPort : undefined),
       ]);
     };
 
@@ -598,8 +618,8 @@ export async function provisionAuthUsersHarness(
         issueUsersServiceToken(dev, options),
       registrationScope: dev.env.USERS_REGISTRATION_SCOPE ?? '',
       lookupScope: dev.env.USERS_LOOKUP_SCOPE ?? '',
-      queryAuthDb: (sql: string): string[] => queryDatabase(engine, authDbName, 'stayhub_auth', 'auth_test', sql),
-      queryUsersDb: (sql: string): string[] => queryDatabase(engine, usersDbName, 'users', 'users_db', sql),
+      queryAuthDb: (sql: string): string[] => queryDatabase(engine, authDbName, 'stayhub_auth', 'auth_test', sql, HOST_NETWORK ? authDbPort : undefined),
+      queryUsersDb: (sql: string): string[] => queryDatabase(engine, usersDbName, 'users', 'users_db', sql, HOST_NETWORK ? usersDbPort : undefined),
       authRequest: <T>(path: string, options: RequestOptions = {}): Promise<HttpResponse<T>> =>
         performRequest<T>(authBaseUrl, path, options),
       usersRequest: <T>(path: string, options: RequestOptions = {}): Promise<HttpResponse<T>> =>

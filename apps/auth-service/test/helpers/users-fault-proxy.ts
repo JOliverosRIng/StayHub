@@ -82,7 +82,8 @@ export async function startUsersFaultProxy(port: number, upstreamPort: number): 
         hung.on('error', () => {
           hits.push({ method, path, upstreamStatus: null, fault });
         });
-        request.on('close', () => hung.destroy());
+        // Se deja completar la petición a Users (la escritura ocurre) y se descarta
+        // la respuesta: Auth la verá como timeout al no recibir nada.
         hung.end(Buffer.concat(chunks));
         return;
       }
