@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("NOTIFICATIONS_DATABASE_URL")
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMATION
+  CHECKIN_REMINDER
+  SYSTEM_ALERT
+}
+
+enum NotificationChannel {
+  EMAIL
+  IN_APP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum ScheduledNotificationStatus {
+  SCHEDULED
+  PROCESSING
+  SENT
+  FAILED
+}
+
+model Notification {
+  id                 String              @id @default(uuid()) @db.Uuid
+  userId             String              @db.Uuid
+  type               NotificationType
+  channel            NotificationChannel
+  recipientEmail     String?             @db.VarChar(254)
+  subject            String              @db.VarChar(120)
+  body               String              @db.VarChar(5000)
+  status             NotificationStatus  @default(PENDING)
+  failureReason      String?             @db.VarChar(64)
+  idempotencyKey     String              @unique @db.VarChar(128)
+  requestFingerprint String              @db.Char(64)
+  createdAt          DateTime            @default(now()) @db.Timestamptz(3)
+  sentAt             DateTime?           @db.Timestamptz(3)
+
+  @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([userId, status, type, createdAt(sort: Desc), id(sort: Desc)])
+}
+
+model ScheduledNotification {
+  id           String                       @id @default(uuid()) @db.Uuid
+  bookingId    String                       @unique @db.VarChar(100)
+  userId       String                       @db.Uuid
+  roomTitle    String                       @db.VarChar(120)
+  roomLocation String                       @db.VarChar(200)
+  checkIn      String                       @db.VarChar(10)
+  scheduledAt  DateTime                     @db.Timestamptz(3)
+  status       ScheduledNotificationStatus  @default(SCHEDULED)
+  claimedAt    DateTime?                    @db.Timestamptz(3)
+  createdAt    DateTime                     @default(now()) @db.Timestamptz(3)
+
+  @@index([status, scheduledAt, id])
+}

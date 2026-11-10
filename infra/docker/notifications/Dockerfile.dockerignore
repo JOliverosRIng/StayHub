@@ -1,0 +1,9 @@
+**/node_modules/
+**/dist/
+**/.env*
+**/secrets/
+.git/
+.artifacts/
+.agents/
+.codex/
+**/coverage/

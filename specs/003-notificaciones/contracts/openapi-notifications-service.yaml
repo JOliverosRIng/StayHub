@@ -1,0 +1,407 @@
+openapi: 3.0.3
+info:
+  title: StayHub Notifications Service
+  version: 1.0.0
+  description: >-
+    Internal API for notification submission, booking confirmation/reminder scheduling,
+    and owner/admin notification history. Email is handled by a local fake adapter.
+servers:
+  - url: http://localhost:3009
+    description: Local service port
+tags:
+  - name: Notifications
+paths:
+  /notifications/send:
+    post:
+      tags: [Notifications]
+      operationId: sendNotification
+      summary: Create or replay a notification
+      description: >-
+        Requires either a valid access JWT with role ADMIN or a service JWT whose
+        configured scope authorizes notification sending. The Idempotency-Key is
+        mandatory. EMAIL is accepted only by the local fake delivery adapter; no
+        external message is sent.
+      security:
+        - accessJwt: []
+        - serviceJwt: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendNotificationRequest'
+      responses:
+        '201':
+          description: Notification recorded for the first request; FAILED is a recorded delivery outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '200':
+          description: Existing notification returned for an idempotent replay with identical semantic content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Idempotency key already belongs to different semantic request content.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+  /notifications/events/booking-confirmed:
+    post:
+      tags: [Notifications]
+      operationId: bookingConfirmedEvent
+      summary: Create a booking confirmation and schedule its check-in reminder
+      description: >-
+        Requires a service JWT with the configured notification-send scope. The event is
+        idempotent by bookingId. An IN_APP confirmation is recorded immediately and an
+        IN_APP reminder is scheduled 24 hours before checkInAt (or immediately when the
+        booking is confirmed within that window). The local worker polls every 30 seconds.
+      security:
+        - serviceJwt: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingConfirmedEvent'
+      responses:
+        '201':
+          description: Confirmation recorded and reminder scheduled.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [confirmation, reminderScheduledAt]
+                properties:
+                  confirmation:
+                    $ref: '#/components/schemas/Notification'
+                  reminderScheduledAt:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+  /notifications/user/{id}:
+    get:
+      tags: [Notifications]
+      operationId: listUserNotifications
+      summary: List notifications for their owner or an administrator
+      description: Requires an access JWT. The authenticated subject may read their own UUID; ADMIN may read any UUID. A service JWT is not accepted as a user identity.
+      security:
+        - accessJwt: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID of the user whose notifications are requested.
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque continuation token returned by the prior page.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 512
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/NotificationStatus'
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/NotificationType'
+      responses:
+        '200':
+          description: Page ordered by createdAt descending and id descending.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+components:
+  securitySchemes:
+    accessJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT (RS256)
+      description: User access token; POST accepts ADMIN only, GET accepts owner or ADMIN.
+    serviceJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: Service-JWT (RS256)
+      description: POST send and booking-confirmed event; requires configured issuer, audience, key id, expiry and notification-send scope.
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Stable caller-generated key for one semantic send request; 1–128 visible ASCII characters.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: '^[\x21-\x7E]+$'
+  responses:
+    Problem:
+      description: Problem Details compatible with users-service.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    NotificationType:
+      type: string
+      enum: [BOOKING_CONFIRMATION, CHECKIN_REMINDER, SYSTEM_ALERT]
+    NotificationChannel:
+      type: string
+      enum: [EMAIL, IN_APP]
+    NotificationStatus:
+      type: string
+      enum: [PENDING, SENT, FAILED]
+    SendNotificationRequest:
+      type: object
+      additionalProperties: false
+      required: [userId, type, channel, templateData]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/NotificationType'
+        channel:
+          $ref: '#/components/schemas/NotificationChannel'
+        recipientEmail:
+          type: string
+          format: email
+          maxLength: 254
+          description: Required exactly for EMAIL; rejected for IN_APP.
+        templateData:
+          description: Schema and required fields are selected by the top-level type value.
+          oneOf:
+            - $ref: '#/components/schemas/BookingConfirmationData'
+            - $ref: '#/components/schemas/CheckinReminderData'
+            - $ref: '#/components/schemas/SystemAlertData'
+    BookingConfirmedEvent:
+      type: object
+      additionalProperties: false
+      required: [userId, bookingId, roomTitle, roomLocation, checkIn, checkOut, guests, totalPrice, checkInAt]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        bookingId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        roomTitle:
+          type: string
+          minLength: 1
+          maxLength: 120
+        roomLocation:
+          type: string
+          minLength: 1
+          maxLength: 200
+        checkIn:
+          type: string
+          format: date
+        checkOut:
+          type: string
+          format: date
+        guests:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalPrice:
+          type: number
+          minimum: 0
+          multipleOf: 0.01
+        checkInAt:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp with UTC offset, on the same local date as checkIn.
+    BookingConfirmationData:
+      type: object
+      additionalProperties: false
+      required: [bookingId, roomTitle, roomLocation, checkIn, checkOut, guests, totalPrice]
+      properties:
+        bookingId:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Opaque reference; no lookup or UUID assumption.
+        roomTitle:
+          type: string
+          minLength: 1
+          maxLength: 120
+        roomLocation:
+          type: string
+          minLength: 1
+          maxLength: 200
+        checkIn:
+          type: string
+          format: date
+        checkOut:
+          type: string
+          format: date
+          description: Must be later than checkIn.
+        guests:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalPrice:
+          type: string
+          pattern: '^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$'
+    CheckinReminderData:
+      type: object
+      additionalProperties: false
+      required: [bookingId, roomTitle, roomLocation, checkIn]
+      properties:
+        bookingId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        roomTitle:
+          type: string
+          minLength: 1
+          maxLength: 120
+        roomLocation:
+          type: string
+          minLength: 1
+          maxLength: 200
+        checkIn:
+          type: string
+          format: date
+    SystemAlertData:
+      type: object
+      additionalProperties: false
+      required: [alertCode, title, message]
+      properties:
+        alertCode:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]{1,63}$'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [id, userId, type, channel, subject, body, status, createdAt, sentAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/NotificationType'
+        channel:
+          $ref: '#/components/schemas/NotificationChannel'
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 120
+        body:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        status:
+          $ref: '#/components/schemas/NotificationStatus'
+        createdAt:
+          type: string
+          format: date-time
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Null for PENDING or FAILED.
+    NotificationPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Notification'
+        nextCursor:
+          type: string
+          nullable: true
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, detail, instance, code, traceId, errors]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+        traceId:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, code]
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+
