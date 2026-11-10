@@ -1,11 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLegacyNavigate } from '../app/navigation';
 
 interface HeaderProps {
-  onNavigate: (page: string, id?: string) => void;
+  /** Defaults to router navigation. */
+  onNavigate?: (page: string, id?: string) => void;
   showSearch?: boolean;
   searchValue?: string;
   onSearchChange?: (v: string) => void;
+  /** Submitting the header search (Enter or button). */
+  onSearchSubmit?: (v: string) => void;
 }
 
 const Logo = ({ onClick }: { onClick: () => void }) => (
@@ -23,7 +27,9 @@ const Logo = ({ onClick }: { onClick: () => void }) => (
   </button>
 );
 
-export function Header({ onNavigate, showSearch, searchValue, onSearchChange }: HeaderProps) {
+export function Header({ onNavigate: navigateProp, showSearch, searchValue, onSearchChange, onSearchSubmit }: HeaderProps) {
+  const routerNavigate = useLegacyNavigate();
+  const onNavigate = navigateProp ?? routerNavigate;
   const { currentUser, logout, profileUnavailable, retryProfile, error, logoutFailed } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -46,24 +52,29 @@ export function Header({ onNavigate, showSearch, searchValue, onSearchChange }: 
         <Logo onClick={() => onNavigate('home')} />
 
         {showSearch && (
-          <div className="flex-1 flex items-center border border-gray-300 rounded-full shadow-sm hover:shadow-md transition-shadow overflow-hidden max-w-xl mx-auto">
+          <form
+            role="search"
+            onSubmit={(e) => { e.preventDefault(); onSearchSubmit?.(searchValue ?? ''); }}
+            className="flex-1 flex items-center border border-gray-300 rounded-full shadow-sm hover:shadow-md transition-shadow overflow-hidden max-w-xl mx-auto"
+          >
             <div className="flex-1 px-4 py-2.5">
-              <p className="text-xs font-semibold text-gray-700">Destino</p>
+              <label htmlFor="header-search" className="block text-xs font-semibold text-gray-700">Destino</label>
               <input
-                type="text"
+                id="header-search"
+                type="search"
                 value={searchValue}
                 onChange={(e) => onSearchChange?.(e.target.value)}
                 placeholder="¿A dónde quieres ir?"
                 className="text-sm text-gray-600 placeholder-gray-400 outline-none w-full bg-transparent"
               />
             </div>
-            <button className="m-2 w-9 h-9 bg-[#E31C5F] rounded-full flex items-center justify-center shrink-0 hover:bg-[#C7184E] transition-colors">
-              <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={2.5}>
+            <button type="submit" aria-label="Buscar" className="m-2 w-9 h-9 bg-[#E31C5F] rounded-full flex items-center justify-center shrink-0 hover:bg-[#C7184E] transition-colors">
+              <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.35-4.35" />
               </svg>
             </button>
-          </div>
+          </form>
         )}
 
         <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -102,6 +113,22 @@ export function Header({ onNavigate, showSearch, searchValue, onSearchChange }: 
                     </svg>
                     Mis reservas
                   </button>
+                  {currentUser.role === 'OWNER' && (
+                    <>
+                      <button
+                        onClick={() => { setMenuOpen(false); onNavigate('host'); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Panel de anfitrión
+                      </button>
+                      <button
+                        onClick={() => { setMenuOpen(false); onNavigate('host/new'); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Publicar propiedad
+                      </button>
+                    </>
+                  )}
                   <button
                     onClick={() => { void logout(); setMenuOpen(false); onNavigate('home'); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"

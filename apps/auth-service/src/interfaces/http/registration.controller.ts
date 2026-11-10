@@ -49,7 +49,7 @@ export class IdempotencyKeyPipe implements PipeTransform<unknown, string> {
     if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
       throw new BadRequestException({
         code: 'VALIDATION_FAILED',
-        errors: ['Idempotency-Key: must be a UUID'],
+        errors: [{ field: 'Idempotency-Key', code: 'not_a_uuid' }],
       });
     }
     return value;
