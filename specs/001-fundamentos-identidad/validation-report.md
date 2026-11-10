@@ -273,7 +273,7 @@ reales o Compose y se tratan en los pendientes externos, no como verdes.
 | Tarea | Estado | Motivo |
 |---|---|---|
 | AUTH-076 | COMPLETADA | 9 suites / 39 pruebas de `test:auth-users` verdes contra Users real (incluye timeout literal INT-14b). Ver «Sincronización Auth ↔ Gateway…» (2026-11-10) |
-| AUTH-079 | PARCIAL | La saga y la reconciliación están acreditadas con procesos Node y bases en contenedor; falta Compose real con red accesible desde el host |
+| AUTH-079 | COMPLETADA | Registro + recuperación tras timeout ejecutados **en Compose** (`auth-users-compose.spec.ts`, `network_mode: host`): 2 pruebas verdes |
 | AUTH-078 | COMPLETADA (provider local) | `test/contract/gateway.provider.spec.ts` verde contra el pacto GW-056 y códigos alineados; ver «Sincronización Auth ↔ Gateway» (2026-11-10) |
 | AUTH-081 | COMPLETADA | Integración real Gateway↔Auth auto-hospedada: 3 pruebas verdes (flujo público, 401 y 429). Ver «AUTH-081 — integración G1↔Auth» |
 | CI remota | NO EJECUTADA | Los cambios están sin commitear y no se hizo push; la corrección del job se validó localmente |
@@ -344,14 +344,18 @@ Se alinearon los `code` que emite Auth con la expectativa congelada por el Gatew
   `npx jest --config jest.auth-users.config.ts --runInBand` → **9 suites / 39 pruebas verdes**,
   incluidas `cross-service-{registration,login,profile,recovery,reconciliation,restart}`,
   `users-registration.consumer`, `users-login-identity.consumer` y `auth-users-smoke`.
-- `AUTH-079` sigue abierta solo por el requisito literal «en Compose»: la integración y el timeout
-  están acreditados con el harness de procesos Node + contenedores, no con `docker-compose.yml`.
+- **Ejecutado en Compose** con `test/integration/auth-users-compose.spec.ts` (Auth+Users reales,
+  PostgreSQL/Redis desechables, `network_mode: host` y puertos fijos 3001/3002): registro completo
+  por Auth con login OK, y recuperación tras timeout (Users pausado → 503 `DEPENDENCY_UNAVAILABLE`;
+  `unpause` + reintento con la misma `Idempotency-Key` → 201 y login OK) sin consultar `users_db`.
+  Evidencia 2026-11-10: `AUTH_079_COMPOSE=true npx jest --config jest.auth-users.config.ts`
+  → **2 pruebas verdes**.
 
 ## Estado de tareas tras la sincronización
 
 - `AUTH-078`: `[X]` (provider local ejecutado).
 - `AUTH-076`: `[X]` (acreditada por las 9 suites Auth↔Users, incluido el timeout literal).
 - `AUTH-081`: `[X]` (integración real Gateway↔Auth auto-hospedada, 3 pruebas verdes).
-- `AUTH-079`: `[ ]` (solo falta el requisito literal «en Compose»).
+- `AUTH-079`: `[X]` (registro + recuperación en Compose, 2 pruebas verdes).
 - `specs/001-fundamentos-identidad/tasks.md`: bloque AUTH resincronizado con el sub-backlog
-  (82/84 marcadas; antes 43/84).
+  (84/84 marcadas; antes 43/84).

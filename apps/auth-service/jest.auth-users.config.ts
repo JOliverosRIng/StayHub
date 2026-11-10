@@ -12,6 +12,7 @@ const config: Config = {
   testEnvironment: 'node',
   testMatch: [
     '<rootDir>/test/integration/gateway-auth-selfhosted.spec.ts',
+    '<rootDir>/test/integration/auth-users-compose.spec.ts',
     '<rootDir>/test/integration/auth-users-smoke.spec.ts',
     '<rootDir>/test/contract/users-registration.consumer.spec.ts',
     '<rootDir>/test/contract/users-login-identity.consumer.spec.ts',
