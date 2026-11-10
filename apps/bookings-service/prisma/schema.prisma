@@ -26,9 +26,12 @@ enum PaymentStatus {
   PENDING
   CAPTURED
   FAILED
+  REVIEW_REQUIRED
   REFUND_PENDING
   PARTIALLY_REFUNDED
   REFUNDED
+  REFUND_FAILED
+  REFUND_REVIEW_REQUIRED
 }
 
 enum IdempotencyState {
@@ -48,6 +51,10 @@ enum WorkStatus {
   SUCCEEDED
   FAILED_RETRYABLE
   DEAD
+}
+
+enum NotificationOperation {
+  BOOKING_CONFIRMED
 }
 
 enum CancellationActor {
@@ -90,6 +97,7 @@ model Booking {
   transitions           BookingTransition[]
   idempotencyRecords    IdempotencyRecord[]
   paymentWork           PaymentWork[]
+  notificationWork      NotificationWork[]
   cancellationDecisions CancellationDecision[]
 
   @@index([guestId, createdAt, id])
@@ -147,6 +155,23 @@ model PaymentWork {
   @@unique([bookingId, operation])
   @@index([status, nextAttemptAt])
   @@map("payment_work")
+}
+
+model NotificationWork {
+  id            String                @id @db.Uuid
+  bookingId     String                @db.Uuid
+  booking       Booking               @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  operation     NotificationOperation @default(BOOKING_CONFIRMED)
+  status        WorkStatus            @default(PENDING)
+  attempts      Int                   @default(0)
+  nextAttemptAt DateTime              @default(now()) @db.Timestamptz(6)
+  lastErrorCode String?               @db.VarChar(80)
+  createdAt     DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime              @updatedAt @db.Timestamptz(6)
+
+  @@unique([bookingId, operation])
+  @@index([status, nextAttemptAt])
+  @@map("notification_work")
 }
 
 model OutboxEvent {

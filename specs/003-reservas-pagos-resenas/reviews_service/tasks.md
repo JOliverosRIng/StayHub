@@ -176,7 +176,7 @@
 | Gate | Trabajo que puede avanzar | Tarea que no cierra sin externo |
 |---|---|---|
 | Bookings T079–T088 completadas | T031–T045 con stub y handoff versionado | T069 puede usar el provider real |
-| Bookings T098 | Consumer y E2E aislado de Reviews | Cierre coordinado de T069/T098 |
+| Bookings T098 | Consumer y E2E aislado de Reviews | T098 completada; E2E conjunto 8/8 PASS |
 | API Gateway | Controllers y E2E aislado directo | T070 |
 | Compose conjunto | Compose aislado/imagen Reviews | T072–T074 para evidencia distribuida completa |
 
@@ -243,7 +243,7 @@ Todos: T045 checkpoint US1
 - El provider devuelve 200 únicamente para una reserva del huésped en estado `COMPLETED`; reserva inexistente, ajena o no completada responde 404 sin divulgación, y credenciales de servicio inválidas responden 401.
 - T033 consume el handoff versionado y valida compatibilidad sin exigir `eligible=false` ni un 403 directo que el provider actual no emite; T034/T040 prueban y traducen fallos de red/5xx de forma fail-closed.
 - El patrón saliente real usa `EnvironmentServiceTokenProvider` y token montado por archivo; T022/T040 lo reutilizan sin compartir imports.
-- Ninguna tarea de Reviews modifica archivos de Bookings. T069 y Bookings T098 cierran conjuntamente la evidencia distribuida real.
+- Ninguna tarea de Reviews modifica archivos de Bookings. T069 y Bookings T098 quedaron cerradas con la evidencia distribuida real del harness (8/8 escenarios PASS).
 
 ## Notes
 

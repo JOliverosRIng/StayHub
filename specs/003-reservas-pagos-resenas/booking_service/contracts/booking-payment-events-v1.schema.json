@@ -1,28 +1,23 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://stayhub.local/contracts/booking-payment-events-v1.schema.json",
-  "title": "StayHub Booking and Payment Events v1",
+  "title": "StayHub Booking Events v1",
+  "description": "Eventos propios de Bookings. Los eventos de Payments se validan contra el contrato real del productor en specs/003-reservas-pagos-resenas/payments_service/contracts/payment-events-v1.schema.json.",
   "oneOf": [
     { "$ref": "#/$defs/bookingCreated" },
     { "$ref": "#/$defs/bookingConfirmed" },
     { "$ref": "#/$defs/bookingCancelled" },
-    { "$ref": "#/$defs/bookingCompleted" },
-    { "$ref": "#/$defs/paymentConfirmed" },
-    { "$ref": "#/$defs/paymentFailed" },
-    { "$ref": "#/$defs/refundCompleted" }
+    { "$ref": "#/$defs/bookingCompleted" }
   ],
   "$defs": {
-    "base": {
-      "type": "object",
-      "required": ["eventId", "eventType", "schemaVersion", "occurredAt", "bookingId"],
-      "properties": {
-        "eventId": { "type": "string", "format": "uuid" },
-        "eventType": { "type": "string" },
-        "schemaVersion": { "const": 1 },
-        "occurredAt": { "type": "string", "format": "date-time" },
-        "bookingId": { "type": "string", "format": "uuid" },
-        "traceId": { "type": "string", "minLength": 1, "maxLength": 128 }
-      }
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "traceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
     },
     "money": {
       "type": "object",
@@ -34,54 +29,75 @@
       }
     },
     "bookingCreated": {
-      "allOf": [
-        { "$ref": "#/$defs/base" },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["eventId", "eventType", "schemaVersion", "occurredAt", "bookingId", "guestId", "ownerId", "propertyId", "roomId", "checkIn", "checkOut", "total", "status"],
-          "properties": {
-            "eventId": { "type": "string", "format": "uuid" },
-            "eventType": { "const": "booking.v1.created" },
-            "schemaVersion": { "const": 1 },
-            "occurredAt": { "type": "string", "format": "date-time" },
-            "bookingId": { "type": "string", "format": "uuid" },
-            "traceId": { "type": "string", "maxLength": 128 },
-            "guestId": { "type": "string", "format": "uuid" },
-            "ownerId": { "type": "string", "format": "uuid" },
-            "propertyId": { "type": "string", "format": "uuid" },
-            "roomId": { "type": "string", "format": "uuid" },
-            "checkIn": { "type": "string", "format": "date" },
-            "checkOut": { "type": "string", "format": "date" },
-            "total": { "$ref": "#/$defs/money" },
-            "status": { "const": "PENDING_PAYMENT" }
-          }
-        }
-      ]
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventId", "eventType", "schemaVersion", "occurredAt", "bookingId", "guestId", "ownerId", "propertyId", "roomId", "checkIn", "checkOut", "total", "status"],
+      "properties": {
+        "eventId": { "$ref": "#/$defs/uuid" },
+        "eventType": { "const": "booking.v1.created" },
+        "schemaVersion": { "const": 1 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "bookingId": { "$ref": "#/$defs/uuid" },
+        "traceId": { "$ref": "#/$defs/traceId" },
+        "guestId": { "$ref": "#/$defs/uuid" },
+        "ownerId": { "$ref": "#/$defs/uuid" },
+        "propertyId": { "$ref": "#/$defs/uuid" },
+        "roomId": { "$ref": "#/$defs/uuid" },
+        "checkIn": { "type": "string", "format": "date" },
+        "checkOut": { "type": "string", "format": "date" },
+        "total": { "$ref": "#/$defs/money" },
+        "status": { "const": "PENDING_PAYMENT" }
+      }
     },
-    "bookingConfirmed": { "$ref": "#/$defs/simpleBookingConfirmed" },
-    "bookingCancelled": { "$ref": "#/$defs/simpleBookingCancelled" },
-    "bookingCompleted": { "$ref": "#/$defs/simpleBookingCompleted" },
-    "paymentConfirmed": { "$ref": "#/$defs/simplePaymentConfirmed" },
-    "paymentFailed": { "$ref": "#/$defs/simplePaymentFailed" },
-    "refundCompleted": { "$ref": "#/$defs/simpleRefundCompleted" },
-    "simpleBookingConfirmed": {
-      "allOf": [ { "$ref": "#/$defs/base" }, { "type": "object", "required": ["eventType"], "properties": { "eventType": { "const": "booking.v1.confirmed" } } } ]
+    "bookingConfirmed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventId", "eventType", "schemaVersion", "occurredAt", "bookingId", "guestId", "propertyName", "roomName", "checkIn", "checkOut", "guests", "totalPrice", "checkInAt"],
+      "properties": {
+        "eventId": { "$ref": "#/$defs/uuid" },
+        "eventType": { "const": "booking.v1.confirmed" },
+        "schemaVersion": { "const": 1 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "bookingId": { "$ref": "#/$defs/uuid" },
+        "traceId": { "$ref": "#/$defs/traceId" },
+        "guestId": { "$ref": "#/$defs/uuid" },
+        "propertyName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "roomName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "checkIn": { "type": "string", "format": "date" },
+        "checkOut": { "type": "string", "format": "date" },
+        "guests": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "totalPrice": { "type": "string", "pattern": "^\\d{1,10}(\\.\\d{2})$" },
+        "checkInAt": { "type": "string", "format": "date-time" }
+      }
     },
-    "simpleBookingCancelled": {
-      "allOf": [ { "$ref": "#/$defs/base" }, { "type": "object", "required": ["eventType", "cancelledBy"], "properties": { "eventType": { "const": "booking.v1.cancelled" }, "cancelledBy": { "enum": ["GUEST", "OWNER"] } } } ]
+    "bookingCancelled": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventId", "eventType", "schemaVersion", "occurredAt", "bookingId", "cancelledBy"],
+      "properties": {
+        "eventId": { "$ref": "#/$defs/uuid" },
+        "eventType": { "const": "booking.v1.cancelled" },
+        "schemaVersion": { "const": 1 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "bookingId": { "$ref": "#/$defs/uuid" },
+        "traceId": { "$ref": "#/$defs/traceId" },
+        "cancelledBy": { "enum": ["GUEST", "OWNER"] }
+      }
     },
-    "simpleBookingCompleted": {
-      "allOf": [ { "$ref": "#/$defs/base" }, { "type": "object", "required": ["eventType", "guestId", "propertyId"], "properties": { "eventType": { "const": "booking.v1.completed" }, "guestId": { "type": "string", "format": "uuid" }, "propertyId": { "type": "string", "format": "uuid" } } } ]
-    },
-    "simplePaymentConfirmed": {
-      "allOf": [ { "$ref": "#/$defs/base" }, { "type": "object", "required": ["eventType", "paymentOrderId"], "properties": { "eventType": { "const": "payment.v1.confirmed" }, "paymentOrderId": { "type": "string", "format": "uuid" } } } ]
-    },
-    "simplePaymentFailed": {
-      "allOf": [ { "$ref": "#/$defs/base" }, { "type": "object", "required": ["eventType", "paymentOrderId", "reasonCode"], "properties": { "eventType": { "const": "payment.v1.failed" }, "paymentOrderId": { "type": "string", "format": "uuid" }, "reasonCode": { "type": "string", "maxLength": 80 } } } ]
-    },
-    "simpleRefundCompleted": {
-      "allOf": [ { "$ref": "#/$defs/base" }, { "type": "object", "required": ["eventType", "paymentOrderId", "refundId"], "properties": { "eventType": { "const": "payment.v1.refund-completed" }, "paymentOrderId": { "type": "string", "format": "uuid" }, "refundId": { "type": "string", "format": "uuid" } } } ]
+    "bookingCompleted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventId", "eventType", "schemaVersion", "occurredAt", "bookingId", "guestId", "propertyId"],
+      "properties": {
+        "eventId": { "$ref": "#/$defs/uuid" },
+        "eventType": { "const": "booking.v1.completed" },
+        "schemaVersion": { "const": 1 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "bookingId": { "$ref": "#/$defs/uuid" },
+        "traceId": { "$ref": "#/$defs/traceId" },
+        "guestId": { "$ref": "#/$defs/uuid" },
+        "propertyId": { "$ref": "#/$defs/uuid" }
+      }
     }
   }
 }

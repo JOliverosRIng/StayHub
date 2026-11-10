@@ -4,7 +4,7 @@ export type BookingErrorCode =
   | 'CANCELLATION_NOT_ALLOWED'
   | 'DEPENDENCY_INVALID_RESPONSE' | 'DEPENDENCY_REJECTED' | 'ACCOMMODATION_NOT_FOUND'
   | 'ACCOMMODATION_CONFLICT' | 'PAYMENT_REJECTED' | 'PAYMENT_BOOKING_MISMATCH'
-  | 'EVENT_ID_CONFLICT' | 'INVALID_EVENT' | 'SERVICE_CREDENTIALS_UNAVAILABLE';
+  | 'EVENT_ID_CONFLICT' | 'INVALID_EVENT' | 'PAYMENT_BOOKING_NOT_READY' | 'SERVICE_CREDENTIALS_UNAVAILABLE';
 export class DomainError extends Error {
   public constructor(public readonly code: BookingErrorCode, public readonly field?: string) { super(code); }
 }

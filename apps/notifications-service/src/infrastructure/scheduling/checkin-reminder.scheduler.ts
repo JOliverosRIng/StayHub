@@ -40,8 +40,8 @@ export class CheckinReminderScheduler implements OnApplicationBootstrap, OnModul
             channel: 'IN_APP',
             templateData: {
               bookingId: reminder.bookingId,
-              roomTitle: reminder.roomTitle,
-              roomLocation: reminder.roomLocation,
+              propertyName: reminder.propertyName,
+              roomName: reminder.roomName,
               checkIn: reminder.checkIn,
             },
             idempotencyKey: `checkin-reminder:${reminder.bookingId}`,

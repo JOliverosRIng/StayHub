@@ -2,7 +2,7 @@
 
 **Fecha**: 2026-11-06
 **Alcance**: RQ-07, RQ-08, RQ-09, RQ-10 y contribución parcial a RQ-11.
-**Estado**: núcleo técnico completo y validado con PostgreSQL real; solo quedan las integraciones externas reales.
+**Estado**: núcleo técnico completo; Payments→Bookings→Notifications y Bookings↔Reviews validados con PostgreSQL, RabbitMQ, HTTP y contenedores reales; quedan las integraciones de Accommodations y Gateway.
 
 ## 1. Tareas
 
@@ -12,21 +12,25 @@
 | T078 | Completada | Evidencia PostgreSQL real de US4/US5 registrada en `quickstart.md`. |
 | T099 | Completada | Shutdown ordenado y contrato de contenedor. |
 | T100–T101 | Completadas | Quickstart ejecutado con PostgreSQL real y auditoría con cobertura 74.32 %. |
-| T095–T098 | Pendientes | Integraciones externas Accommodations, Payments, Gateway y Reviews. |
+| T095, T097 | Pendientes | Integraciones externas Accommodations y Gateway. |
+| T096a | PASS | Cliente REST de Bookings probado contra Payments real con PostgreSQL 16 y RabbitMQ: cobro aprobado + replay, rechazo autoritativo y refund completado + replay; 3/3 escenarios E2E. |
+| T096b | PASS | E2E real Payments→Bookings→Notifications con PostgreSQL, RabbitMQ y HTTP: `npm run test:unir:e2e`; 7/7 escenarios PASS, incluidos replay, rechazo, orden, retry, caída/recuperación, reinicio y refund. |
+| T098 | PASS | E2E real Bookings↔Reviews: elegibilidad REST, check-in/out, creación de reseña, duplicado 409 y no completada 404 sin compartir DB. Incluido en `npm run test:unir:e2e`; 8/8 escenarios PASS. |
 
 ## 2. Evidencia real ejecutada
 
 Entorno: PostgreSQL 16.15 local efímero, base `bookings_test`.
 
-- `npm run prisma:bookings:migrate:deploy`: aplicadas `001_bookings_core` y `002_booking_lifecycle_fields`.
-- `npm run test:bookings:integration`: 7 suites, 26 pruebas aprobadas.
+- `npm run prisma:bookings:migrate:deploy`: aplicadas `001_bookings_core`, `002_booking_lifecycle_fields` y `003_payment_review_and_notification_work` sobre PostgreSQL 16 limpio.
+- `npm run test:bookings:unit`: 13 suites, 90 pruebas aprobadas.
+- `npm run test:bookings:contract`: 13 suites, 88 pruebas aprobadas.
+- `npm run test:bookings:integration` con PostgreSQL y RabbitMQ reales: 9 suites, 44 pruebas aprobadas.
 - `npm run test:bookings:concurrency`: 1 suite, 2 pruebas aprobadas (GiST sin sobreventa).
-- `npm run test:e2e --workspace @stayhub/bookings-service`: 1 suite, 2 pruebas aprobadas.
-- `npm run test:performance --workspace @stayhub/bookings-service`: 1 suite, 2 pruebas aprobadas.
-- `npm run test:bookings`: 35 suites, 184 pruebas aprobadas, 0 fallidas.
-- `npm run test:coverage --workspace @stayhub/bookings-service`: statements 74.32 %, branches 76.79 %, functions 75.82 %, lines 79.92 % (umbral 70 % cumplido).
+- `npm run test:e2e --workspace @stayhub/bookings-service`: E2E aislado sobre PostgreSQL real.
+- `npm run test:unir:e2e`: 8/8 escenarios E2E reales PASS (Payments→Bookings→Notifications + Bookings↔Reviews).
+- Notifications: `typecheck`, `lint`, `build`, 23 suites/58 pruebas y validador OpenAPI PASS; migración `202611100001_booking_reminder_canonical_fields` aplicada sobre PostgreSQL limpio.
 - `node scripts/validate-bookings-contracts.mjs`: OpenAPI y JSON Schema válidos.
-- `typecheck`, `lint` y `build`: exit `0`.
+- `typecheck`, `lint` y `build` de Bookings: exit `0`.
 
 ## 3. Cobertura funcional
 
@@ -55,7 +59,5 @@ Solo integraciones externas reales:
 
 1. T095 Gateway ↔ Bookings.
 2. T096 Bookings ↔ Accommodations quote real.
-3. T097 Bookings ↔ Payments y eventos reales.
-4. T098 Bookings ↔ review_service consumer.
 
-No se ejecutó `docker compose` ni RabbitMQ real por falta de Docker en el entorno local; esa evidencia queda explícitamente diferida. El handoff contractual de Reviews está congelado y no requiere cambios internos de Bookings.
+T096b y T098 quedaron validadas con harnesses aislados con Docker, PostgreSQL, RabbitMQ y HTTP reales; sus contenedores temporales se eliminaron al terminar. El handoff contractual de Reviews está congelado.

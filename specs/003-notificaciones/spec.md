@@ -8,7 +8,7 @@
 
 ## Objetivo y límites
 
-El servicio conserva y presenta notificaciones dirigidas a un usuario, y acepta solicitudes autenticadas para crear confirmaciones de reserva, recordatorios de check-in y alertas del sistema. Solo expone `POST /notifications/send` y `GET /notifications/user/{id}`. No programa recordatorios, no consume colas/eventos y no llama a otros servicios. La aplicación cliente que conoce el hecho (por ejemplo, una reserva confirmada) solicita el envío.
+El servicio conserva y presenta notificaciones dirigidas a un usuario, y acepta solicitudes autenticadas para crear confirmaciones de reserva, recordatorios de check-in y alertas del sistema. Expone `POST /notifications/send`, `POST /notifications/events/booking-confirmed` y `GET /notifications/user/{id}`. Programa recordatorios duraderos, no consume colas/eventos y no llama a otros servicios. La aplicación cliente que conoce el hecho (por ejemplo, una reserva confirmada) solicita el envío por HTTP.
 
 Se conservan notificaciones `IN_APP` y se pasa `EMAIL` por un adaptador local falso que no contacta redes externas. El contenido se genera dentro del servicio a partir de variables validadas por tipo; no se admiten plantillas editables ni envío de texto arbitrario de reserva.
 
@@ -46,8 +46,8 @@ Como servicio llamador autenticado o administrador, quiero crear una notificaci�
 
 1. `POST /notifications/send` rechaza solicitudes anónimas con `401`; acepta service JWT solo con el scope de envío configurado, o access JWT de `ADMIN`. Otros roles reciben `403`.
 2. El cuerpo cerrado exige `userId`, `type`, `channel` y `templateData`; `EMAIL` requiere `recipientEmail`, `IN_APP` lo rechaza. Campos desconocidos producen `400 VALIDATION_ERROR`.
-3. `BOOKING_CONFIRMATION` valida `bookingId`, `roomTitle`, `roomLocation`, `checkIn`, `checkOut`, `guests` y `totalPrice`; el servicio construye asunto/cuerpo. Fechas son ISO `YYYY-MM-DD`, huéspedes enteros positivos y precio decimal no negativo con hasta dos decimales.
-4. `CHECKIN_REMINDER` valida `bookingId`, `roomTitle`, `roomLocation` y `checkIn`, con fecha ISO `YYYY-MM-DD`; el servicio construye asunto/cuerpo.
+3. `BOOKING_CONFIRMATION` valida `bookingId`, `propertyName`, `roomName`, `checkIn`, `checkOut`, `guests` y `totalPrice`; el servicio construye asunto/cuerpo. Fechas son ISO `YYYY-MM-DD`, huéspedes enteros positivos y precio decimal no negativo con hasta dos decimales, expresado como string para preservar precisión.
+4. `CHECKIN_REMINDER` valida `bookingId`, `propertyName`, `roomName` y `checkIn`, con fecha ISO `YYYY-MM-DD`; el servicio construye asunto/cuerpo.
 5. `SYSTEM_ALERT` valida `alertCode` (`[A-Z][A-Z0-9_]{1,63}`), `title` (1–120 caracteres) y `message` (1–2000 caracteres). Título y mensaje son el contenido proporcionado por el llamador autenticado; el servicio los coloca en una envoltura fija, sin inventar catálogos de alertas.
 6. Toda solicitud lleva `Idempotency-Key` no vacía de 1–128 caracteres. Repetirla con contenido canónico idéntico devuelve la notificación existente; reutilizarla con contenido distinto devuelve `409 IDEMPOTENCY_CONFLICT`.
 7. `IN_APP` queda `SENT` al persistirse. `EMAIL` solo queda `SENT` si el adaptador local falso acepta la operación; el estado no implica entrega de correo. Error del adaptador deja registro `FAILED` con `failureReason` seguro y sin contenido sensible en logs.
@@ -113,7 +113,7 @@ Scheduler o envío automático por tiempo; colas/eventos; llamadas a otros servi
 ## Supuestos y decisiones fijadas
 
 - Las aprobaciones de la Fase 1 definen autorización, campos persistidos, canales, tipos, idempotencia, paginación, persistencia y formato de errores.
-- Los campos de reserva se derivan del contrato provisional `Booking` en `apps/web/src/types/index.ts`: `id`, `roomTitle`, `roomLocation`, `checkIn`, `checkOut`, `guests`, `totalPrice`; notificaciones solo toman los necesarios por tipo. Ese modelo web no constituye un contrato de Booking backend; `bookingId` se mantiene opaco y no se consulta otro servicio.
+- Los campos canónicos de reserva son `propertyName`, `roomName`, `bookingId`, `userId`, `checkIn`, `checkOut`, `guests`, `totalPrice` y `checkInAt`; notificaciones solo toma los necesarios por tipo. Bookings conserva los snapshots reales `propertyName` y `roomName` y no conserva ubicación, por lo que no se inventa una dirección. `bookingId` se mantiene opaco y no se consulta otro servicio.
 - Se siguen patrones Users: JWT RS256 local, claves públicas, env obligatoria, NestJS, repositorio/puerto, PostgreSQL/Prisma, Problem Details, OpenAPI, suites Jest por categoría y validación cerrada. La configuración propia de issuer/audience/kid/scope para este servicio será explícita.
 - Plantillas de booking son texto fijo en español neutro generado por el servicio, con interpolación escapada y sin HTML. `SYSTEM_ALERT` acepta texto de operador/servicio autenticado y una etiqueta fija; no se inventa un catálogo de alertas.
 - Persistir en `notifications_db` (base aislada) con Prisma/PostgreSQL. Se requiere URL local suministrada por entorno; Compose no se toca por la restricción de alcance.
@@ -139,3 +139,7 @@ Por solicitud posterior del usuario, esta ampliación prevalece sobre las restri
 - `SYSTEM_ALERT` ya se ofrece por `POST /notifications/send`; sus emisores deben invocar esa ruta con credenciales de servicio. No se inventa un catálogo ni se integra un origen externo.
 - La entrega EMAIL continúa siendo simulada; el scheduler automático entrega recordatorios en `IN_APP`. Integrar el productor Booking y un proveedor real sigue siendo trabajo de plataforma.
 
+
+## Verificación de integración real (2026-11-10)
+
+La integración Bookings→Notifications se verificó con `npm run test:unir:e2e` sobre PostgreSQL, RabbitMQ y HTTP reales. Se comprobó una única `BOOKING_CONFIRMATION`, un único `CHECKIN_REMINDER`, replay idempotente, rechazo sin notificación, `NotificationWork` recuperable durante una caída de Notifications y recuperación tras reiniciar los workers. Resultado: 7/7 escenarios PASS; los contenedores temporales se eliminaron al terminar.

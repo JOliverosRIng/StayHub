@@ -85,7 +85,7 @@
 - [x] T043 [US1] Implementar UoW de creación que persiste Booking, transición, IdempotencyRecord, PaymentWork y Outbox atómicamente y traduce exclusion violation a `BOOKING_CONFLICT` en `apps/bookings-service/src/infrastructure/persistence/prisma/create-booking.unit-of-work.ts` (depends on T019,T041–T042)
 - [x] T044 [US1] Implementar `CreateBookingUseCase` con quote, snapshot, cálculo decimal, hold obligatorio e idempotencia en `apps/bookings-service/src/application/create-booking/create-booking.use-case.ts` (depends on T016,T020,T038,T040,T043)
 - [x] T045 [P] [US1] Implementar `PaymentOrdersPort`, tipos e idempotency key derivada de bookingId en `apps/bookings-service/src/application/ports/payment-orders.port.ts`
-- [x] T046 [US1] Implementar cliente Payments para `POST /internal/v1/payment-orders` con timeout, retry solo seguro y Problem Details remoto en `apps/bookings-service/src/infrastructure/http/payments-orders.client.ts` (depends on T023,T045; external dependency: payments-service contract provider)
+- [x] T046 [US1] Implementar cliente Payments alineado con el proveedor real `POST /payments`, scope `payments:charge`, monto en unidades menores, idempotencia UUID, token opaco de la pasarela mock, timeout y validación cerrada de respuesta en `apps/bookings-service/src/infrastructure/http/payments-orders.client.ts` (depends on T023,T045; external dependency: payments-service contract provider)
 - [x] T047 [US1] Implementar repositorio/reclamador de PaymentWork con backoff, límite y múltiples réplicas en `apps/bookings-service/src/infrastructure/persistence/prisma/payment-work.repository.ts` (depends on T018,T021)
 - [x] T048 [US1] Implementar worker recuperable para crear orden sin mantener transacción DB durante HTTP en `apps/bookings-service/src/application/payments/create-payment-order.worker.ts` (depends on T046–T047)
 - [x] T049 [P] [US1] Implementar Outbox repository/publisher con confirm, mensajes persistentes y publishedAt posterior al broker ack en `apps/bookings-service/src/infrastructure/messaging/rabbitmq-outbox.publisher.ts` (depends on T020,T028)
@@ -128,7 +128,7 @@
 - [x] T064 [P] [US3] Implementar puerto/config adapter de policy que exige versión aprobada y no codifica plazos/porcentajes en `apps/bookings-service/src/application/ports/cancellation-policy.port.ts` y `apps/bookings-service/src/infrastructure/config/versioned-cancellation-policy.adapter.ts` (depends on T061)
 - [x] T065 [US3] Implementar UoW de cancelación con lock/version, transición, decisión, PaymentWork y Outbox atómicos en `apps/bookings-service/src/infrastructure/persistence/prisma/cancel-booking.unit-of-work.ts` (depends on T019,T041,T063)
 - [x] T066 [US3] Implementar `CancelGuestBookingUseCase` con ownership, estados cancelables y errores estables en `apps/bookings-service/src/application/cancel-booking/cancel-guest-booking.use-case.ts` (depends on T064–T065)
-- [x] T067 [P] [US3] Extender Payments client para `POST /internal/v1/refunds` con key derivada, mode POLICY y retry seguro en `apps/bookings-service/src/infrastructure/http/payments-refunds.client.ts` (depends on T045; external dependency: payments-service contract provider)
+- [x] T067 [P] [US3] Extender Payments client para `POST /payments/{id}/refund`, scope `payments:refund`, motivo de cancelación, monto en unidades menores e idempotencia UUID derivada en `apps/bookings-service/src/infrastructure/http/payments-refunds.client.ts` (depends on T045; external dependency: payments-service contract provider)
 - [x] T068 [US3] Extender PaymentWork worker/consumer para refund pending/completed sin reactivar disponibilidad en `apps/bookings-service/src/application/payments/request-refund.worker.ts` y `apps/bookings-service/src/application/payments/apply-refund-result.use-case.ts` (depends on T050,T067)
 - [x] T069 [US3] Implementar DELETE para GUEST, Swagger y evidencia US3 en `apps/bookings-service/src/interfaces/http/bookings/bookings.controller.ts` y `apps/bookings-service/src/interfaces/openapi/bookings.openapi.ts` (depends on T062,T066,T068)
 
@@ -186,9 +186,10 @@
 - [x] T093 [P] Crear dataset reproducible y gate p95 <500 ms para detalle/historial, registrando entorno y errores <1 %, en `apps/bookings-service/test/performance/bookings-performance.spec.ts` y `apps/bookings-service/test/fixtures/performance-dataset.ts`
 - [x] T094 Crear E2E aislado create→payment.confirmed→check-in→check-out y cancelaciones/refunds con colaboradores contractuales en `apps/bookings-service/test/e2e/bookings-isolated.e2e-spec.ts` (depends on T054,T060,T069,T078,T088)
 - [ ] T095 Ejecutar provider-consumer e integración real Bookings→Accommodations quote en `apps/bookings-service/test/contract/accommodations-provider.contract.spec.ts` y `apps/bookings-service/test/e2e/bookings-accommodations.e2e-spec.ts` (depends on T040,T054; external dependency: endpoint quote y Compose de accommodations-service)
-- [ ] T096 Ejecutar integración real Bookings↔Payments para orden, confirmación, fallo y refund sin duplicados en `apps/bookings-service/test/contract/payments-provider.contract.spec.ts` y `apps/bookings-service/test/e2e/bookings-payments.e2e-spec.ts` (depends on T046–T052,T067–T068; external dependency: payments-service)
+- [x] T096a Ejecutar integración REST real Bookings→Payments para cobro aprobado, replay sin doble cobro, rechazo autoritativo, refund completado y replay sin doble reembolso en `apps/bookings-service/test/contract/payments-provider.contract.spec.ts` y `apps/bookings-service/test/e2e/bookings-payments.e2e-spec.ts` (depends on T046,T067; evidencia 2026-11-10 con Payments/PostgreSQL/RabbitMQ reales).
+- [x] T096b Ejecutar integración RabbitMQ real Payments→Bookings para aplicar eventos de aprobación, rechazo y refund, incluyendo duplicados, orden, retry y DLQ (depends on T049–T052,T068; evidencia 2026-11-10 con Payments/Bookings/Notifications/PostgreSQL/RabbitMQ reales mediante `npm run test:unir:e2e`; 7 escenarios PASS).
 - [ ] T097 Ejecutar integración Gateway↔Bookings para rutas, identidad, roles, rate limit y Problem Details en `apps/bookings-service/test/e2e/gateway-bookings.e2e-spec.ts` (depends on T054,T060,T069,T077,T084; external dependency: API Gateway routing)
-- [ ] T098 Ejecutar provider-consumer Bookings↔Reviews usando solo eligibility/evento y sin DB compartida en `apps/bookings-service/test/contract/reviews-provider.contract.spec.ts` y `apps/bookings-service/test/e2e/bookings-reviews.e2e-spec.ts` (depends on T088; external dependency: review_service consumer)
+- [x] T098 Ejecutar provider-consumer Bookings↔Reviews usando solo eligibility/evento y sin DB compartida en `apps/bookings-service/test/contract/reviews-provider.contract.spec.ts` y `apps/bookings-service/test/e2e/bookings-reviews.e2e-spec.ts` (depends on T088; evidencia 2026-11-10 con Bookings, Reviews, PostgreSQL y HTTP reales mediante `npm run test:unir:e2e`; 8/8 escenarios PASS).
 - [x] T099 [P] Implementar shutdown ordenado de HTTP/workers/RabbitMQ/Prisma y probar SIGTERM, no-root y filesystem read-only en `apps/bookings-service/src/infrastructure/lifecycle/graceful-shutdown.ts` y `apps/bookings-service/test/contract/shutdown.contract.spec.ts`
 - [x] T100 Ejecutar todos los escenarios de `quickstart.md` y registrar comandos/exit codes/evidencia real, distinguiendo stubs de integración, en `specs/003-reservas-pagos-resenas/booking_service/quickstart.md` (depends on T089–T099)
 - [x] T101 Auditar trazabilidad RQ-07–RQ-10/RQ-11 parcial, cobertura >=70 %, contratos, Compose, CI, revisión humana y tareas externas no simuladas en `specs/003-reservas-pagos-resenas/booking_service/validation-report.md` (depends on T100)
@@ -213,9 +214,10 @@
 | Gate | Tareas que pueden avanzar | Tarea que no se cierra sin externo |
 |---|---|---|
 | Accommodations quote | T031–T054 con stub/consumer contract | T095 |
-| Payments | saga/ports/workers con stub | T096 |
+| Payments REST | cliente real, contrato provider-consumer y E2E de cobro/reembolso | T096a completada |
+| Payments eventos | consumidor alineado al contrato real, retry/DLQ reales, `NotificationWork` durable, worker HTTP Bookings→Notifications y E2E real 7/7 | T096b completada |
 | Gateway | controllers/security locales | T097 |
-| review_service | T079–T088 y handoff contractual | T098 |
+| review_service | T079–T088, handoff contractual y E2E real Reviews↔Bookings 8/8 | T098 completada |
 | Política productiva | infraestructura/fixture | T100–T101 para release productivo |
 
 ### User-story order

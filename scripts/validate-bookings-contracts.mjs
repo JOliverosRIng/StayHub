@@ -45,6 +45,8 @@ const completed = {
   propertyId: '00000000-0000-4000-8000-000000000004',
 };
 assert.ok(validateEvent(completed), `booking.v1.completed fixture is invalid: ${JSON.stringify(validateEvent.errors)}`);
-assert.ok(eventSchema.$defs?.bookingCancelled && eventSchema.$defs?.refundCompleted, 'Event schema is missing cancellation/refund definitions');
+assert.ok(eventSchema.$defs?.bookingCancelled, 'Event schema is missing cancellation definition');
+assert.ok(eventSchema.$defs?.bookingConfirmed, 'Event schema is missing confirmation definition');
+assert.ok(!eventSchema.$defs?.refundCompleted, 'Payment refund events belong to the Payments producer schema');
 
 console.log('Bookings contracts: OpenAPI valid, required operations present, event schema valid');

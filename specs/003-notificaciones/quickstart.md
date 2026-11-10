@@ -49,10 +49,12 @@ La suite de persistencia inspecciona el esquema y la migración; el test de idem
 
 ## Arranque y límites de evidencia
 
-`POST /notifications/events/booking-confirmed` recibe un evento firmado por un service JWT, registra la confirmación en `IN_APP` y programa el recordatorio `IN_APP` 24 horas antes de `checkInAt` (o inmediatamente si queda menos tiempo). El worker durable consulta PostgreSQL cada 30 segundos; un `bookingId` solo puede tener una programación. Booking debe invocar esta ruta; este cambio no modifica ni conecta otro servicio.
+`POST /notifications/events/booking-confirmed` recibe un evento firmado por un service JWT, registra la confirmación en `IN_APP` y programa el recordatorio `IN_APP` 24 horas antes de `checkInAt` (o inmediatamente si queda menos tiempo). El worker durable consulta PostgreSQL cada 30 segundos; un `bookingId` solo puede tener una programación. Booking invoca esta ruta por HTTP; Notifications no consume RabbitMQ.
+
+El contrato canónico usa `propertyName` y `roomName` (snapshots reales de Bookings), `totalPrice` como string decimal y no incluye ubicación. La migración `202611100001_booking_reminder_canonical_fields` renombra las columnas de `ScheduledNotification` sin perder datos; los nombres legacy `roomTitle`/`roomLocation` se rechazan en el DTO cerrado.
 
 Las alertas de sistema ya se crean mediante `POST /notifications/send` con `type: SYSTEM_ALERT`. EMAIL sigue usando el adaptador falso.
 
-`npm run start:dev` y `npm start` cargan `.env`, validan configuración y escuchan `0.0.0.0:3009`. **La integración del worker contra PostgreSQL real aún debe verificarse** en el entorno local; requiere aplicar la migración nueva y configurar claves/issuer/audience sintéticos.
+`npm run start:dev` y `npm start` cargan `.env`, validan configuración y escuchan `0.0.0.0:3009`. La migración `202611100001_booking_reminder_canonical_fields` se aplicó sobre PostgreSQL 16 limpio y el flujo Bookings→Notifications se verificó con `npm run test:unir:e2e` usando la base y HTTP reales.
 
-El despliegue en Compose, el wiring de Gateway y el aprovisionamiento de claves/scope de service JWT requieren coordinación de plataforma y quedan **fuera de alcance**, no PASS.
+El harness E2E genera claves/tokens sintéticos y contenedores aislados; el wiring de Gateway y el aprovisionamiento productivo de claves/scope de service JWT siguen requiriendo coordinación de plataforma y quedan **fuera de alcance**.

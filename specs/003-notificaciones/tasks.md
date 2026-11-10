@@ -87,3 +87,9 @@ Aunque algunas tareas tocan archivos distintos, por decisión de trabajo cada NT
 - Cada cierre incluye obligatoriamente test total, lint, typecheck y commit individual según Reglas por ciclo.
 - **MVP sugerido**: NTF-001–010 habilita envío autenticado/idempotente; NTF-011–015 se requieren para completar la feature del contrato y evidencia final.
 
+
+## Integración canónica con Bookings (2026-11-10)
+
+- [x] NTF-INT-01 Alinear `POST /notifications/events/booking-confirmed` y las plantillas a `propertyName`/`roomName`, `totalPrice` string y snapshots reales de Bookings; actualizar DTO, política, scheduler, repositorio, modelo Prisma, migración y OpenAPI. **Pruebas**: `test/unit/notification-policy.spec.ts`, `test/unit/booking-confirmed.use-case.spec.ts`, `test/contract/booking-confirmed.contract.spec.ts`, `test/contract/openapi.contract.spec.ts`.
+- [x] NTF-INT-02 Verificar la migración `202611100001_booking_reminder_canonical_fields` en PostgreSQL real y conservar los datos existentes renombrando columnas. **Evidencia**: `prisma migrate deploy` aplicado sobre base limpia y columnas `propertyName`/`roomName` confirmadas.
+- [x] NTF-INT-03 Verificar el flujo real Bookings→Notifications con PostgreSQL y HTTP: confirmación única, recordatorio único, replay idempotente, rechazo sin notificación, caída/recuperación y reinicio de workers. **Evidencia**: `npm run test:unir:e2e` (7/7 escenarios PASS); Requests reales al endpoint interno con service JWT.

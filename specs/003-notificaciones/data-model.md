@@ -28,8 +28,8 @@ Campos comunes: `userId` UUID, `type`, `channel`, `templateData` objeto cerrado 
 
 | `type` | Campos requeridos en `templateData` | Formato |
 |---|---|---|
-| `BOOKING_CONFIRMATION` | `bookingId`, `roomTitle`, `roomLocation`, `checkIn`, `checkOut`, `guests`, `totalPrice` | `bookingId` string opaco de 1–100 chars; título 1–120; ubicación 1–200; fechas ISO `YYYY-MM-DD`, `checkOut > checkIn`; guests entero 1–100; total decimal string `0` o mayor, hasta 2 decimales y máximo 10 dígitos enteros. |
-| `CHECKIN_REMINDER` | `bookingId`, `roomTitle`, `roomLocation`, `checkIn` | Mismos límites de bookingId, título, ubicación y fecha ISO. |
+| `BOOKING_CONFIRMATION` | `bookingId`, `propertyName`, `roomName`, `checkIn`, `checkOut`, `guests`, `totalPrice` | `bookingId` string opaco de 1–100 chars; `propertyName` 1–120; `roomName` 1–120; fechas ISO `YYYY-MM-DD`, `checkOut > checkIn`; guests entero 1–100; total decimal string `0` o mayor, hasta 2 decimales y máximo 10 dígitos enteros. |
+| `CHECKIN_REMINDER` | `bookingId`, `propertyName`, `roomName`, `checkIn` | Mismos límites de bookingId, `propertyName`, `roomName` y fecha ISO. |
 | `SYSTEM_ALERT` | `alertCode`, `title`, `message` | code `[A-Z][A-Z0-9_]{1,63}`; title 1–120; message 1–2000. Texto plano proporcionado por llamador autorizado. |
 
 No se admiten propiedades extra. El renderizador debe escapar caracteres de interpolación y producir texto plano. El cliente no puede enviar `subject`, `body`, `status`, `failureReason`, `sentAt`, `id`, `recipientEmail` dentro de `templateData` ni sobrescribir valores generados.

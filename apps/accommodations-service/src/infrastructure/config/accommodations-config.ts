@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 
 export interface JwtConfig { issuer: string; audience: string; kid: string; publicKey: string }
+export interface ServiceJwtConfig extends JwtConfig { scope: string }
 export interface AccommodationsConfig {
-  port: number; databaseUrl: string; jwt: JwtConfig; photoStorageRoot: string; otlpEndpoint: string; development: boolean;
+  port: number; databaseUrl: string; jwt: JwtConfig; serviceJwt: ServiceJwtConfig; photoStorageRoot: string; otlpEndpoint: string; development: boolean;
 }
 export const ACCOMMODATIONS_CONFIG = Symbol('ACCOMMODATIONS_CONFIG');
 export const ACCOMMODATIONS_PORT = 3003;
@@ -49,7 +50,22 @@ export function loadAccommodationsConfig(env: NodeJS.ProcessEnv = process.env): 
   else if (pem) publicKey = keyFromPem(pem);
   else throw new Error('Missing configuration: ACCOMMODATIONS_JWT_PUBLIC_KEY');
 
-  return { port, databaseUrl, jwt: { issuer, audience, kid, publicKey }, photoStorageRoot, otlpEndpoint, development: env.NODE_ENV === 'development' };
+  const serviceIssuer = required('ACCOMMODATIONS_SERVICE_JWT_ISSUER');
+  const serviceAudience = required('ACCOMMODATIONS_SERVICE_JWT_AUDIENCE');
+  const serviceKid = required('ACCOMMODATIONS_SERVICE_JWT_KID');
+  const servicePem = optional('ACCOMMODATIONS_SERVICE_JWT_PUBLIC_KEY');
+  const serviceJwks = optional('ACCOMMODATIONS_SERVICE_JWT_JWKS');
+  if (servicePem && serviceJwks) throw new Error('Configure exactly one of ACCOMMODATIONS_SERVICE_JWT_PUBLIC_KEY or ACCOMMODATIONS_SERVICE_JWT_JWKS');
+  let servicePublicKey: string;
+  if (serviceJwks) servicePublicKey = keyFromJwks(serviceJwks, serviceKid);
+  else if (servicePem) servicePublicKey = keyFromPem(servicePem);
+  else throw new Error('Missing configuration: ACCOMMODATIONS_SERVICE_JWT_PUBLIC_KEY');
+  const bookingQuoteScope = optional('ACCOMMODATIONS_BOOKING_QUOTE_SCOPE') || 'accommodations:booking-quote';
+
+  return {
+    port, databaseUrl, jwt: { issuer, audience, kid, publicKey }, serviceJwt: { issuer: serviceIssuer, audience: serviceAudience, kid: serviceKid, publicKey: servicePublicKey, scope: bookingQuoteScope },
+    photoStorageRoot, otlpEndpoint, development: env.NODE_ENV === 'development',
+  };
 }
 
 function assertRsaVerificationKey(key: KeyObject): string {
