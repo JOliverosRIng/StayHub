@@ -26,7 +26,7 @@ export function createValidationPipe(): ValidationPipe {
     stopAtFirstError: false,
     exceptionFactory: (errors: ValidationError[]) =>
       new BadRequestException({
-        code: 'VALIDATION_FAILED',
+        code: 'VALIDATION_ERROR',
         errors: fieldErrors(errors),
       }),
   });

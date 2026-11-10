@@ -12,14 +12,20 @@ export class ServiceAuthGuard implements CanActivate {
     const authorization = request.header('authorization');
     const match = /^Bearer ([^\s]+)$/.exec(authorization ?? '');
     if (match?.[1] === undefined) {
-      throw new UnauthorizedException('Service authentication is required');
+      throw new UnauthorizedException({
+        code: 'SERVICE_UNAUTHORIZED',
+        message: 'Service authentication is required',
+      });
     }
     try {
       const principal = await this.verifier.verify(match[1]);
       Object.assign(request, { servicePrincipal: principal });
       return true;
     } catch {
-      throw new UnauthorizedException('Service authentication is invalid');
+      throw new UnauthorizedException({
+        code: 'SERVICE_UNAUTHORIZED',
+        message: 'Service authentication is invalid',
+      });
     }
   }
 }

@@ -310,7 +310,7 @@ describe('registration HTTP contract (AUTH-026)', () => {
 
       const response = await postRegistration(app(), body, { token, idempotencyKey });
 
-      expectProblem(response, 'VALIDATION_FAILED', 400);
+      expectProblem(response, 'VALIDATION_ERROR', 400);
       expect(execute).not.toHaveBeenCalled();
     });
   });
@@ -323,7 +323,7 @@ describe('registration HTTP contract (AUTH-026)', () => {
         idempotencyKey: randomUUID(),
       });
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 
@@ -346,7 +346,7 @@ describe('registration HTTP contract (AUTH-026)', () => {
         idempotencyKey: randomUUID(),
       });
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 
@@ -366,7 +366,7 @@ describe('registration HTTP contract (AUTH-026)', () => {
         idempotencyKey: randomUUID(),
       });
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
   });
@@ -383,7 +383,7 @@ describe('registration HTTP contract (AUTH-026)', () => {
         label: 'registration conflict',
         error: new RegistrationConflictError(),
         status: 409,
-        code: 'REGISTRATION_CONFLICT',
+        code: 'EMAIL_ALREADY_REGISTERED',
       },
       {
         label: 'cancelled registration',

@@ -272,10 +272,10 @@ reales o Compose y se tratan en los pendientes externos, no como verdes.
 
 | Tarea | Estado | Motivo |
 |---|---|---|
-| AUTH-076 | PARCIAL | La parte Auth↔Users está acreditada contra Users real, pero falta la aprobación contractual de G2 y el timeout literal contra Users real |
-| AUTH-079 | PARCIAL | La saga y la reconciliación están acreditadas con procesos Node y bases en contenedor; falta Compose real y timeout contra Users real |
-| AUTH-078 | BLOQUEADA | No existe `test/contract/gateway.provider.spec.ts`; requiere que G1 congele `openapi-public.yaml` y sus expectativas de consumidor |
-| AUTH-081 | BLOQUEADA | No existe `test/integration/gateway-auth.spec.ts`; requiere routing, cookie segura y cliente Auth reales de G1 |
+| AUTH-076 | PARCIAL | La parte Auth↔Users está acreditada contra Users real; falta la aprobación contractual de G2. El timeout literal ya está cubierto por INT-14b (modo `hang`), pendiente de ejecutar donde el host alcance los contenedores |
+| AUTH-079 | PARCIAL | La saga y la reconciliación están acreditadas con procesos Node y bases en contenedor; falta Compose real con red accesible desde el host |
+| AUTH-078 | COMPLETADA (provider local) | `test/contract/gateway.provider.spec.ts` verde contra el pacto GW-056 y códigos alineados; ver «Sincronización Auth ↔ Gateway» (2026-11-10) |
+| AUTH-081 | BLOQUEADA | `test/integration/gateway-auth.spec.ts` existe y está env-gated; requiere routing, cookie segura y cliente Auth reales de G1 |
 | CI remota | NO EJECUTADA | Los cambios están sin commitear y no se hizo push; la corrección del job se validó localmente |
 
 ## Límites de esta evidencia
@@ -289,3 +289,58 @@ reales o Compose y se tratan en los pendientes externos, no como verdes.
 - El ajuste de `dev-env-generator.spec.ts` es exclusivamente de prueba: en Windows
   no es posible verificar bits de permiso POSIX, y el generador sigue aplicando
   `chmod 0o600` en plataformas que lo soportan.
+
+---
+
+# Sincronización Auth ↔ Gateway y timeout literal Auth↔Users (2026-11-10)
+
+## Alineación de códigos Problem Details con el consumidor G1
+
+Se alinearon los `code` que emite Auth con la expectativa congelada por el Gateway (GW-056/pact):
+
+| Caso | Antes | Ahora |
+|---|---|---|
+| 400 validación | `VALIDATION_FAILED` | `VALIDATION_ERROR` |
+| 401 service JWT | `HTTP_401` | `SERVICE_UNAUTHORIZED` |
+| 401 refresh | `REFRESH_TOKEN_INVALID` | `REFRESH_REJECTED` |
+| 409 registro | `REGISTRATION_CONFLICT` | `EMAIL_ALREADY_REGISTERED` |
+| 429 login | `LOGIN_RATE_LIMITED` | `RATE_LIMITED` |
+
+`INVALID_CREDENTIALS`, `SESSION_INVALID`, `DEPENDENCY_UNAVAILABLE`, `IDEMPOTENCY_CONFLICT` y
+`REGISTRATION_CANCELLED` no cambian.
+
+## AUTH-078 — provider contra el pacto GW-056
+
+- `apps/auth-service/test/contract/gateway.provider.spec.ts`: 18 pruebas verdes sobre las cuatro
+  operaciones internas, statuses 200/201/400/401/409/429/503, `Problem` + `traceId`, service JWT,
+  `Idempotency-Key` y `Retry-After`. Corre en `test:contract` (retirado de `crossServicePatterns`).
+- Comandos ejecutados desde la raíz:
+  - `npm run test:auth:contract` → exit 0, 8 suites / 160 pruebas.
+  - `npm run test:auth:security` → exit 0, 4 suites / 66 pruebas.
+  - `npm run openapi:auth:check` → exit 0, 11 comprobaciones.
+  - `npm run test:contract -w @stayhub/api-gateway` → exit 0, 11 suites (2 skipped).
+
+## AUTH-081 — integración G1↔Auth
+
+- `apps/auth-service/test/integration/gateway-auth.spec.ts` creada y aislada por entorno
+  (`CROSS_SERVICE_PROVIDERS=true` + `CROSS_SERVICE_GATEWAY_URL`). Sin esos valores la suite se salta.
+- No se marca: requiere el Gateway real desplegado. El 503 fail-closed se cubre en GW-058.
+
+## AUTH-076 / AUTH-079 — timeout literal Auth↔Users
+
+- `users-fault-proxy.ts` incorpora el modo `hang`: reenvía a Users real y nunca responde, forzando
+  el aborto del cliente por `AUTH_USERS_TIMEOUT_MS`.
+- `cross-service-recovery.spec.ts` añade INT-14b con `AUTH_USERS_TIMEOUT_MS=1000`: dos timeouts
+  idempotentes → 503 `DEPENDENCY_UNAVAILABLE`, identidad remota `PENDING`, estado reanudable y
+  reintento con la misma `Idempotency-Key` que converge a `COMPLETED`.
+- **No ejecutado en esta ronda**: el host del agente no tiene acceso de red a los puertos publicados
+  por Docker (conexión rechazada incluso al IP del contenedor), por lo que `npm run test:auth-users`
+  no puede aprovisionar PostgreSQL/Redis. La tarea permanece abierta; no se simula evidencia.
+
+## Estado de tareas tras la sincronización
+
+- `AUTH-078`: `[X]` (provider local ejecutado).
+- `AUTH-076`, `AUTH-079`, `AUTH-081`: `[ ]` (implementadas o parcialmente acreditadas; requieren
+  G1/G2 reales o Compose con red accesible).
+- `specs/001-fundamentos-identidad/tasks.md`: bloque AUTH resincronizado con el sub-backlog
+  (81/84 marcadas; antes 43/84).

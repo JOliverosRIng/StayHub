@@ -220,7 +220,7 @@ describe('login HTTP contract (AUTH-049)', () => {
 
       const response = await postLogin(app(), body, { token });
 
-      expectProblem(response, 'VALIDATION_FAILED', 400);
+      expectProblem(response, 'VALIDATION_ERROR', 400);
       expect(execute).not.toHaveBeenCalled();
     });
   });
@@ -267,7 +267,7 @@ describe('login HTTP contract (AUTH-049)', () => {
         { token },
       );
 
-      expectProblem(response, 'LOGIN_RATE_LIMITED', 429);
+      expectProblem(response, 'RATE_LIMITED', 429);
       expect(JSON.stringify(response.body)).not.toContain(PASSWORD);
     });
 
@@ -313,7 +313,7 @@ describe('login HTTP contract (AUTH-049)', () => {
         password: PASSWORD,
       });
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 
@@ -337,7 +337,7 @@ describe('login HTTP contract (AUTH-049)', () => {
         { token },
       );
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 
@@ -358,7 +358,7 @@ describe('login HTTP contract (AUTH-049)', () => {
         { token },
       );
 
-      expectProblem(response, 'HTTP_401', 401);
+      expectProblem(response, 'SERVICE_UNAUTHORIZED', 401);
       expect(execute).not.toHaveBeenCalled();
     });
 

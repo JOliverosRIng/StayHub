@@ -6,9 +6,12 @@ import http from 'node:http';
 // - `drop-response`: reenviar la petición, esperar la respuesta completa de Users
 //   (la escritura ya está confirmada) y cortar la conexión con Auth sin entregarla.
 // - `refuse`: cortar la conexión sin reenviar (Users inalcanzable para esa llamada).
+// - `hang`: reenviar la petición y NUNCA responder a Auth, de modo que su cliente
+//   HTTP aborte por `AUTH_USERS_TIMEOUT_MS`. Sirve para probar el timeout literal
+//   contra Users real (no contra un doble).
 // Nunca fabrica usuarios ni respuestas de negocio.
 
-export type FaultMode = 'drop-response' | 'refuse';
+export type FaultMode = 'drop-response' | 'refuse' | 'hang';
 
 export interface FaultRule {
   readonly method: string;
@@ -62,6 +65,25 @@ export async function startUsersFaultProxy(port: number, upstreamPort: number): 
       if (fault === 'refuse') {
         hits.push({ method, path, upstreamStatus: null, fault });
         request.socket.destroy();
+        return;
+      }
+      if (fault === 'hang') {
+        const hung = http.request(
+          { host: '127.0.0.1', port: upstreamPort, method, path, headers: request.headers },
+          (upstreamResponse) => {
+            const body: Buffer[] = [];
+            upstreamResponse.on('data', (chunk: Buffer) => body.push(chunk));
+            upstreamResponse.on('end', () => {
+              // Nunca se entrega la respuesta: Auth debe abortar por su timeout.
+              hits.push({ method, path, upstreamStatus: upstreamResponse.statusCode ?? null, fault });
+            });
+          },
+        );
+        hung.on('error', () => {
+          hits.push({ method, path, upstreamStatus: null, fault });
+        });
+        request.on('close', () => hung.destroy());
+        hung.end(Buffer.concat(chunks));
         return;
       }
       const upstream = http.request(
