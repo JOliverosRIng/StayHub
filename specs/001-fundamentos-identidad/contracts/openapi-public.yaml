@@ -8,6 +8,7 @@ servers:
 tags:
   - name: Authentication
   - name: Profile
+  - name: Reviews
 paths:
   /auth/register:
     post:

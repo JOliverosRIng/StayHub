@@ -21,7 +21,7 @@ const GATEWAY_LAYER_ALIASES = [
 
 describe('Registro del workspace api-gateway (GW-001, GW-003)', () => {
   it('registra los servicios integrados y mantiene alojamientos como paquete independiente', () => {
-    expect(rootPackage.workspaces).toEqual(['apps/auth-service', 'apps/users-service', 'apps/search-service', 'apps/api-gateway', 'apps/web']);
+    expect(rootPackage.workspaces).toEqual(['apps/api-gateway', 'apps/auth-service', 'apps/users-service', 'apps/search-service', 'apps/bookings-service', 'apps/reviews-service', 'apps/web']);
   });
 
   it('expone scripts con espacio de nombres para el gateway', () => {
@@ -33,9 +33,9 @@ describe('Registro del workspace api-gateway (GW-001, GW-003)', () => {
   });
 
   it('los agregados de raiz ejecutan gateway y auth', () => {
-    expect(rootScripts.build).toBe('npm run build:auth && npm run build:users && npm run build:gateway && npm run build:web && npm run build:search');
+    expect(rootScripts.build).toBe('npm run build:gateway && npm run build:auth && npm run build:users && npm run build:search && npm run build:bookings && npm run build:reviews && npm run build:web');
     expect(rootScripts.typecheck).toBe(
-      'npm run typecheck:auth && npm run typecheck:users && npm run typecheck:gateway && npm run typecheck:web && npm run typecheck:search',
+      'npm run typecheck:gateway && npm run typecheck:auth && npm run typecheck:users && npm run typecheck:search && npm run typecheck:bookings && npm run typecheck:reviews && npm run typecheck:web',
     );
   });
 
