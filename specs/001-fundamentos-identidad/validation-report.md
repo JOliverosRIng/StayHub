@@ -131,3 +131,78 @@ productiva. No se modificaron tasks.md, research.md, quickstart, checklists ni
 contratos G1/G3. No existe `.specify/extensions.yml`: no hay hooks posteriores
 que despachar. La tabla completa USR-001–078 está en `users-service-status.md`
 en la raíz del repositorio.
+
+---
+
+# Validación — Grupo 1: api-gateway
+
+## Checkpoint y procedencia de la evidencia
+
+Rama `front-apigateway`, sincronizada con `origin/front-apigateway` mediante
+`git pull --ff-only` (27 commits, merge `dc8f223`). Toda la evidencia siguiente
+fue **ejecutada localmente en esta continuación** (2026-11-09); no se reutilizan
+resultados de otros grupos ni se infiere una ejecución remota de GitHub Actions.
+
+## Resultado de la suite del Gateway
+
+| Comando / control | Resultado real |
+|---|---|
+| `npm run test:gateway` | 51 suites verdes, 568 pruebas verdes; 6 suites y 58 pruebas saltadas |
+| `npm run test:gateway:coverage` | Cobertura 92,14% sentencias, 79,85% ramas, 92,99% funciones, 92,74% líneas; umbral 70% satisfecho |
+| `npm run typecheck:gateway` | Exit 0 |
+| `npm run lint:gateway` | Exit 0 |
+| `node scripts/check-public-openapi-syntax.mjs` | Exit 0 |
+| `node scripts/validate-public-openapi.mjs` | Exit 0; 8 operaciones, límite único de foto y sin secretos |
+| `test/security/no-secret-leakage.spec.ts` (GW-062) | 1 suite, 9 pruebas verdes |
+| `test/integration/gateway-compose.spec.ts` (GW-063) | 1 suite, 10 pruebas verdes |
+
+Las **6 suites saltadas** son las que exigen dependencias externas o Redis real:
+`register.contract`, `session.contract`, `gateway-auth` (GW-058),
+`gateway-users` (GW-059), `identity.e2e` (GW-060) y la suite de rate limit
+sobre Redis. Se saltan de forma explícita (`describe.skip`) cuando faltan
+`GATEWAY_AUTH_E2E_BASE_URL`, `GATEWAY_USERS_E2E_BASE_URL` o
+`GATEWAY_TEST_REDIS_URL`; no se presentan como verdes. En CI el job
+`gateway-quality` provee Redis, por lo que las suites de contrato sí se ejercen
+allí.
+
+## Evidencia de seguridad y runtime
+
+- **GW-062 (auditoría de fuga de secretos):** el Gateway real, por HTTPS y con
+  stubs locales de Auth/Users, no expone contraseña, hash, refresh token, service
+  JWT, foto ni cabeceras internas en respuestas, logs JSON, registros OTLP ni
+  trazas OTel. `/auth/validate` responde solo `userId`/`sessionId`/`role`.
+- **GW-063 (runtime):** se auditan los artefactos versionados, no un
+  `compose up` real. El Dockerfile es multi-stage, usa `npm ci`, compila el
+  workspace, corre como usuario no root, expone solo 8080 y declara healthcheck
+  HTTPS. `docker-compose.yml` define `api-gateway` con `target: runtime`,
+  `restart: always`, redes internas, secretos TLS/Redis/service JWT, publicación
+  únicamente de `8080:8080` y dependencias sanas de Redis, Auth y Users. El Redis
+  de borde no publica puertos y exige contraseña.
+- **GW-062/GW-063 no requieren** Auth/Users reales ni un daemon Docker; por eso
+  sí producen evidencia ejecutada.
+
+## Infraestructura reparada en esta continuación
+
+- `.github/workflows/ci.yml`: se eliminaron los marcadores de conflicto que el
+  merge remoto había dejado versionados y se restauró el job `gateway-quality`
+  (lint, typecheck, cobertura, OpenAPI, build y Docker build).
+- `docker-compose.yml`: se restauró el servicio `api-gateway` y la red
+  `stayhub-edge`, que el merge había perdido.
+- `package.json`: se añadieron `test:gateway:coverage`, `openapi:check:gateway`
+  y `test:auth:coverage`.
+- `.github/workflows/ci.yml`: se añadió el job k6 `gateway-performance`,
+  condicionado a `vars.GATEWAY_PERF_BASE_URL` para no inventar resultados.
+
+## Pendientes externos de G1
+
+| Tarea | Estado | Motivo |
+|---|---|---|
+| GW-058 (Auth G3 real) | BLOQUEADA | Requiere `GATEWAY_AUTH_E2E_BASE_URL` apuntando a Auth real; sin él la suite se salta |
+| GW-059 (Users G2 real) | BLOQUEADA | Requiere `GATEWAY_USERS_E2E_BASE_URL` y bearer real; sin ellos la suite se salta |
+| GW-060 (E2E HTTPS G1↔G2↔G3) | BLOQUEADA | Depende de GW-058 y GW-059 con ambos servicios reales |
+| GW-061 (k6) | BLOQUEADA | k6 no está instalado y no hay servicios reales; el job de CI queda condicionado a `GATEWAY_PERF_BASE_URL` |
+| GW-063 verificación con `compose up` | PARCIAL | Docker daemon no disponible en esta máquina; la auditoría estática de artefactos sí se ejecutó |
+
+No se marcan GW-058–GW-061 como completadas: no existe evidencia de integración
+real ni de rendimiento, y el propio backlog prohíbe anticiparla. GW-062, GW-063
+(artefactos) y GW-064 quedan cerradas con la evidencia local arriba descrita.

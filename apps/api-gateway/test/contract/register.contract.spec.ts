@@ -204,7 +204,12 @@ async function clearEdgeCounters(): Promise<void> {
   }
 }
 
-describe('Contrato POST /api/v1/auth/register (GW-023)', () => {
+// El registro aplica el límite de borde antes de llamar a Auth: sin Redis el contrato completo
+// responde 503 por diseño (fallo cerrado). CI provee GATEWAY_TEST_REDIS_URL; localmente la suite se
+// salta en lugar de fallar por una dependencia ausente.
+const suite = REDIS_URL === undefined ? describe.skip : describe;
+
+suite('Contrato POST /api/v1/auth/register (GW-023)', () => {
   let app: INestApplication;
   const originalEnv = process.env;
 
