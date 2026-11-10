@@ -6,9 +6,21 @@ import {
   type ApiResponseOptions,
 } from '@nestjs/swagger';
 
+@ApiSchema({ name: 'FieldError' })
+export class FieldErrorResponse {
+  @ApiProperty()
+  public readonly field!: string;
+
+  @ApiProperty()
+  public readonly code!: string;
+
+  @ApiPropertyOptional()
+  public readonly message?: string;
+}
+
 @ApiSchema({ name: 'Problem' })
 export class ProblemResponse {
-  @ApiProperty()
+  @ApiProperty({ format: 'uri-reference' })
   public readonly type!: string;
 
   @ApiProperty()
@@ -29,8 +41,8 @@ export class ProblemResponse {
   @ApiProperty()
   public readonly traceId!: string;
 
-  @ApiPropertyOptional({ type: [String] })
-  public readonly errors?: readonly string[];
+  @ApiPropertyOptional({ type: [FieldErrorResponse] })
+  public readonly errors?: readonly FieldErrorResponse[];
 }
 
 export function problemResponse(

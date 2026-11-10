@@ -25,6 +25,12 @@ const RAW_REFRESH = 'raw-refresh-token-value-0123456789abcdef';
 const ABSOLUTE_EXPIRY = new Date('2026-10-05T00:00:00.000Z');
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+interface FieldErrorBody {
+  readonly field: string;
+  readonly code: string;
+  readonly message?: string;
+}
+
 interface ProblemBody {
   readonly type: string;
   readonly title: string;
@@ -33,7 +39,7 @@ interface ProblemBody {
   readonly instance: string;
   readonly code: string;
   readonly traceId: string;
-  readonly errors?: readonly string[];
+  readonly errors?: readonly FieldErrorBody[];
 }
 
 type ExecuteMock = jest.Mock<Promise<IssuedTokenPair>, [RotateRefreshCommand]>;

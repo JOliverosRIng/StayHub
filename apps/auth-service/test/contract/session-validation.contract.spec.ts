@@ -19,6 +19,12 @@ import { createRsaKeyPair, type IssueInboundServiceTokenOptions } from '../helpe
 
 const systemClock: Clock = { now: (): Date => new Date() };
 
+interface FieldErrorBody {
+  readonly field: string;
+  readonly code: string;
+  readonly message?: string;
+}
+
 interface ProblemBody {
   readonly type: string;
   readonly title: string;
@@ -27,7 +33,7 @@ interface ProblemBody {
   readonly instance: string;
   readonly code: string;
   readonly traceId: string;
-  readonly errors?: readonly string[];
+  readonly errors?: readonly FieldErrorBody[];
 }
 
 type ExecuteMock = jest.Mock<Promise<ValidatedSession>, [ValidateSessionCommand]>;

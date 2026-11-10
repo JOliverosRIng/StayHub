@@ -49,7 +49,13 @@ export async function createIntegrationDependencies(): Promise<IntegrationDepend
   execFileSync(
     process.platform === 'win32' ? 'npx.cmd' : 'npx',
     ['prisma', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'],
-    { cwd: process.cwd(), env: process.env, stdio: 'inherit' },
+    {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: 'inherit',
+      // Windows cannot execFile a .cmd shim directly; it needs the shell.
+      shell: process.platform === 'win32',
+    },
   );
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
   const redis = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1 });

@@ -206,3 +206,86 @@ allí.
 No se marcan GW-058–GW-061 como completadas: no existe evidencia de integración
 real ni de rendimiento, y el propio backlog prohíbe anticiparla. GW-062, GW-063
 (artefactos) y GW-064 quedan cerradas con la evidencia local arriba descrita.
+
+---
+
+# Validación — Grupo 3: auth-service
+
+## Procedencia de la evidencia
+
+Rama `front-apigateway` con cambios de Auth **sin commitear**. Toda la evidencia
+de esta sección fue **ejecutada localmente el 2026-11-10** en Windows. No acredita
+una ejecución remota de GitHub Actions, ni integración real con G1/G2, ni un
+`compose up` de esta ronda.
+
+## Entorno aislado utilizado
+
+| Recurso | Configuración |
+|---|---|
+| PostgreSQL | 17.11 temporal en `127.0.0.1:55432`, base `auth_test`, usuario `auth_test` |
+| Migraciones | `001_auth_registration`, `002_auth_sessions`, `003_registration_work`, `004_session_revocation` aplicadas con `prisma migrate deploy` |
+| Redis | Memurai en `127.0.0.1:6379`, base 15 |
+| Variables | `TEST_AUTH_DATABASE_URL`, `TEST_AUTH_REDIS_URL`, `AUTH_TEST_ALLOW_CLEANUP=true` |
+
+El guard de limpieza siguió exigiendo sufijo `_test` en la base y Redis DB 15; la
+variable `AUTH_TEST_ALLOW_CLEANUP` solo se habilita en el job aislado de CI y en
+esta ejecución local.
+
+## Correcciones realizadas en esta continuación
+
+| Archivo | Cambio |
+|---|---|
+| `.github/workflows/ci.yml` | `AUTH_TEST_ALLOW_CLEANUP: 'true'` a nivel del job `auth-quality`; el guard del harness conserva la validación de base `_test` y Redis DB 15 |
+| `apps/auth-service/src/interfaces/http/dto/problem.response.ts` | `Problem.errors` como `FieldError[]` (`field`, `code`, `message?`) y `type` con `format: uri-reference`, alineado al contrato congelado |
+| `apps/auth-service/src/interfaces/http/problem.mapper.ts`, `validation.pipe.ts`, `registration.controller.ts` | Emisión runtime de `FieldError` y de la clave `field` en validación e idempotencia |
+| `apps/auth-service/test/integration/dependencies.setup.ts` | En Windows se ejecuta `npx.cmd` con `shell: true`; evita `EINVAL` al aplicar migraciones en el harness |
+| `apps/auth-service/test/unit/dev-env-generator.spec.ts` | Las aserciones de bits POSIX (`0o600`) se omiten en Windows, que solo emula el bit de solo lectura; el resto de la prueba sigue ejecutándose |
+| `apps/auth-service/test/security/no-secret-leakage.spec.ts` y contratos | Ajustados a la forma `FieldError` sin debilitar la comprobación de ausencia de secretos |
+
+## Resultados ejecutados
+
+| Comando / control | Resultado real |
+|---|---|
+| `npm run typecheck:auth` | Exit 0 |
+| `npm run lint:auth` | Exit 0 |
+| `npm run openapi:auth:check` | Exit 0; 11/11 comprobaciones de drift |
+| `npx jest --coverage --runInBand` (con el entorno de la tabla) | **40 suites verdes, 454 pruebas verdes**, 0 fallos |
+| Cobertura global | Sentencias **88,85%**; ramas **73,81%**; funciones **88,72%**; líneas **90,10%**; umbral 70% satisfecho en las cuatro métricas |
+| Suites de integración aisladas | 11 suites y 100 pruebas verdes en la ejecución previa con el mismo entorno |
+
+Las suites `cross-service-*`, `gateway-*`, `auth-compose` y `auth-users-smoke`
+quedan excluidas por configuración de los proyectos por defecto: requieren G1/G2
+reales o Compose y se tratan en los pendientes externos, no como verdes.
+
+## Trazabilidad RQ-02 / FR-001–FR-013
+
+| Área | Evidencia principal |
+|---|---|
+| Registro idempotente y saga (RQ-02, FR-001–FR-006) | `test/contract/registration.contract.spec.ts`, `test/unit/registration-*.spec.ts`, `test/integration/registration-{concurrency,saga,reconciler,work,module}.spec.ts`, `test/security/registration-secrets.spec.ts` |
+| Login sin enumeración y rate limit (FR-007–FR-008) | `test/contract/login.contract.spec.ts`, `test/unit/login.use-case.spec.ts`, `test/unit/login-rate-limiter.spec.ts`, `test/integration/login-{rate-limit,persistence}.spec.ts` |
+| JWT/sesión/refresh/validación (FR-009–FR-013) | `test/contract/{refresh,session-validation}.contract.spec.ts`, `test/unit/{access-token,session,issue-session-tokens,rotate-refresh-token.use-case,validate-session.use-case}.spec.ts`, `test/integration/{refresh-rotation,session-validation,session-unit-of-work}.spec.ts` |
+| Guards y autorización (FR-011–FR-013) | `test/security/authentication-authorization.spec.ts`, `test/security/service-trust.spec.ts` |
+| Redacción de secretos (FR-024) | `test/security/no-secret-leakage.spec.ts`, `test/security/registration-secrets.spec.ts` |
+| Contrato interno (RQ-02, FR-001–FR-013) | `test/contract/openapi-drift.spec.ts`, `scripts/validate-auth-openapi.mjs` |
+
+## Pendientes externos que permanecen abiertos
+
+| Tarea | Estado | Motivo |
+|---|---|---|
+| AUTH-076 | PARCIAL | La parte Auth↔Users está acreditada contra Users real, pero falta la aprobación contractual de G2 y el timeout literal contra Users real |
+| AUTH-079 | PARCIAL | La saga y la reconciliación están acreditadas con procesos Node y bases en contenedor; falta Compose real y timeout contra Users real |
+| AUTH-078 | BLOQUEADA | No existe `test/contract/gateway.provider.spec.ts`; requiere que G1 congele `openapi-public.yaml` y sus expectativas de consumidor |
+| AUTH-081 | BLOQUEADA | No existe `test/integration/gateway-auth.spec.ts`; requiere routing, cookie segura y cliente Auth reales de G1 |
+| CI remota | NO EJECUTADA | Los cambios están sin commitear y no se hizo push; la corrección del job se validó localmente |
+
+## Límites de esta evidencia
+
+- No se reacredita retrospectivamente el orden red/green de las pruebas: la
+  ejecución actual demuestra el estado verde, no el fallo previo a la implementación.
+- `AUTH-082` (Compose) conserva la acreditación previa del backlog; no se repitió
+  un `compose up` en esta ronda.
+- La integración se ejecutó contra PostgreSQL 17 y Redis locales aislados, no
+  contra el stack Compose completo ni con G1/G2 reales.
+- El ajuste de `dev-env-generator.spec.ts` es exclusivamente de prueba: en Windows
+  no es posible verificar bits de permiso POSIX, y el generador sigue aplicando
+  `chmod 0o600` en plataformas que lo soportan.
