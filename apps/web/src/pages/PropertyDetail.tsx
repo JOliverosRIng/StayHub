@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/identity';
 import {
   formatLocation, formatMoney, lowestNightlyPrice, propertyErrorMessage, sortedPhotos, useProperty,
@@ -134,6 +134,14 @@ export function PropertyDetail({ propertyId, pendingBooking, onBookingRequired, 
               {property.rooms.length} habitaci{property.rooms.length === 1 ? 'ón' : 'ones'} · hasta {maxGuests} huéspedes
               {fromPrice && <> · desde {formatMoney(fromPrice.amount, fromPrice.currency)} / noche</>}
             </p>
+            {property.status === 'PUBLISHED' && fromPrice && (
+              <Link
+                to={paths.book(property.id)}
+                className="mt-3 inline-flex items-center h-10 px-4 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90"
+              >
+                Reservar
+              </Link>
+            )}
           </section>
 
           <section aria-labelledby="description-heading" className="pb-6 border-b border-gray-200 mb-6">

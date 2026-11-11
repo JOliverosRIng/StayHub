@@ -73,15 +73,15 @@ aparecen solo como dependencias contractuales externas, consumidas a través del
 
 **Independent Test**: el propietario modifica nombre, descripción, precios, características, fotos y disponibilidad de una propiedad propia.
 
-- [ ] FE-021 [P] [RQ-03] Escribir primero pruebas del cliente de edición (`PUT /properties/:id`) y de la precarga del formulario (Component: Edit client tests; Trace: RQ-03; Depends on: FE-016) in `apps/web/src/api/properties-edit.test.ts`
-- [ ] FE-022 [RQ-03] Implementar edición: reutilizar el formulario de publicación en modo edición con datos precargados y guardado (Component: Edit property; Trace: RQ-03; Depends on: FE-019, FE-021) in `apps/web/src/pages/host/EditProperty.tsx`
-- [ ] FE-023 [RQ-03] Vista "mis propiedades" del propietario con enlaces a editar (Component: Owner listings; Trace: RQ-03; Depends on: FE-013, FE-022) in `apps/web/src/pages/host/MyProperties.tsx`
+- [x] FE-021 [P] [RQ-03] Escribir primero pruebas del cliente de edición (`PUT /properties/:id`) y de la precarga del formulario (Component: Edit client tests; Trace: RQ-03; Depends on: FE-016) in `apps/web/src/api/properties-edit.test.ts`
+- [x] FE-022 [RQ-03] Implementar edición: reutilizar el formulario de publicación en modo edición con datos precargados y guardado (Component: Edit property; Trace: RQ-03; Depends on: FE-019, FE-021) in `apps/web/src/pages/host/EditProperty.tsx`
+- [x] FE-023 [RQ-03] Vista "mis propiedades" del propietario con enlaces a editar (Component: Owner listings; Trace: RQ-03; Depends on: FE-013, FE-022) in `apps/web/src/pages/host/MyProperties.tsx`
 
 ### Phase 6: Integración y cierre Sprint 2
 
-- [ ] FE-024 [P] Guards de navegación por rol (público/huésped/propietario) y manejo global de 401/403 con toasts no intrusivos (Component: Authz UX; Trace: Seguridad; Depends on: FE-020) in `apps/web/src/app/routes.tsx` and `apps/web/src/components/ui/Toast.tsx`
-- [ ] FE-025 E2E de navegación buscar→detalle→publicar/editar con MSW y, si el Gateway ya expone las rutas, contra el entorno real (Component: Sprint 2 E2E; Trace: RQ-03–RQ-06; Depends on: FE-011, FE-015, FE-023) in `apps/web/test/e2e/catalog.e2e.test.tsx`
-- [ ] FE-026 Verificación Sprint 2: typecheck, lint, cobertura, accesibilidad básica y percepción de latencia <500 ms en búsqueda; registrar evidencia (Component: Sprint 2 DoD; Trace: NFR; Depends on: FE-006–FE-025) in `apps/web` and `specs/validation-report-frontend.md`
+- [x] FE-024 [P] Guards de navegación por rol (público/huésped/propietario) y manejo global de 401/403 con toasts no intrusivos (Component: Authz UX; Trace: Seguridad; Depends on: FE-020) in `apps/web/src/app/routes.tsx` and `apps/web/src/components/ui/Toast.tsx`
+- [x] FE-025 E2E de navegación buscar→detalle→publicar/editar con MSW y, si el Gateway ya expone las rutas, contra el entorno real (Component: Sprint 2 E2E; Trace: RQ-03–RQ-06; Depends on: FE-011, FE-015, FE-023) in `apps/web/test/e2e/catalog.e2e.test.tsx`
+- [x] FE-026 Verificación Sprint 2: typecheck, lint, cobertura, accesibilidad básica y percepción de latencia <500 ms en búsqueda; registrar evidencia (Component: Sprint 2 DoD; Trace: NFR; Depends on: FE-006–FE-025) in `apps/web` and `specs/validation-report-frontend.md`
 
 **Checkpoint**: huésped busca con filtros y ve detalle; propietario publica y edita. Cierra el frontend de Sprint 2.
 
@@ -93,38 +93,38 @@ aparecen solo como dependencias contractuales externas, consumidas a través del
 
 **Independent Test**: un huésped autenticado selecciona fechas y habitación, ve el total y confirma; se genera la orden de pago.
 
-- [ ] FE-027 [P] [RQ-07] Escribir primero pruebas del cliente de reservas (`POST /bookings`, `GET /bookings/:id`) y de verificación de disponibilidad (Component: Booking client tests; Trace: RQ-07; Depends on: FE-002–FE-004) in `apps/web/src/api/bookings.test.ts`
-- [ ] FE-028 [P] [RQ-07] Escribir primero pruebas del flujo de reserva: selección de fechas sin solapamiento, cálculo de total y confirmación (Component: Booking flow tests; Trace: RQ-07; Depends on: FE-001) in `apps/web/src/pages/booking/Booking.test.tsx`
-- [ ] FE-029 [RQ-07] Implementar cliente de reservas con React Query (crear, consultar) (Component: Booking client; Trace: RQ-07; Depends on: FE-027; External dependency: Gateway expone `/bookings`) in `apps/web/src/api/bookings.ts`
-- [ ] FE-030 [RQ-07] Implementar flujo de reserva reutilizando `BookingContext`: fechas, habitación, cálculo de total y confirmación → orden de pago (Component: Booking flow; Trace: RQ-07; Depends on: FE-028–FE-029) in `apps/web/src/pages/booking/` and `apps/web/src/context/BookingContext.tsx`
-- [ ] FE-031 [RQ-07] Integrar pago (mock de pasarela): `POST /payments` y estado `GET /payments/:id/status` con resultados pagado/fallido y reintento (Component: Payment UI; Trace: RQ-07; Depends on: FE-030; External dependency: Gateway expone `/payments`) in `apps/web/src/api/payments.ts` and `apps/web/src/pages/booking/Payment.tsx`
+- [x] FE-027 [P] [RQ-07] Escribir primero pruebas del cliente de reservas (`POST /bookings`, `GET /bookings/:id`) y de verificación de disponibilidad (Component: Booking client tests; Trace: RQ-07; Depends on: FE-002–FE-004) in `apps/web/src/api/bookings.test.ts`
+- [x] FE-028 [P] [RQ-07] Escribir primero pruebas del flujo de reserva: selección de fechas sin solapamiento, cálculo de total y confirmación (Component: Booking flow tests; Trace: RQ-07; Depends on: FE-001) in `apps/web/src/pages/booking/Booking.test.tsx`
+- [x] FE-029 [RQ-07] Implementar cliente de reservas con React Query (crear, consultar) (Component: Booking client; Trace: RQ-07; Depends on: FE-027; External dependency: Gateway expone `/bookings`) in `apps/web/src/api/bookings.ts`
+- [x] FE-030 [RQ-07] Implementar flujo de reserva reutilizando `BookingContext`: fechas, habitación, cálculo de total y confirmación → orden de pago (Component: Booking flow; Trace: RQ-07; Depends on: FE-028–FE-029) in `apps/web/src/pages/booking/` and `apps/web/src/context/BookingContext.tsx`
+- [x] FE-031 [RQ-07] Integrar pago (mock de pasarela): `POST /payments` y estado `GET /payments/:id/status` con resultados pagado/fallido y reintento (Component: Payment UI; Trace: RQ-07; Depends on: FE-030; External dependency: Gateway expone `/payments`) in `apps/web/src/api/payments.ts` and `apps/web/src/pages/booking/Payment.tsx`
 
 ### Phase 8: RQ-08 — Histórico de reservas
 
 **Independent Test**: huésped y propietario consultan sus reservas con filtros por fecha, estado y huésped.
 
-- [ ] FE-032 [P] [RQ-08] Escribir primero pruebas del cliente de historial (`GET /bookings/history`) con filtros (Component: History client tests; Trace: RQ-08; Depends on: FE-027) in `apps/web/src/api/bookings-history.test.ts`
-- [ ] FE-033 [RQ-08] Implementar `MyBookings` (huésped) e historial del propietario con filtros, reemplazando el mock (Component: Bookings history; Trace: RQ-08; Depends on: FE-029, FE-032) in `apps/web/src/pages/MyBookings.tsx` and `apps/web/src/pages/host/BookingsReceived.tsx`
+- [x] FE-032 [P] [RQ-08] Escribir primero pruebas del cliente de historial (`GET /bookings/history`) con filtros (Component: History client tests; Trace: RQ-08; Depends on: FE-027) in `apps/web/src/api/bookings-history.test.ts`
+- [x] FE-033 [RQ-08] Implementar `MyBookings` (huésped) e historial del propietario con filtros, reemplazando el mock (Component: Bookings history; Trace: RQ-08; Depends on: FE-029, FE-032) in `apps/web/src/pages/MyBookings.tsx` and `apps/web/src/pages/host/BookingsReceived.tsx`
 
 ### Phase 9: RQ-09 / RQ-10 — Cancelar reserva
 
 **Independent Test**: el huésped cancela dentro de la política; el propietario cancela con justificación; se refleja el reembolso cuando aplica.
 
-- [ ] FE-034 [P] [RQ-09][RQ-10] Escribir primero pruebas de cancelación (`DELETE /bookings/:id`) para huésped (política) y propietario (justificación) y de los estados de reembolso (Component: Cancel tests; Trace: RQ-09/RQ-10; Depends on: FE-032) in `apps/web/src/api/bookings-cancel.test.ts`
-- [ ] FE-035 [RQ-09][RQ-10] Implementar cancelación con confirmación, mostrando la política aplicable y el resultado del reembolso (Component: Cancel flow; Trace: RQ-09/RQ-10; Depends on: FE-033, FE-034) in `apps/web/src/pages/booking/CancelBooking.tsx`
+- [x] FE-034 [P] [RQ-09][RQ-10] Escribir primero pruebas de cancelación (`DELETE /bookings/:id`) para huésped (política) y propietario (justificación) y de los estados de reembolso (Component: Cancel tests; Trace: RQ-09/RQ-10; Depends on: FE-032) in `apps/web/src/api/bookings-cancel.test.ts`
+- [x] FE-035 [RQ-09][RQ-10] Implementar cancelación con confirmación, mostrando la política aplicable y el resultado del reembolso (Component: Cancel flow; Trace: RQ-09/RQ-10; Depends on: FE-033, FE-034) in `apps/web/src/pages/booking/CancelBooking.tsx`
 
 ### Phase 10: RQ-11 — Calificar la propiedad
 
 **Independent Test**: tras una estadía completada, el huésped deja 1–5 estrellas y un comentario sobre la propiedad.
 
-- [ ] FE-036 [P] [RQ-11] Escribir primero pruebas del cliente de reseñas (`POST /reviews`, `GET /reviews/user/:id`) y de la condición "estadía completada" (Component: Review tests; Trace: RQ-11; Depends on: FE-012) in `apps/web/src/api/reviews-write.test.ts`
-- [ ] FE-037 [RQ-11] Implementar la vista Calificar propiedad (estrellas + comentario) habilitada solo tras estadía completada (Component: Review form; Trace: RQ-11; Depends on: FE-033, FE-036; External dependency: Gateway expone `/reviews`) in `apps/web/src/pages/booking/ReviewProperty.tsx`
-- [ ] FE-038 [RQ-11] Mostrar reseñas del usuario y reflejar la nueva reseña en el detalle de la propiedad (Component: Review display; Trace: RQ-11, RQ-06; Depends on: FE-014, FE-037) in `apps/web/src/pages/PropertyDetail.tsx`
+- [x] FE-036 [P] [RQ-11] Escribir primero pruebas del cliente de reseñas (`POST /reviews`, `GET /reviews/user/:id`) y de la condición "estadía completada" (Component: Review tests; Trace: RQ-11; Depends on: FE-012) in `apps/web/src/api/reviews-write.test.ts`
+- [x] FE-037 [RQ-11] Implementar la vista Calificar propiedad (estrellas + comentario) habilitada solo tras estadía completada (Component: Review form; Trace: RQ-11; Depends on: FE-033, FE-036; External dependency: Gateway expone `/reviews`) in `apps/web/src/pages/booking/ReviewProperty.tsx`
+- [x] FE-038 [RQ-11] Mostrar reseñas del usuario y reflejar la nueva reseña en el detalle de la propiedad (Component: Review display; Trace: RQ-11, RQ-06; Depends on: FE-014, FE-037) in `apps/web/src/pages/PropertyDetail.tsx`
 
 ### Phase 11: Integración y cierre Sprint 3
 
-- [ ] FE-039 E2E del flujo completo reservar→pagar→confirmar→(cancelar)→calificar con MSW y, si aplica, contra el entorno real (Component: Sprint 3 E2E; Trace: RQ-07–RQ-11; Depends on: FE-031, FE-035, FE-038) in `apps/web/test/e2e/booking.e2e.test.tsx`
-- [ ] FE-040 Verificación Sprint 3: typecheck, lint, cobertura, accesibilidad y manejo de errores de pago/cancelación; actualizar el reporte (Component: Sprint 3 DoD; Trace: NFR; Depends on: FE-027–FE-039) in `apps/web` and `specs/validation-report-frontend.md`
+- [x] FE-039 E2E del flujo completo reservar→pagar→confirmar→(cancelar)→calificar con MSW y, si aplica, contra el entorno real (Component: Sprint 3 E2E; Trace: RQ-07–RQ-11; Depends on: FE-031, FE-035, FE-038) in `apps/web/test/e2e/booking.e2e.test.tsx`
+- [x] FE-040 Verificación Sprint 3: typecheck, lint, cobertura, accesibilidad y manejo de errores de pago/cancelación; actualizar el reporte (Component: Sprint 3 DoD; Trace: NFR; Depends on: FE-027–FE-039) in `apps/web` and `specs/validation-report-frontend.md`
 
 **Checkpoint**: huésped reserva, paga, consulta historial, cancela según política y califica tras la estadía. Cierra el frontend de Sprint 3.
 

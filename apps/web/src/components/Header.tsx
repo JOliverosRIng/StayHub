@@ -13,7 +13,8 @@ interface HeaderProps {
 }
 
 const Logo = ({ onClick }: { onClick: () => void }) => (
-  <button onClick={onClick} className="flex items-center gap-2 shrink-0 cursor-pointer">
+  // The wordmark is hidden below `sm`, so it cannot be the accessible name; label the button explicitly.
+  <button onClick={onClick} aria-label="StayHub, ir al inicio" className="flex items-center gap-2 shrink-0 cursor-pointer">
     <svg viewBox="0 0 32 32" className="w-7 h-7" fill="none">
       <path
         d="M16 3C9.373 3 4 8.373 4 15c0 4.39 2.364 8.228 5.878 10.348L16 29l6.122-3.652C25.636 23.228 28 19.39 28 15c0-6.627-5.373-12-12-12z"

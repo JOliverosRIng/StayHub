@@ -1,9 +1,9 @@
 import { http, HttpResponse, type PathParams } from 'msw';
-import type { Problem, Property, PropertyCreate, PropertyReplace, Review, RoomReplaceInput } from '../../src/types/catalog';
+import type { Booking, CreateBookingInput, Problem, Property, PropertyCreate, PropertyReplace, Review, RoomReplaceInput } from '../../src/types/catalog';
 import {
-  CATALOG_LIMITS, FEATURE_CATALOG, PHOTO_MEDIA_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES,
+  BOOKING_STATUSES, CATALOG_LIMITS, FEATURE_CATALOG, PHOTO_MEDIA_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES,
 } from '../../src/types/catalog';
-import { buildProperties, buildReviews, toSearchResult } from './fixtures';
+import { buildBookings, buildProperties, buildReviews, toSearchResult } from './fixtures';
 
 /**
  * Contract mocks for the Gateway routes that are not exposed yet (properties, search, reviews).
@@ -18,18 +18,27 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // In-memory state
 // ---------------------------------------------------------------------------
 
-const db = { properties: buildProperties(), reviews: buildReviews() };
+const db = { properties: buildProperties(), reviews: buildReviews(), bookings: buildBookings() };
+/** Bookings that already have a review (RQ-11: at most one review per booking). */
+let reviewedBookings = new Set<string>();
+/** Idempotency ledger for `POST /bookings`, keyed by `${guestId}|${Idempotency-Key}`. */
+let bookingIdempotency = new Map<string, { hash: string; booking: Booking }>();
 
 /** Restores fixtures; called after every test so mutations never leak. */
 export function resetMockDb(): void {
   db.properties = buildProperties();
   db.reviews = buildReviews();
+  db.bookings = buildBookings();
+  bookingIdempotency = new Map();
+  reviewedBookings = new Set();
 }
 
 export const mockDb = {
   property: (id: string) => db.properties.find((p) => p.id === id),
   properties: () => db.properties,
   addReview: (review: Review) => { db.reviews.push(review); },
+  bookings: () => db.bookings,
+  booking: (id: string) => db.bookings.find((b) => b.id === id),
 };
 
 // ---------------------------------------------------------------------------
@@ -215,6 +224,20 @@ const suggestHandler = http.get(`${API}/search/suggest`, ({ request }) => {
 
 type IdParams = PathParams<'id'>;
 
+/**
+ * PROVISIONAL owner-scoped listing (`GET /properties?mine=true`). The accommodations contract has no
+ * owner listing yet (External dependency: G1); this mock lets FE-023 develop against the shape the
+ * real endpoint is expected to take. Returns every property owned by the caller, all statuses.
+ */
+const myPropertiesHandler = http.get(`${API}/properties`, ({ request }) => {
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'HTTP_401');
+  const caller = auth.caller;
+  if (caller.role !== 'OWNER') return problem(403, 'FORBIDDEN');
+  const mine = db.properties.filter((p) => p.ownerId === caller.sub).sort((a, b) => a.name.localeCompare(b.name));
+  return HttpResponse.json(mine);
+});
+
 const getPropertyHandler = http.get<IdParams>(`${API}/properties/:id`, ({ request, params }) => {
   const id = String(params.id);
   if (!UUID.test(id)) return invalid('id');
@@ -309,11 +332,274 @@ const uploadPhotoHandler = http.post<IdParams>(`${API}/properties/:id/photos`, a
   return HttpResponse.json(photo, { status: 201 });
 });
 
+// ---------------------------------------------------------------------------
+// Bookings (RQ-07) — contract mock. External dependency: the Gateway does not expose `/bookings`
+// yet; this follows `openapi-bookings-service.yaml` closely enough for the web client to develop.
+// ---------------------------------------------------------------------------
+
+/** Owners see `ownerId`; guests (and anyone else) get it stripped, per the contract. */
+function viewBooking(booking: Booking, caller?: Caller): Booking {
+  if (caller && caller.sub === booking.ownerId) return booking;
+  const { ownerId: _omitted, ...rest } = booking;
+  void _omitted;
+  return rest;
+}
+
+const BOOKING_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{16,128}$/;
+const BLOCKING_STATUSES = new Set(['PENDING_PAYMENT', 'CONFIRMED', 'CHECKED_IN']);
+
+const createBookingHandler = http.post(`${API}/bookings`, async ({ request }) => {
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHORIZED');
+  const caller = auth.caller;
+
+  const key = request.headers.get('Idempotency-Key');
+  if (!key || !IDEMPOTENCY_KEY.test(key)) return invalid('Idempotency-Key');
+
+  const body = await request.json().catch(() => undefined);
+  if (!isObject(body)) return invalid('body');
+  const allowed = ['propertyId', 'roomId', 'checkIn', 'checkOut', 'guests'];
+  const errors = Object.keys(body).filter((k) => !allowed.includes(k));
+  if (typeof body.propertyId !== 'string' || !UUID.test(body.propertyId)) errors.push('propertyId');
+  if (typeof body.roomId !== 'string' || !UUID.test(body.roomId)) errors.push('roomId');
+  const checkIn = String(body.checkIn); const checkOut = String(body.checkOut);
+  if (!BOOKING_DATE.test(checkIn)) errors.push('checkIn');
+  if (!BOOKING_DATE.test(checkOut)) errors.push('checkOut');
+  else if (BOOKING_DATE.test(checkIn) && checkOut <= checkIn) errors.push('checkOut');
+  if (!Number.isInteger(body.guests) || (body.guests as number) < 1) errors.push('guests');
+  if (errors.length) return invalid(...errors);
+  const input = body as unknown as CreateBookingInput;
+
+  // Idempotent replay per (guest, key): same command → same booking; different command → conflict.
+  const ledgerId = `${caller.sub}|${key}`;
+  const hash = JSON.stringify([input.propertyId, input.roomId, input.checkIn, input.checkOut, input.guests]);
+  const prior = bookingIdempotency.get(ledgerId);
+  if (prior) {
+    if (prior.hash !== hash) return problem(409, 'IDEMPOTENCY_CONFLICT');
+    return HttpResponse.json(viewBooking(prior.booking, caller), { status: 201 });
+  }
+
+  const property = mockDb.property(input.propertyId);
+  const room = property?.rooms.find((r) => r.id === input.roomId);
+  if (!property || property.status !== 'PUBLISHED' || !room || !room.basePrice) return problem(404, 'NOT_FOUND');
+  if (input.guests > room.capacity) return invalid('guests'); // capacity of the quoted room snapshot
+
+  const overlaps = db.bookings.some((x) => x.roomId === room.id && BLOCKING_STATUSES.has(x.status)
+    && x.checkIn < input.checkOut && input.checkIn < x.checkOut);
+  if (overlaps) return problem(409, 'BOOKING_CONFLICT');
+
+  const nights = Math.round((Date.parse(input.checkOut) - Date.parse(input.checkIn)) / 86_400_000);
+  const now = new Date();
+  const booking: Booking = {
+    id: crypto.randomUUID(), guestId: caller.sub, ownerId: property.ownerId,
+    propertyId: property.id, roomId: room.id, propertyName: property.name, roomName: room.name,
+    checkIn: input.checkIn, checkOut: input.checkOut, guests: input.guests, nights,
+    nightlyPrice: { amount: room.basePrice.amount, currency: room.basePrice.currency },
+    total: { amount: (Number(room.basePrice.amount) * nights).toFixed(2), currency: room.basePrice.currency },
+    status: 'PENDING_PAYMENT', paymentStatus: 'NOT_STARTED', paymentOrderId: null,
+    holdExpiresAt: new Date(now.getTime() + 15 * 60_000).toISOString(),
+    cancellationReason: null, createdAt: now.toISOString(), updatedAt: now.toISOString(),
+  };
+  db.bookings.push(booking);
+  bookingIdempotency.set(ledgerId, { hash, booking });
+  return HttpResponse.json(viewBooking(booking, caller), { status: 201 });
+});
+
+/**
+ * RQ-08 owner booking history (`GET /bookings/history`, `getOwnerBookingHistory`). OWNER only: a guest
+ * gets 403. Filters `from`/`to` (by checkIn), `status`, `guestId`; paginated; ordered createdAt DESC,
+ * id DESC. The guest has no history list endpoint in the contract — only per-id lookups.
+ */
+const bookingHistoryHandler = http.get(`${API}/bookings/history`, ({ request }) => {
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHORIZED');
+  const caller = auth.caller;
+  if (caller.role !== 'OWNER') return problem(403, 'FORBIDDEN');
+
+  const search = new URL(request.url).searchParams;
+  const DATE = /^\d{4}-\d{2}-\d{2}$/;
+  const from = search.get('from') ?? undefined;
+  const to = search.get('to') ?? undefined;
+  const status = search.get('status') ?? undefined;
+  const guestId = search.get('guestId') ?? undefined;
+  const page = int(search.get('page')) ?? 1;
+  const pageSize = int(search.get('pageSize')) ?? 20;
+
+  const errors: string[] = [];
+  if (from !== undefined && !DATE.test(from)) errors.push('from');
+  if (to !== undefined && !DATE.test(to)) errors.push('to');
+  if (status !== undefined && !BOOKING_STATUSES.includes(status as never)) errors.push('status');
+  if (guestId !== undefined && !UUID.test(guestId)) errors.push('guestId');
+  if (page === null || page < 1) errors.push('page');
+  if (pageSize === null || pageSize < 1 || pageSize > 100) errors.push('pageSize');
+  if (errors.length) return invalid(...errors);
+
+  let rows = db.bookings.filter((b) => b.ownerId === caller.sub);
+  if (status) rows = rows.filter((b) => b.status === status);
+  if (guestId) rows = rows.filter((b) => b.guestId === guestId);
+  if (from) rows = rows.filter((b) => b.checkIn >= from);
+  if (to) rows = rows.filter((b) => b.checkIn <= to);
+  rows = [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+
+  const start = ((page as number) - 1) * (pageSize as number);
+  const items = rows.slice(start, start + (pageSize as number)).map((b) => viewBooking(b, caller));
+  return HttpResponse.json({ items, page, pageSize, total: rows.length, hasNext: start + (pageSize as number) < rows.length });
+});
+
+/**
+ * PROVISIONAL guest history (`GET /bookings`): the caller's own bookings. The booking_service contract
+ * has no guest history list (only per-id lookups); this stands in until a guest-facing listing exists
+ * (External dependency: G1). Any authenticated caller lists their own bookings (no role restriction).
+ */
+const guestBookingsHandler = http.get(`${API}/bookings`, ({ request }) => {
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHORIZED');
+  const caller = auth.caller;
+
+  const search = new URL(request.url).searchParams;
+  const DATE = /^\d{4}-\d{2}-\d{2}$/;
+  const from = search.get('from') ?? undefined;
+  const to = search.get('to') ?? undefined;
+  const status = search.get('status') ?? undefined;
+  const page = int(search.get('page')) ?? 1;
+  const pageSize = int(search.get('pageSize')) ?? 20;
+
+  const errors: string[] = [];
+  if (from !== undefined && !DATE.test(from)) errors.push('from');
+  if (to !== undefined && !DATE.test(to)) errors.push('to');
+  if (status !== undefined && !BOOKING_STATUSES.includes(status as never)) errors.push('status');
+  if (page === null || page < 1) errors.push('page');
+  if (pageSize === null || pageSize < 1 || pageSize > 100) errors.push('pageSize');
+  if (errors.length) return invalid(...errors);
+
+  let rows = db.bookings.filter((b) => b.guestId === caller.sub);
+  if (status) rows = rows.filter((b) => b.status === status);
+  if (from) rows = rows.filter((b) => b.checkIn >= from);
+  if (to) rows = rows.filter((b) => b.checkIn <= to);
+  rows = [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+
+  const start = ((page as number) - 1) * (pageSize as number);
+  const items = rows.slice(start, start + (pageSize as number)).map((b) => viewBooking(b, caller));
+  return HttpResponse.json({ items, page, pageSize, total: rows.length, hasNext: start + (pageSize as number) < rows.length });
+});
+
+const getBookingHandler = http.get(`${API}/bookings/:bookingId`, ({ request, params }) => {
+  const id = String(params.bookingId);
+  if (!UUID.test(id)) return problem(404, 'NOT_FOUND');
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHORIZED');
+  const caller = auth.caller;
+  const booking = mockDb.booking(id);
+  // A booking the caller neither made nor owns is indistinguishable from missing (contract: 404, not 403).
+  if (!booking || (booking.guestId !== caller.sub && booking.ownerId !== caller.sub)) return problem(404, 'NOT_FOUND');
+  return HttpResponse.json(viewBooking(booking, caller));
+});
+
+/**
+ * RQ-09/RQ-10 cancellation (`DELETE /bookings/:id`, `cancelBooking`). The guest or the owner cancels.
+ * `reason` is required when the actor is the OWNER (400 otherwise). Only PENDING_PAYMENT/CONFIRMED are
+ * cancelable (else 409). A captured payment moves to REFUND_PENDING (refund is coordinated internally
+ * by payments-service; the contract defines no deadlines/percentages). No Idempotency-Key on cancel.
+ */
+const cancelBookingHandler = http.delete(`${API}/bookings/:bookingId`, async ({ request, params }) => {
+  const id = String(params.bookingId);
+  if (!UUID.test(id)) return problem(404, 'NOT_FOUND');
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHORIZED');
+  const caller = auth.caller;
+  const booking = mockDb.booking(id);
+  if (!booking) return problem(404, 'NOT_FOUND');
+
+  const isGuest = booking.guestId === caller.sub;
+  const asOwner = booking.ownerId === caller.sub && !isGuest;
+  if (!isGuest && !asOwner) return problem(403, 'FORBIDDEN');
+
+  const body = await request.json().catch(() => undefined) as { reason?: string } | undefined;
+  const reason = typeof body?.reason === 'string' ? body.reason.trim() : '';
+  if (asOwner && !reason) return invalid('reason'); // OWNER justification is mandatory
+
+  if (booking.status !== 'PENDING_PAYMENT' && booking.status !== 'CONFIRMED') return problem(409, 'STATE_CONFLICT');
+
+  const next: Booking = {
+    ...booking,
+    status: asOwner ? 'CANCELLED_BY_OWNER' : 'CANCELLED_BY_GUEST',
+    cancellationReason: asOwner ? reason : null,
+    paymentStatus: booking.paymentStatus === 'CAPTURED' ? 'REFUND_PENDING' : booking.paymentStatus,
+    updatedAt: new Date().toISOString(),
+  };
+  db.bookings = db.bookings.map((b) => (b.id === id ? next : b));
+  return HttpResponse.json(viewBooking(next, caller));
+});
+
+// ---------------------------------------------------------------------------
+// Reviews (RQ-11) — contract mock. External dependency: the Gateway does not expose `/reviews` yet.
+// Aligned to `openapi-reviews-service.yaml`: only a GUEST with their OWN booking in status COMPLETED
+// can create a review (rating 1–5, comment 1–2000); at most one review per booking; the created
+// review is {id, propertyId, rating, comment, createdAt}. `GET /reviews/user/:id` lists own reviews.
+// ---------------------------------------------------------------------------
+
+const createReviewHandler = http.post(`${API}/reviews`, async ({ request }) => {
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHENTICATED');
+  const caller = auth.caller;
+  const body = await request.json().catch(() => undefined);
+  if (!isObject(body)) return invalid('body');
+  const errors = Object.keys(body).filter((k) => !['bookingId', 'rating', 'comment'].includes(k));
+  if (typeof body.bookingId !== 'string' || !UUID.test(body.bookingId)) errors.push('bookingId');
+  if (!Number.isInteger(body.rating) || (body.rating as number) < 1 || (body.rating as number) > 5) errors.push('rating');
+  const comment = typeof body.comment === 'string' ? body.comment.trim() : '';
+  if (!comment || comment.length > 2000) errors.push('comment');
+  if (errors.length) return invalid(...errors);
+
+  const booking = mockDb.booking(body.bookingId as string);
+  if (!booking) return problem(404, 'NOT_FOUND');
+  if (booking.guestId !== caller.sub) return problem(403, 'FORBIDDEN'); // only the guest of the booking
+  if (booking.status !== 'COMPLETED') return problem(403, 'STAY_NOT_COMPLETED'); // only a completed stay
+  if (reviewedBookings.has(booking.id)) return problem(409, 'REVIEW_ALREADY_EXISTS'); // one review per booking
+
+  reviewedBookings.add(booking.id);
+  const createdAt = new Date().toISOString();
+  const stored: Review = {
+    id: crypto.randomUUID(), propertyId: booking.propertyId, authorId: caller.sub,
+    rating: body.rating as number, comment, createdAt,
+  };
+  db.reviews.push(stored); // reflects on property reviews (FE-038)
+  // The contract Review has no author fields.
+  return HttpResponse.json({ id: stored.id, propertyId: stored.propertyId, rating: stored.rating, comment: stored.comment, createdAt }, { status: 201 });
+});
+
+const userReviewsHandler = http.get(`${API}/reviews/user/:userId`, ({ request, params }) => {
+  const userId = String(params.userId);
+  if (!UUID.test(userId)) return invalid('userId');
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHENTICATED');
+  if (auth.caller.sub !== userId) return problem(403, 'FORBIDDEN'); // only your own reviews
+  const search = new URL(request.url).searchParams;
+  const page = int(search.get('page')) ?? 1;
+  const pageSize = int(search.get('pageSize')) ?? 20;
+  if (page === null || page < 1 || pageSize === null || pageSize < 1 || pageSize > 100) return invalid('page');
+  const all = db.reviews
+    .filter((r) => r.authorId === userId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+  const start = (page - 1) * pageSize;
+  const items = all.slice(start, start + pageSize).map((r) => ({ id: r.id, propertyId: r.propertyId, authorId: r.authorId, rating: r.rating, comment: r.comment, createdAt: r.createdAt }));
+  return HttpResponse.json({ items, page, pageSize, total: all.length, totalPages: Math.ceil(all.length / pageSize) });
+});
+
 export const handlers = [
+  createReviewHandler,
+  userReviewsHandler,
   suggestHandler,
   searchHandler,
   reviewsHandler,
   uploadPhotoHandler,
+  myPropertiesHandler,
+  createBookingHandler,
+  cancelBookingHandler,
+  bookingHistoryHandler,
+  guestBookingsHandler,
+  getBookingHandler,
   getPropertyHandler,
   createPropertyHandler,
   replacePropertyHandler,

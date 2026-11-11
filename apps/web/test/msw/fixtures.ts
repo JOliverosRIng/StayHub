@@ -1,4 +1,4 @@
-import type { Property, Review, SearchResult } from '../../src/types/catalog';
+import type { Booking, Property, Review, SearchResult } from '../../src/types/catalog';
 
 /**
  * Contract-shaped fixtures for MSW. IDs are stable UUIDs so tests and the dev mock can deep-link.
@@ -7,6 +7,16 @@ import type { Property, Review, SearchResult } from '../../src/types/catalog';
 export const OWNER_ID = '7d1f4c1e-2b7a-4c3e-9a51-0c4b6f1e2a01';
 export const OTHER_OWNER_ID = '7d1f4c1e-2b7a-4c3e-9a51-0c4b6f1e2a02';
 export const GUEST_ID = '7d1f4c1e-2b7a-4c3e-9a51-0c4b6f1e2a03';
+export const OTHER_GUEST_ID = '7d1f4c1e-2b7a-4c3e-9a51-0c4b6f1e2a04';
+
+export const BOOKING_IDS = {
+  /** Confirmed stay by GUEST_ID at Casa Azul (room 1) over [2026-12-10, 2026-12-14); blocks those nights. */
+  casaAzulConfirmed: '6e2c9a84-5b7d-4c6e-9a1f-00000000b001',
+  /** Completed stay by GUEST_ID at Villa Serena (room 1); oldest in the owner history. */
+  villaCompleted: '6e2c9a84-5b7d-4c6e-9a1f-00000000b002',
+  /** Guest-cancelled stay by OTHER_GUEST_ID at Cabaña del Bosque; newest in the owner history. */
+  cabanaCancelled: '6e2c9a84-5b7d-4c6e-9a1f-00000000b003',
+} as const;
 
 export const PROPERTY_IDS = {
   villa: '1b0d6a52-0f5c-4c55-9a0e-1a2b3c4d5e01',
@@ -139,4 +149,42 @@ export function toSearchResult(property: Property, relevance = 0): SearchResult 
     primaryPhotoUrl: property.photos[0]?.url ?? null,
     relevance,
   };
+}
+
+/**
+ * Booking fixtures for the Bookings contract mock (External dependency: Gateway `/bookings` pending).
+ * One CONFIRMED stay by GUEST_ID blocks Casa Azul's first room for its nights, to exercise overlap
+ * (409) and ownership (own vs. other guest) paths.
+ */
+export function buildBookings(): Booking[] {
+  const props = buildProperties();
+  const prop = (id: string) => props.find((p) => p.id === id)!;
+  const nightsBetween = (checkIn: string, checkOut: string) =>
+    Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86_400_000);
+
+  const make = (
+    id: string, property: Property, roomIndex: number, guestId: string,
+    checkIn: string, checkOut: string, guests: number,
+    status: Booking['status'], paymentStatus: Booking['paymentStatus'], createdAt: string,
+  ): Booking => {
+    const room = property.rooms[roomIndex]!;
+    const price = room.basePrice!;
+    const nights = nightsBetween(checkIn, checkOut);
+    return {
+      id, guestId, ownerId: property.ownerId, propertyId: property.id, roomId: room.id,
+      propertyName: property.name, roomName: room.name, checkIn, checkOut, guests, nights,
+      nightlyPrice: { amount: price.amount, currency: price.currency },
+      total: { amount: (Number(price.amount) * nights).toFixed(2), currency: price.currency },
+      status, paymentStatus, paymentOrderId: null, holdExpiresAt: null, cancellationReason: null,
+      createdAt, updatedAt: createdAt,
+    };
+  };
+
+  // All owned by OWNER_ID. Distinct createdAt so the owner history order (DESC) is deterministic:
+  // cabanaPending (11-05) > casaAzulConfirmed (10-01) > villaCompleted (09-01).
+  return [
+    make(BOOKING_IDS.casaAzulConfirmed, prop(PROPERTY_IDS.casaAzul), 0, GUEST_ID, '2026-12-10', '2026-12-14', 2, 'CONFIRMED', 'CAPTURED', '2026-10-01T12:00:00.000Z'),
+    make(BOOKING_IDS.villaCompleted, prop(PROPERTY_IDS.villa), 0, GUEST_ID, '2026-09-05', '2026-09-08', 2, 'COMPLETED', 'CAPTURED', '2026-09-01T10:00:00.000Z'),
+    make(BOOKING_IDS.cabanaCancelled, prop(PROPERTY_IDS.cabana), 0, OTHER_GUEST_ID, '2027-03-01', '2027-03-05', 3, 'CANCELLED_BY_GUEST', 'REFUNDED', '2026-11-05T10:00:00.000Z'),
+  ];
 }

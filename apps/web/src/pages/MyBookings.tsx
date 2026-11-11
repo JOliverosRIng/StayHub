@@ -1,133 +1,67 @@
-import React, { useState } from 'react';
-import { Header } from '../components/Header';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { BOOKING_STATUS_LABELS, bookingHistoryErrorMessage, useGuestBookingHistory } from '../api/bookings-history';
+import { isReviewable } from '../api/reviews';
+import { formatMoney } from '../api/properties';
+import { paths } from '../app/navigation';
 import { Button } from '../components/Button';
+import { Header } from '../components/Header';
 import { useAuth } from '../context/AuthContext';
-import { useBookings } from '../context/BookingContext';
-import { Booking } from '../types';
+import { BOOKING_STATUSES, type Booking } from '../types/catalog';
 
 interface MyBookingsProps {
   onNavigate: (page: string, id?: string) => void;
 }
 
-function fmt(date: string) {
-  if (!date) return '';
-  const [y, m, d] = date.split('-');
-  const months = ['enero', 'feb', 'mar', 'abr', 'mayo', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  return `${parseInt(d)} ${months[parseInt(m) - 1]} ${y}`;
-}
+/** A booking can be cancelled only while it is pending payment or confirmed. */
+export const isCancelable = (booking: Booking) => booking.status === 'PENDING_PAYMENT' || booking.status === 'CONFIRMED';
 
-function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: () => void }) {
-  const [confirming, setConfirming] = useState(false);
-  const isConfirmed = booking.status === 'confirmed';
-  const isPast = booking.checkOut < new Date().toISOString().split('T')[0];
+const STATUS_STYLES: Record<string, string> = {
+  CONFIRMED: 'bg-green-50 text-green-700 border-green-200',
+  COMPLETED: 'bg-gray-100 text-gray-700 border-gray-200',
+  PENDING_PAYMENT: 'bg-amber-50 text-amber-700 border-amber-200',
+  CHECKED_IN: 'bg-blue-50 text-blue-700 border-blue-200',
+};
+const statusStyle = (s: string) => STATUS_STYLES[s] ?? 'bg-red-50 text-red-700 border-red-200';
 
+/** One booking as a row; the status is shown with text (never color alone). */
+export function BookingRow({ booking, children }: { booking: Booking; children?: React.ReactNode }) {
   return (
-    <div className={`border rounded-2xl overflow-hidden transition-all ${isConfirmed ? 'border-gray-200' : 'border-gray-100 opacity-60'}`}>
-      <div className="flex flex-col sm:flex-row">
-        {/* Image */}
-        <div className="sm:w-48 h-40 sm:h-auto shrink-0 bg-gray-100">
-          <img src={booking.roomImage} alt={booking.roomTitle} className="w-full h-full object-cover" />
+    <li className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 p-5">
+      <div className="min-w-0">
+        <div className="flex items-center gap-3 mb-1">
+          <h3 className="text-lg font-bold text-gray-900 truncate">{booking.propertyName}</h3>
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${statusStyle(booking.status)}`}>
+            {BOOKING_STATUS_LABELS[booking.status]}
+          </span>
         </div>
-
-        {/* Details */}
-        <div className="flex-1 p-5 flex flex-col gap-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
-                  !isConfirmed ? 'bg-gray-100 text-gray-500' :
-                  isPast ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'
-                }`}>
-                  {!isConfirmed ? (
-                    <><span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />Cancelada</>
-                  ) : isPast ? (
-                    <><span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />Completada</>
-                  ) : (
-                    <><span className="w-1.5 h-1.5 bg-green-500 rounded-full" />Confirmada</>
-                  )}
-                </span>
-              </div>
-              <h3 className="text-base font-bold text-gray-900 leading-snug">{booking.roomTitle}</h3>
-              <p className="text-sm text-gray-500">{booking.roomLocation}</p>
-            </div>
-            <div className="text-right shrink-0">
-              <p className="text-lg font-bold text-gray-900">${booking.totalPrice}</p>
-              <p className="text-xs text-gray-400">total pagado</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center gap-2">
-              <svg viewBox="0 0 24 24" className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2}><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-              <span className="text-sm text-gray-700">
-                {fmt(booking.checkIn)} → {fmt(booking.checkOut)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <svg viewBox="0 0 24 24" className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>
-              <span className="text-sm text-gray-700">{booking.guests} huésped{booking.guests > 1 ? 'es' : ''}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <svg viewBox="0 0 24 24" className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2}><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-              <span className="text-sm text-gray-700">{booking.nights} noche{booking.nights > 1 ? 's' : ''}</span>
-            </div>
-          </div>
-
-          {/* Price breakdown */}
-          <div className="bg-gray-50 rounded-xl px-4 py-3 flex flex-wrap gap-4 text-xs text-gray-500">
-            <span>Alojamiento: <strong className="text-gray-700">${booking.accommodationFee}</strong></span>
-            <span>Limpieza: <strong className="text-gray-700">${booking.cleaningFee}</strong></span>
-            <span>Servicio: <strong className="text-gray-700">${booking.serviceFee}</strong></span>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-3 mt-1">
-            {isConfirmed && !isPast && !confirming && (
-              <button
-                onClick={() => setConfirming(true)}
-                className="text-sm font-semibold text-red-500 hover:text-red-700 hover:underline transition-colors"
-              >
-                Cancelar reserva
-              </button>
-            )}
-            {confirming && (
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-600">¿Confirmas la cancelación?</span>
-                <button
-                  onClick={() => { onCancel(); setConfirming(false); }}
-                  className="text-sm font-semibold text-white bg-red-500 px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors"
-                >
-                  Sí, cancelar
-                </button>
-                <button
-                  onClick={() => setConfirming(false)}
-                  className="text-sm text-gray-500 hover:underline"
-                >
-                  No, volver
-                </button>
-              </div>
-            )}
-            <span className="text-xs text-gray-400 ml-auto">
-              Reserva #{booking.id.slice(-6).toUpperCase()}
-            </span>
-          </div>
-        </div>
+        <p className="text-sm text-gray-500">{booking.roomName}</p>
+        <p className="text-sm text-gray-700 mt-1">
+          {booking.checkIn} → {booking.checkOut} · {booking.guests} huésped{booking.guests === 1 ? '' : 'es'} · {booking.nights} noche{booking.nights === 1 ? '' : 's'}
+        </p>
+        {children}
       </div>
-    </div>
+      <p className="text-base font-bold text-gray-900">{formatMoney(booking.total.amount, booking.total.currency)}</p>
+    </li>
   );
 }
 
 export function MyBookings({ onNavigate }: MyBookingsProps) {
   const { currentUser } = useAuth();
-  const { getUserBookings, cancelBooking } = useBookings();
-  const [filter, setFilter] = useState<'all' | 'confirmed' | 'cancelled'>('all');
+  const [status, setStatus] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const query = useGuestBookingHistory({
+    status: (status || undefined) as Booking['status'] | undefined,
+    from: from || undefined,
+    to: to || undefined,
+  });
 
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
         <Header onNavigate={onNavigate} />
         <div className="flex-1 flex flex-col items-center justify-center py-24 text-center px-6">
-          <span className="text-5xl mb-4">🔒</span>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Inicia sesión para ver tus reservas</h2>
           <p className="text-gray-500 text-sm mb-6">Necesitas una cuenta para acceder a esta sección.</p>
           <Button variant="primary" size="lg" onClick={() => onNavigate('login')}>Iniciar sesión</Button>
@@ -136,86 +70,109 @@ export function MyBookings({ onNavigate }: MyBookingsProps) {
     );
   }
 
-  const allBookings = getUserBookings(currentUser.id).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  return (
+    <HistoryShell
+      onNavigate={onNavigate}
+      eyebrow="Tu cuenta"
+      title="Mis reservas"
+      titleAction={<Link to={paths.reviews} className="text-sm font-semibold text-primary hover:underline">Mis reseñas</Link>}
+      status={status} from={from} to={to}
+      onStatus={setStatus} onFrom={setFrom} onTo={setTo}
+      query={query}
+      loadingText="Cargando tus reservas…"
+      empty={(
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Todavía no tienes reservas</h2>
+          <p className="text-gray-500 text-sm mb-6">Explora alojamientos y haz tu primera reserva.</p>
+          <Link to={paths.search} className="h-11 inline-flex items-center px-5 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90">Buscar alojamientos</Link>
+        </div>
+      )}
+      renderItem={(booking) => (
+        <BookingRow key={booking.id} booking={booking}>
+          {isCancelable(booking) && (
+            <Link to={paths.cancelBooking(booking.id)} className="inline-block mt-2 mr-4 text-sm font-semibold text-red-600 hover:underline">
+              Cancelar reserva
+            </Link>
+          )}
+          {isReviewable(booking) && (
+            <Link to={paths.reviewBooking(booking.id)} className="inline-block mt-2 text-sm font-semibold text-primary hover:underline">
+              Calificar alojamiento
+            </Link>
+          )}
+        </BookingRow>
+      )}
+    />
   );
+}
 
-  const filtered = allBookings.filter((b) => {
-    if (filter === 'confirmed') return b.status === 'confirmed';
-    if (filter === 'cancelled') return b.status === 'cancelled';
-    return true;
-  });
+// ---------------------------------------------------------------------------
+// Shared history layout (filters + states) used by both guest and owner views.
+// ---------------------------------------------------------------------------
 
-  const confirmedCount = allBookings.filter((b) => b.status === 'confirmed').length;
+interface HistoryShellProps {
+  onNavigate?: (page: string, id?: string) => void;
+  eyebrow: string;
+  title: string;
+  status: string; from: string; to: string;
+  onStatus: (v: string) => void; onFrom: (v: string) => void; onTo: (v: string) => void;
+  query: { isPending: boolean; isError: boolean; error: unknown; data?: { items: Booking[] }; refetch: () => void };
+  loadingText: string;
+  empty: React.ReactNode;
+  renderItem: (booking: Booking) => React.ReactNode;
+  extraFilters?: React.ReactNode;
+  listFilter?: (items: Booking[]) => Booking[];
+  listLabel?: string;
+  titleAction?: React.ReactNode;
+}
+
+export function HistoryShell(props: HistoryShellProps) {
+  const { query } = props;
+  const items = query.data ? (props.listFilter ? props.listFilter(query.data.items) : query.data.items) : [];
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <Header onNavigate={onNavigate} />
-
+      <Header onNavigate={props.onNavigate} />
       <main className="flex-1 max-w-screen-lg mx-auto px-6 py-10 w-full">
-        {/* Page header */}
-        <div className="mb-8">
-          <p className="text-sm text-[#E31C5F] font-semibold mb-1">Tu cuenta</p>
-          <h1 className="text-3xl font-bold text-gray-900">Mis reservas</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Hola, <strong>{currentUser.name.split(' ')[0]}</strong> · {confirmedCount} reserva{confirmedCount !== 1 ? 's' : ''} activa{confirmedCount !== 1 ? 's' : ''}
-          </p>
+        <p className="text-sm text-primary font-semibold mb-1">{props.eyebrow}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">{props.title}</h1>
+          {props.titleAction}
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex gap-1 mb-6 border-b border-gray-200">
-          {([['all', 'Todas'], ['confirmed', 'Confirmadas'], ['cancelled', 'Canceladas']] as const).map(([val, label]) => (
-            <button
-              key={val}
-              onClick={() => setFilter(val)}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                filter === val
-                  ? 'border-[#E31C5F] text-[#E31C5F]'
-                  : 'border-transparent text-gray-500 hover:text-gray-800'
-              }`}
-            >
-              {label}
-              <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                {val === 'all' ? allBookings.length : allBookings.filter((b) => b.status === (val === 'confirmed' ? 'confirmed' : 'cancelled')).length}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <span className="text-5xl mb-4">🧳</span>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">
-              {allBookings.length === 0 ? 'Todavía no tienes reservas' : 'Sin reservas en esta categoría'}
-            </h2>
-            <p className="text-gray-500 text-sm mb-6">
-              {allBookings.length === 0
-                ? 'Explora miles de alojamientos únicos y haz tu primera reserva.'
-                : 'Prueba cambiando el filtro para ver otras reservas.'}
-            </p>
-            <Button variant="primary" size="lg" onClick={() => onNavigate('home')}>
-              Explorar alojamientos
-            </Button>
+        <div className="flex flex-wrap items-end gap-4 mb-6">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="history-status" className="text-xs font-semibold text-gray-700">Estado</label>
+            <select id="history-status" value={props.status} onChange={(e) => props.onStatus(e.target.value)} className="h-10 px-3 border border-gray-300 rounded-xl text-sm">
+              <option value="">Todas</option>
+              {BOOKING_STATUSES.map((s) => <option key={s} value={s}>{BOOKING_STATUS_LABELS[s]}</option>)}
+            </select>
           </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="history-from" className="text-xs font-semibold text-gray-700">Desde</label>
+            <input id="history-from" type="date" value={props.from} onChange={(e) => props.onFrom(e.target.value)} className="h-10 px-2 border border-gray-300 rounded-xl text-sm" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="history-to" className="text-xs font-semibold text-gray-700">Hasta</label>
+            <input id="history-to" type="date" value={props.to} onChange={(e) => props.onTo(e.target.value)} className="h-10 px-2 border border-gray-300 rounded-xl text-sm" />
+          </div>
+          {props.extraFilters}
+        </div>
+
+        {query.isError ? (
+          <div role="alert" className="flex flex-col items-start gap-3 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">
+            <p>{bookingHistoryErrorMessage(query.error)}</p>
+            <button type="button" onClick={() => query.refetch()} className="font-semibold underline">Reintentar</button>
+          </div>
+        ) : query.isPending ? (
+          <p role="status" className="text-sm text-gray-500 py-12 text-center">{props.loadingText}</p>
+        ) : items.length === 0 ? (
+          props.empty
         ) : (
-          <div className="flex flex-col gap-4">
-            {filtered.map((b) => (
-              <BookingCard
-                key={b.id}
-                booking={b}
-                onCancel={() => cancelBooking(b.id)}
-              />
-            ))}
-          </div>
+          <ul aria-label={props.listLabel ?? 'Reservas'} className="flex flex-col gap-4">
+            {items.map((booking) => props.renderItem(booking))}
+          </ul>
         )}
       </main>
-
-      <footer className="border-t border-gray-200 mt-8">
-        <div className="max-w-screen-xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-sm text-gray-500">© 2026 StayHub, Inc. · Privacidad · Condiciones</p>
-          <span className="text-sm text-gray-500">🌐 Español (ES)</span>
-        </div>
-      </footer>
     </div>
   );
 }

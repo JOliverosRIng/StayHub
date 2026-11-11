@@ -4,10 +4,18 @@ import { useAuth } from '../context/AuthContext';
 import { Home } from '../pages/Home';
 import { Login } from '../pages/Login';
 import { MyBookings } from '../pages/MyBookings';
+import { MyReviews } from '../pages/MyReviews';
+import { Booking } from '../pages/booking/Booking';
+import { CancelBooking } from '../pages/booking/CancelBooking';
+import { Payment } from '../pages/booking/Payment';
+import { ReviewProperty } from '../pages/booking/ReviewProperty';
 import { PropertyDetail } from '../pages/PropertyDetail';
 import { Register } from '../pages/Register';
 import { Search } from '../pages/Search';
+import { EditProperty } from '../pages/host/EditProperty';
+import { BookingsReceived } from '../pages/host/BookingsReceived';
 import { HostHome } from '../pages/host/HostHome';
+import { MyProperties } from '../pages/host/MyProperties';
 import { PublishProperty } from '../pages/host/PublishProperty';
 import type { PendingBookingData } from '../types';
 import {
@@ -98,6 +106,19 @@ function MyBookingsRoute() {
   return <MyBookings onNavigate={useLegacyNavigate()} />;
 }
 
+function MyReviewsRoute() {
+  return <MyReviews onNavigate={useLegacyNavigate()} />;
+}
+
+/**
+ * Role-based access map (enforced by `RequireRole`; the Gateway still authorizes every request):
+ * - Public: home, search, detail, login, register.
+ * - Guest/history: `/bookings` renders for everyone and the page itself prompts anonymous visitors to
+ *   sign in; booking flows that require a guest session arrive with Sprint 3.
+ * - Owner (OWNER): every `/host/*` route (panel, publish, my properties, edit) is guarded, redirecting
+ *   anonymous visitors to login (remembering the destination) and other roles home with a notice.
+ * Global 401/403 responses are handled once in `api/queryClient.ts` (session invalidation + a toast).
+ */
 export const appRoutes: RouteObject[] = [
   {
     element: <AppLayout />,
@@ -110,9 +131,42 @@ export const appRoutes: RouteObject[] = [
       { path: '/property/:id', element: <PropertyDetailRoute /> },
       // Guest (the page itself prompts anonymous visitors to sign in)
       { path: paths.bookings, element: <MyBookingsRoute /> },
+      { path: paths.reviews, element: <MyReviewsRoute /> },
+      // Authenticated (guest or owner): cancellation step. The page redirects to login on a 401 and
+      // the server enforces ownership (403/404), so no single-role guard fits here.
+      { path: '/bookings/:bookingId/cancel', element: <CancelBooking /> },
+      { path: '/bookings/:bookingId/review', element: <ReviewProperty /> },
+      // Authenticated guest: booking flow (RQ-07). Payment screen (`/booking/:id/pay`) arrives in FE-031.
+      {
+        path: '/property/:id/book',
+        element: (
+          <RequireRole
+            role="GUEST"
+            anonymousNotice="Inicia sesión como huésped para completar tu reserva."
+            forbiddenNotice="Las reservas son para cuentas de huésped."
+          >
+            <Booking />
+          </RequireRole>
+        ),
+      },
+      {
+        path: '/booking/:bookingId/pay',
+        element: (
+          <RequireRole
+            role="GUEST"
+            anonymousNotice="Inicia sesión como huésped para completar tu pago."
+            forbiddenNotice="Los pagos de reserva son para cuentas de huésped."
+          >
+            <Payment />
+          </RequireRole>
+        ),
+      },
       // Owner
       { path: paths.host, element: <RequireRole role="OWNER"><HostHome /></RequireRole> },
+      { path: paths.hostBookings, element: <RequireRole role="OWNER"><BookingsReceived /></RequireRole> },
       { path: paths.hostNew, element: <RequireRole role="OWNER"><PublishProperty /></RequireRole> },
+      { path: paths.hostProperties, element: <RequireRole role="OWNER"><MyProperties /></RequireRole> },
+      { path: '/host/properties/:id/edit', element: <RequireRole role="OWNER"><EditProperty /></RequireRole> },
       { path: '*', element: <Navigate to={paths.home} replace /> },
     ],
   },

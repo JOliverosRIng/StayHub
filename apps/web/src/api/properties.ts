@@ -19,6 +19,7 @@ export const isPropertyId = (id: string | undefined): id is string => !!id && UU
 export const propertyKeys = {
   all: ['properties'] as const,
   detail: (id: string) => [...propertyKeys.all, 'detail', id] as const,
+  mine: () => [...propertyKeys.all, 'mine'] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,30 @@ export function propertyErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.status === 404) return 'No encontramos este alojamiento. Puede que ya no esté publicado.';
   if (error instanceof ApiError && error.status === 401) return 'Tu sesión venció. Inicia sesión nuevamente.';
   return 'No pudimos cargar el alojamiento. Intenta nuevamente.';
+}
+
+/**
+ * RQ-03 (FE-023): the authenticated owner's own properties, including DRAFT/UNPUBLISHED, so the public
+ * search cannot serve this list.
+ *
+ * PROVISIONAL CONTRACT: the accommodations OpenAPI exposes only `POST /properties` and
+ * `GET/PUT /properties/:id` — there is no owner-scoped listing yet. Until the Gateway/accommodations
+ * publish one (External dependency: G1), this reads the mocked owner collection `GET /properties?mine=true`;
+ * align the path/shape when the real endpoint lands.
+ */
+export async function getMyProperties(signal?: AbortSignal): Promise<Property[]> {
+  const { data } = await http.get<Property[]>('/properties', { params: { mine: true }, signal });
+  return data;
+}
+
+export function useMyProperties() {
+  return useQuery({ queryKey: propertyKeys.mine(), queryFn: ({ signal }) => getMyProperties(signal) });
+}
+
+export function myPropertiesErrorMessage(error: unknown): string {
+  if (error instanceof ApiError && error.status === 401) return 'Tu sesión venció. Inicia sesión nuevamente.';
+  if (error instanceof ApiError && error.status === 403) return 'Esta sección es solo para propietarios.';
+  return 'No pudimos cargar tus propiedades. Intenta nuevamente.';
 }
 
 // ---------------------------------------------------------------------------
@@ -112,6 +137,16 @@ export function toReplaceInput(property: Property, overrides: Partial<PropertyRe
 /** DRAFT/UNPUBLISHED → PUBLISHED. Requires a priced room and at least one photo. */
 export function publishProperty(property: Property): Promise<Property> {
   return replaceProperty(property.id, toReplaceInput(property, { status: 'PUBLISHED' }));
+}
+
+/**
+ * RQ-03 edit: persists the editable fields of an owned property. Builds the full PUT representation
+ * from the current property plus `changes` (so the server never clears a field the owner left
+ * untouched) and carries the current `version` for optimistic concurrency. Transport failures surface
+ * as `ApiError` (400/401/403/404/409) exactly like the rest of the write client.
+ */
+export function saveProperty(property: Property, changes: Partial<PropertyReplace> = {}): Promise<Property> {
+  return replaceProperty(property.id, toReplaceInput(property, changes));
 }
 
 /** Client-side guard mirroring the contract. The server still decides by magic bytes. */
@@ -192,6 +227,18 @@ export function usePublishProperty() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: publishProperty,
+    onSuccess: (property) => {
+      client.setQueryData(propertyKeys.detail(property.id), property);
+      void client.invalidateQueries({ queryKey: searchKeys.all });
+    },
+  });
+}
+
+/** RQ-03 edit mutation. On success refreshes the cached detail and search so both reflect the edit. */
+export function useUpdateProperty() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ property, changes }: { property: Property; changes?: Partial<PropertyReplace> }) => saveProperty(property, changes),
     onSuccess: (property) => {
       client.setQueryData(propertyKeys.detail(property.id), property);
       void client.invalidateQueries({ queryKey: searchKeys.all });

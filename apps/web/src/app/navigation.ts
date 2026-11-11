@@ -10,8 +10,22 @@ export const paths = {
   search: '/search',
   property: (id: string) => `/property/${encodeURIComponent(id)}`,
   bookings: '/bookings',
+  /** RQ-11 the guest's own reviews. */
+  reviews: '/reviews',
   host: '/host',
   hostNew: '/host/new',
+  hostProperties: '/host/properties',
+  hostPropertyEdit: (id: string) => `/host/properties/${encodeURIComponent(id)}/edit`,
+  /** RQ-08 owner "bookings received". */
+  hostBookings: '/host/bookings',
+  /** RQ-07 booking flow for a property. */
+  book: (id: string) => `/property/${encodeURIComponent(id)}/book`,
+  /** Payment step for a created booking (screen implemented in FE-031). */
+  bookingPay: (bookingId: string) => `/booking/${encodeURIComponent(bookingId)}/pay`,
+  /** RQ-09/RQ-10 cancellation step for a booking. */
+  cancelBooking: (bookingId: string) => `/bookings/${encodeURIComponent(bookingId)}/cancel`,
+  /** RQ-11 "rate property" step for a completed booking. */
+  reviewBooking: (bookingId: string) => `/bookings/${encodeURIComponent(bookingId)}/review`,
 } as const;
 
 /** Router state shapes carried between routes (never persisted, never contains credentials). */
