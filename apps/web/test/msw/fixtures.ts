@@ -1,4 +1,4 @@
-import type { Property, Review, SearchResult } from '../../src/types/catalog';
+import type { Booking, Property, Review, SearchResult } from '../../src/types/catalog';
 
 /**
  * Contract-shaped fixtures for MSW. IDs are stable UUIDs so tests and the dev mock can deep-link.
@@ -7,6 +7,12 @@ import type { Property, Review, SearchResult } from '../../src/types/catalog';
 export const OWNER_ID = '7d1f4c1e-2b7a-4c3e-9a51-0c4b6f1e2a01';
 export const OTHER_OWNER_ID = '7d1f4c1e-2b7a-4c3e-9a51-0c4b6f1e2a02';
 export const GUEST_ID = '7d1f4c1e-2b7a-4c3e-9a51-0c4b6f1e2a03';
+export const OTHER_GUEST_ID = '7d1f4c1e-2b7a-4c3e-9a51-0c4b6f1e2a04';
+
+export const BOOKING_IDS = {
+  /** Confirmed stay by GUEST_ID at Casa Azul (room 1) over [2026-12-10, 2026-12-14); blocks those nights. */
+  casaAzulConfirmed: '6e2c9a84-5b7d-4c6e-9a1f-00000000b001',
+} as const;
 
 export const PROPERTY_IDS = {
   villa: '1b0d6a52-0f5c-4c55-9a0e-1a2b3c4d5e01',
@@ -139,4 +145,40 @@ export function toSearchResult(property: Property, relevance = 0): SearchResult 
     primaryPhotoUrl: property.photos[0]?.url ?? null,
     relevance,
   };
+}
+
+/**
+ * Booking fixtures for the Bookings contract mock (External dependency: Gateway `/bookings` pending).
+ * One CONFIRMED stay by GUEST_ID blocks Casa Azul's first room for its nights, to exercise overlap
+ * (409) and ownership (own vs. other guest) paths.
+ */
+export function buildBookings(): Booking[] {
+  const casaAzul = buildProperties().find((p) => p.id === PROPERTY_IDS.casaAzul)!;
+  const room = casaAzul.rooms[0]!;
+  const nightly = room.basePrice!;
+  const nights = 4;
+  return [
+    {
+      id: BOOKING_IDS.casaAzulConfirmed,
+      guestId: GUEST_ID,
+      ownerId: casaAzul.ownerId,
+      propertyId: casaAzul.id,
+      roomId: room.id,
+      propertyName: casaAzul.name,
+      roomName: room.name,
+      checkIn: '2026-12-10',
+      checkOut: '2026-12-14',
+      guests: 2,
+      nights,
+      nightlyPrice: { amount: nightly.amount, currency: nightly.currency },
+      total: { amount: (Number(nightly.amount) * nights).toFixed(2), currency: nightly.currency },
+      status: 'CONFIRMED',
+      paymentStatus: 'CAPTURED',
+      paymentOrderId: null,
+      holdExpiresAt: null,
+      cancellationReason: null,
+      createdAt: created,
+      updatedAt: created,
+    },
+  ];
 }

@@ -1,9 +1,9 @@
 import { http, HttpResponse, type PathParams } from 'msw';
-import type { Problem, Property, PropertyCreate, PropertyReplace, Review, RoomReplaceInput } from '../../src/types/catalog';
+import type { Booking, CreateBookingInput, Problem, Property, PropertyCreate, PropertyReplace, Review, RoomReplaceInput } from '../../src/types/catalog';
 import {
   CATALOG_LIMITS, FEATURE_CATALOG, PHOTO_MEDIA_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES,
 } from '../../src/types/catalog';
-import { buildProperties, buildReviews, toSearchResult } from './fixtures';
+import { buildBookings, buildProperties, buildReviews, toSearchResult } from './fixtures';
 
 /**
  * Contract mocks for the Gateway routes that are not exposed yet (properties, search, reviews).
@@ -18,18 +18,24 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // In-memory state
 // ---------------------------------------------------------------------------
 
-const db = { properties: buildProperties(), reviews: buildReviews() };
+const db = { properties: buildProperties(), reviews: buildReviews(), bookings: buildBookings() };
+/** Idempotency ledger for `POST /bookings`, keyed by `${guestId}|${Idempotency-Key}`. */
+let bookingIdempotency = new Map<string, { hash: string; booking: Booking }>();
 
 /** Restores fixtures; called after every test so mutations never leak. */
 export function resetMockDb(): void {
   db.properties = buildProperties();
   db.reviews = buildReviews();
+  db.bookings = buildBookings();
+  bookingIdempotency = new Map();
 }
 
 export const mockDb = {
   property: (id: string) => db.properties.find((p) => p.id === id),
   properties: () => db.properties,
   addReview: (review: Review) => { db.reviews.push(review); },
+  bookings: () => db.bookings,
+  booking: (id: string) => db.bookings.find((b) => b.id === id),
 };
 
 // ---------------------------------------------------------------------------
@@ -309,11 +315,99 @@ const uploadPhotoHandler = http.post<IdParams>(`${API}/properties/:id/photos`, a
   return HttpResponse.json(photo, { status: 201 });
 });
 
+// ---------------------------------------------------------------------------
+// Bookings (RQ-07) — contract mock. External dependency: the Gateway does not expose `/bookings`
+// yet; this follows `openapi-bookings-service.yaml` closely enough for the web client to develop.
+// ---------------------------------------------------------------------------
+
+/** Owners see `ownerId`; guests (and anyone else) get it stripped, per the contract. */
+function viewBooking(booking: Booking, caller?: Caller): Booking {
+  if (caller && caller.sub === booking.ownerId) return booking;
+  const { ownerId: _omitted, ...rest } = booking;
+  void _omitted;
+  return rest;
+}
+
+const BOOKING_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{16,128}$/;
+const BLOCKING_STATUSES = new Set(['PENDING_PAYMENT', 'CONFIRMED', 'CHECKED_IN']);
+
+const createBookingHandler = http.post(`${API}/bookings`, async ({ request }) => {
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHORIZED');
+  const caller = auth.caller;
+
+  const key = request.headers.get('Idempotency-Key');
+  if (!key || !IDEMPOTENCY_KEY.test(key)) return invalid('Idempotency-Key');
+
+  const body = await request.json().catch(() => undefined);
+  if (!isObject(body)) return invalid('body');
+  const allowed = ['propertyId', 'roomId', 'checkIn', 'checkOut', 'guests'];
+  const errors = Object.keys(body).filter((k) => !allowed.includes(k));
+  if (typeof body.propertyId !== 'string' || !UUID.test(body.propertyId)) errors.push('propertyId');
+  if (typeof body.roomId !== 'string' || !UUID.test(body.roomId)) errors.push('roomId');
+  const checkIn = String(body.checkIn); const checkOut = String(body.checkOut);
+  if (!BOOKING_DATE.test(checkIn)) errors.push('checkIn');
+  if (!BOOKING_DATE.test(checkOut)) errors.push('checkOut');
+  else if (BOOKING_DATE.test(checkIn) && checkOut <= checkIn) errors.push('checkOut');
+  if (!Number.isInteger(body.guests) || (body.guests as number) < 1) errors.push('guests');
+  if (errors.length) return invalid(...errors);
+  const input = body as unknown as CreateBookingInput;
+
+  // Idempotent replay per (guest, key): same command → same booking; different command → conflict.
+  const ledgerId = `${caller.sub}|${key}`;
+  const hash = JSON.stringify([input.propertyId, input.roomId, input.checkIn, input.checkOut, input.guests]);
+  const prior = bookingIdempotency.get(ledgerId);
+  if (prior) {
+    if (prior.hash !== hash) return problem(409, 'IDEMPOTENCY_CONFLICT');
+    return HttpResponse.json(viewBooking(prior.booking, caller), { status: 201 });
+  }
+
+  const property = mockDb.property(input.propertyId);
+  const room = property?.rooms.find((r) => r.id === input.roomId);
+  if (!property || property.status !== 'PUBLISHED' || !room || !room.basePrice) return problem(404, 'NOT_FOUND');
+  if (input.guests > room.capacity) return invalid('guests'); // capacity of the quoted room snapshot
+
+  const overlaps = db.bookings.some((x) => x.roomId === room.id && BLOCKING_STATUSES.has(x.status)
+    && x.checkIn < input.checkOut && input.checkIn < x.checkOut);
+  if (overlaps) return problem(409, 'BOOKING_CONFLICT');
+
+  const nights = Math.round((Date.parse(input.checkOut) - Date.parse(input.checkIn)) / 86_400_000);
+  const now = new Date();
+  const booking: Booking = {
+    id: crypto.randomUUID(), guestId: caller.sub, ownerId: property.ownerId,
+    propertyId: property.id, roomId: room.id, propertyName: property.name, roomName: room.name,
+    checkIn: input.checkIn, checkOut: input.checkOut, guests: input.guests, nights,
+    nightlyPrice: { amount: room.basePrice.amount, currency: room.basePrice.currency },
+    total: { amount: (Number(room.basePrice.amount) * nights).toFixed(2), currency: room.basePrice.currency },
+    status: 'PENDING_PAYMENT', paymentStatus: 'NOT_STARTED', paymentOrderId: null,
+    holdExpiresAt: new Date(now.getTime() + 15 * 60_000).toISOString(),
+    cancellationReason: null, createdAt: now.toISOString(), updatedAt: now.toISOString(),
+  };
+  db.bookings.push(booking);
+  bookingIdempotency.set(ledgerId, { hash, booking });
+  return HttpResponse.json(viewBooking(booking, caller), { status: 201 });
+});
+
+const getBookingHandler = http.get(`${API}/bookings/:bookingId`, ({ request, params }) => {
+  const id = String(params.bookingId);
+  if (!UUID.test(id)) return problem(404, 'NOT_FOUND');
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHORIZED');
+  const caller = auth.caller;
+  const booking = mockDb.booking(id);
+  // A booking the caller neither made nor owns is indistinguishable from missing (contract: 404, not 403).
+  if (!booking || (booking.guestId !== caller.sub && booking.ownerId !== caller.sub)) return problem(404, 'NOT_FOUND');
+  return HttpResponse.json(viewBooking(booking, caller));
+});
+
 export const handlers = [
   suggestHandler,
   searchHandler,
   reviewsHandler,
   uploadPhotoHandler,
+  createBookingHandler,
+  getBookingHandler,
   getPropertyHandler,
   createPropertyHandler,
   replacePropertyHandler,

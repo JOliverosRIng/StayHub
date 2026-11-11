@@ -252,3 +252,53 @@ export interface ReviewPage extends Page<Review> {
   /** Average of all ratings, or null when there are no reviews. */
   averageRating: number | null;
 }
+
+// ---------------------------------------------------------------------------
+// Bookings (RQ-07) — aligned to
+// `specs/003-reservas-pagos-resenas/booking_service/contracts/openapi-bookings-service.yaml`.
+// External dependency: the Gateway does not expose `/bookings` yet; the web client develops against
+// the MSW contract mock until then.
+// ---------------------------------------------------------------------------
+
+export const BOOKING_STATUSES = [
+  'PENDING_PAYMENT', 'CONFIRMED', 'CHECKED_IN', 'COMPLETED', 'PAYMENT_FAILED', 'EXPIRED', 'CANCELLED_BY_GUEST', 'CANCELLED_BY_OWNER',
+] as const;
+export type BookingStatus = (typeof BOOKING_STATUSES)[number];
+
+export const PAYMENT_STATUSES = [
+  'NOT_STARTED', 'ORDER_PENDING', 'PENDING', 'CAPTURED', 'FAILED', 'REFUND_PENDING', 'PARTIALLY_REFUNDED', 'REFUNDED',
+] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+/** Request body of `POST /bookings`. `checkIn` is inclusive, `checkOut` exclusive. */
+export interface CreateBookingInput {
+  propertyId: string;
+  roomId: string;
+  checkIn: IsoDate;
+  checkOut: IsoDate;
+  guests: number;
+}
+
+export interface Booking {
+  id: string;
+  guestId: string;
+  /** Present only when the requester is the property owner. */
+  ownerId?: string;
+  propertyId: string;
+  roomId: string;
+  propertyName: string;
+  roomName: string;
+  checkIn: IsoDate;
+  checkOut: IsoDate;
+  guests: number;
+  nights: number;
+  nightlyPrice: BasePrice;
+  total: BasePrice;
+  status: BookingStatus;
+  paymentStatus: PaymentStatus;
+  paymentOrderId?: string | null;
+  holdExpiresAt?: string | null;
+  cancellationReason?: string | null;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+}
