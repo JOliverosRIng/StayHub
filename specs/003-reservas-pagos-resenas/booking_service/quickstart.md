@@ -171,11 +171,15 @@ Cumple el umbral global de 70 % con las integraciones PostgreSQL activas.
 - Compose y CI validados estáticamente (YAML parseable); contenedor no-root, read-only, `restart: always`, healthchecks y grace period.
 - Los escenarios reales se ejecutaron con contenedores temporales gestionados por los harnesses; sus recursos se eliminaron al terminar.
 
-## 16. Evidencia diferida — integraciones externas
+## 16. Evidencia de integraciones externas
 
-Siguen pendientes y no se simulan como completadas:
+### Evidencia T097 — Gateway ↔ Bookings real (2026-11-11)
 
-- T097 Gateway ↔ Bookings real, incluyendo la política de rate limit aún no definida.
+`npm run test:gateway:bookings:e2e` levantó Gateway y Bookings NestJS reales, PostgreSQL 16 y
+Redis 7 temporales. Los 4/4 escenarios aprobaron autenticación/roles, creación, detalle,
+historial, check-in/out, JWT delegado, trazas y Problem Details. La política aprobada se verificó
+por usuario: las primeras 10 escrituras y 60 lecturas dentro de 60 segundos se aceptan; la
+escritura 11 y lectura 61 responden `429 BOOKINGS_RATE_LIMITED` con `Retry-After`.
 
 ### Evidencia T095 — Bookings → Accommodations quote real (2026-11-11)
 

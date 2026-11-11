@@ -121,6 +121,7 @@ Los estados terminales liberan inventario salvo `COMPLETED`, cuyo intervalo ya t
 - **BKG-NFR-007 Verificación**: cobertura mínima 70 % y pruebas reales PostgreSQL/RabbitMQ/Compose.
 - **BKG-NFR-008 Rendimiento**: detalle e historial p95 < 500 ms bajo perfil reproducible.
 - **BKG-NFR-009 Portabilidad**: Node 20, Docker y Docker Compose.
+- **BKG-NFR-010 Rate limit de borde**: el Gateway limita por usuario autenticado las escrituras de Bookings a 10 solicitudes por 60 segundos y las lecturas a 60 solicitudes por 60 segundos; al exceder responde `429` con `Retry-After` y ante caída de Redis falla cerrado con `503`.
 
 ## 9. Contratos externos requeridos
 
@@ -132,6 +133,8 @@ Los estados terminales liberan inventario salvo `COMPLETED`, cuyo intervalo ya t
 Hasta que existan los colaboradores, las pruebas usan adaptadores contractuales; eso no constituye evidencia end-to-end.
 
 ## 10. Decisiones de producto no inventadas
+
+- La cuota de Bookings fue aprobada el 2026-11-11: escrituras 10/minuto/usuario y lecturas 60/minuto/usuario en el Redis de borde del Gateway.
 
 - El plazo del hold de pago es configuración obligatoria, sin valor productivo fijado aquí.
 - La política de cancelación es versionada; plazos y porcentajes requieren aprobación de producto.

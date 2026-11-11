@@ -7,10 +7,10 @@
 
 ## Estado de implementación — corte 2026-11-11
 
-- Completadas y verificadas todas las tareas salvo **T097 Gateway↔Bookings real**: Setup, Foundation, US1–US5, evidencia PostgreSQL real, cobertura 74.32 %, contratos, Compose/CI, E2E aislado, rendimiento y shutdown ordenado.
+- Completadas y verificadas todas las tareas, incluida **T097 Gateway↔Bookings real**: Setup, Foundation, US1–US5, evidencia PostgreSQL real, cobertura 74.32 %, contratos, Compose/CI, E2E aislado, rendimiento y shutdown ordenado.
 - Evidencia local: lint, typecheck y build; migración real PostgreSQL 16; concurrencia GiST, idempotencia y saga; 60 pruebas unitarias/contrato/seguridad/integración/concurrencia; arranque con readiness/liveness/Swagger; imagen Docker reproducible.
 - Las integraciones reales con `accommodations-service`, `payments-service`, `notifications-service` y `reviews-service` pasaron en `npm run test:unir:e2e` con **8/8 escenarios**. El harness ya no utiliza stub de Accommodations.
-- Pendiente únicamente **T097**: E2E con API Gateway real y una política de rate limit aprobada. El proxy, JWT delegado, roles, trazas y Problem Details ya están implementados y cubiertos por pruebas locales. Ver `validation-report.md` y `quickstart.md`.
+- **T097 completada**: Gateway y Bookings NestJS reales, PostgreSQL 16 y Redis 7 temporales; rutas, JWT delegado, roles, trazas, Problem Details y cuotas aprobadas de 10 escrituras/minuto/usuario y 60 lecturas/minuto/usuario pasaron 4/4 escenarios. Ver `validation-report.md` y `quickstart.md`.
 
 ## 1. Summary
 

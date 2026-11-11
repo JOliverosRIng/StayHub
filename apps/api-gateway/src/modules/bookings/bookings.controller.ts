@@ -1,15 +1,24 @@
-import { BadRequestException, Body, Controller, Delete, Get, Headers, Param, Post, Req, UnauthorizedException } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Delete, Get, Headers, HttpCode, Param, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import { BookingsClient, type BookingsRequestContext } from '@gateway/infrastructure/http/bookings.client';
 import { traceIdFromRequest } from '@gateway/interfaces/http/trace-id';
 import { principalFrom } from '@gateway/modules/auth/access.guard';
 import { Roles } from '@gateway/modules/auth/roles.guard';
+import { BookingsRateLimitGuard } from '@gateway/modules/rate-limit/bookings-rate-limit.guard';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 
-@ApiTags('bookings') @ApiBearerAuth() @Controller('bookings')
+@ApiTags('bookings')
+@ApiBearerAuth()
+@ApiResponse({
+  status: 429,
+  description: 'Per-user Bookings quota exceeded.',
+  headers: { 'Retry-After': { description: 'Seconds until the current quota window expires.', schema: { type: 'integer', minimum: 1 } } },
+})
+@Controller('bookings')
+@UseGuards(BookingsRateLimitGuard)
 export class BookingsController {
   public constructor(private readonly bookings: BookingsClient) {}
 
@@ -34,12 +43,12 @@ export class BookingsController {
     return this.bookings.request(context(request), 'DELETE', `/bookings/${uuid(bookingId)}`, body);
   }
 
-  @Post(':bookingId/check-in') @Roles('OWNER')
+  @Post(':bookingId/check-in') @HttpCode(200) @Roles('OWNER')
   public checkIn(@Param('bookingId') bookingId: string, @Req() request: Request): Promise<unknown> {
     return this.bookings.request(context(request), 'POST', `/bookings/${uuid(bookingId)}/check-in`);
   }
 
-  @Post(':bookingId/check-out') @Roles('OWNER')
+  @Post(':bookingId/check-out') @HttpCode(200) @Roles('OWNER')
   public checkOut(@Param('bookingId') bookingId: string, @Req() request: Request): Promise<unknown> {
     return this.bookings.request(context(request), 'POST', `/bookings/${uuid(bookingId)}/check-out`);
   }

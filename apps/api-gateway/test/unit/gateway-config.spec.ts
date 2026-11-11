@@ -50,6 +50,10 @@ function baseEnvironment(): NodeJS.ProcessEnv {
     GATEWAY_REGISTER_RATE_WINDOW_SECONDS: '600',
     GATEWAY_LOGIN_RATE_LIMIT: '30',
     GATEWAY_LOGIN_RATE_WINDOW_SECONDS: '300',
+    GATEWAY_BOOKINGS_WRITE_RATE_LIMIT: '10',
+    GATEWAY_BOOKINGS_WRITE_RATE_WINDOW_SECONDS: '60',
+    GATEWAY_BOOKINGS_READ_RATE_LIMIT: '60',
+    GATEWAY_BOOKINGS_READ_RATE_WINDOW_SECONDS: '60',
     GATEWAY_MAX_PHOTO_BYTES: '5000000',
     GATEWAY_AUTH_TIMEOUT_MS: '3000',
     GATEWAY_AUTH_CIRCUIT_FAILURE_THRESHOLD: '5',
@@ -86,6 +90,8 @@ describe('loadGatewayConfig documented values (GW-009)', () => {
     expect(config.apiPrefix).toBe('/api/v1');
     expect(config.registerRateLimit).toEqual({ limit: 10, windowSeconds: 600 });
     expect(config.loginRateLimit).toEqual({ limit: 30, windowSeconds: 300 });
+    expect(config.bookingsWriteRateLimit).toEqual({ limit: 10, windowSeconds: 60 });
+    expect(config.bookingsReadRateLimit).toEqual({ limit: 60, windowSeconds: 60 });
     expect(config.maxPhotoBytes).toBe(5000000);
   });
 
@@ -160,6 +166,10 @@ describe('loadGatewayConfig fails fast on missing configuration (GW-009)', () =>
     'GATEWAY_REGISTER_RATE_WINDOW_SECONDS',
     'GATEWAY_LOGIN_RATE_LIMIT',
     'GATEWAY_LOGIN_RATE_WINDOW_SECONDS',
+    'GATEWAY_BOOKINGS_WRITE_RATE_LIMIT',
+    'GATEWAY_BOOKINGS_WRITE_RATE_WINDOW_SECONDS',
+    'GATEWAY_BOOKINGS_READ_RATE_LIMIT',
+    'GATEWAY_BOOKINGS_READ_RATE_WINDOW_SECONDS',
     'GATEWAY_MAX_PHOTO_BYTES',
     'GATEWAY_AUTH_TIMEOUT_MS',
     'GATEWAY_AUTH_CIRCUIT_FAILURE_THRESHOLD',
@@ -203,6 +213,12 @@ describe('loadGatewayConfig rejects values that break the closed contract (GW-00
     );
     expect(() => load({ GATEWAY_LOGIN_RATE_WINDOW_SECONDS: '600' })).toThrow(
       /GATEWAY_LOGIN_RATE_WINDOW_SECONDS/,
+    );
+    expect(() => load({ GATEWAY_BOOKINGS_WRITE_RATE_LIMIT: '11' })).toThrow(
+      /GATEWAY_BOOKINGS_WRITE_RATE_LIMIT/,
+    );
+    expect(() => load({ GATEWAY_BOOKINGS_READ_RATE_LIMIT: '61' })).toThrow(
+      /GATEWAY_BOOKINGS_READ_RATE_LIMIT/,
     );
   });
 

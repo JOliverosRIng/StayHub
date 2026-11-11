@@ -59,6 +59,8 @@ export interface GatewayConfig {
   readonly trustedProxyCidrs: readonly string[];
   readonly registerRateLimit: RateLimitPolicy;
   readonly loginRateLimit: RateLimitPolicy;
+  readonly bookingsWriteRateLimit: RateLimitPolicy;
+  readonly bookingsReadRateLimit: RateLimitPolicy;
   readonly maxPhotoBytes: 5000000;
   readonly auth: CircuitPolicy;
   readonly users: CircuitPolicy;
@@ -134,6 +136,14 @@ export function loadGatewayConfig(
     loginRateLimit: {
       limit: exactInteger(environment, 'GATEWAY_LOGIN_RATE_LIMIT', 30),
       windowSeconds: exactInteger(environment, 'GATEWAY_LOGIN_RATE_WINDOW_SECONDS', 300),
+    },
+    bookingsWriteRateLimit: {
+      limit: exactInteger(environment, 'GATEWAY_BOOKINGS_WRITE_RATE_LIMIT', 10),
+      windowSeconds: exactInteger(environment, 'GATEWAY_BOOKINGS_WRITE_RATE_WINDOW_SECONDS', 60),
+    },
+    bookingsReadRateLimit: {
+      limit: exactInteger(environment, 'GATEWAY_BOOKINGS_READ_RATE_LIMIT', 60),
+      windowSeconds: exactInteger(environment, 'GATEWAY_BOOKINGS_READ_RATE_WINDOW_SECONDS', 60),
     },
     maxPhotoBytes: exactInteger(environment, 'GATEWAY_MAX_PHOTO_BYTES', 5000000),
     auth: circuit(environment, 'GATEWAY_AUTH_'),

@@ -7,14 +7,16 @@ de negocio: no almacena datos, no hashea contrasenas, no emite tokens y no modif
 ## Alcance
 
 - Sirve HTTP en desarrollo y termina TLS en produccion; enruta las operaciones de identidad hacia
-  `auth-service`/`users-service` y las tres operaciones de reseñas hacia `reviews-service`.
+  `auth-service`/`users-service`, las tres operaciones de reseñas hacia `reviews-service` y las
+  operaciones públicas de reservas hacia `bookings-service`.
 - Elimina toda cabecera de identidad, forwarding o service-auth aportada por el cliente antes
   de rutear. Solo propaga el bearer validado, el `traceId` y las cabeceras de la allowlist.
 - Valida el access JWT (RS256) e introspecta `sid` en Auth. Si Auth no responde, falla cerrado
   con `503`.
 - Aplica los limites antiabuso de borde en su Redis propio: 10 registros por origen cada
-  10 minutos y 30 intentos de login por origen cada 5 minutos. Redis caido produce `503`.
-- Mapea los errores de Auth, Users y Reviews a Problem Details sin convertir un error remoto en exito.
+  10 minutos, 30 intentos de login por origen cada 5 minutos, 10 escrituras de Bookings por
+  usuario/minuto y 60 lecturas de Bookings por usuario/minuto. Redis caido produce `503`.
+- Mapea los errores de Auth, Users, Reviews y Bookings a Problem Details sin convertir un error remoto en exito.
 
 ## Integración con Reviews (Sprint 3)
 
@@ -26,6 +28,14 @@ de negocio: no almacena datos, no hashea contrasenas, no emite tokens y no modif
 
 El Gateway no crea ni consulta reseñas directamente. Solo valida borde, enruta, propaga
 `x-request-id` hacia Reviews y conserva respuestas/errores contractuales.
+
+## Integración con Bookings (Sprint 3)
+
+El Gateway expone creación, detalle, historial, cancelación, check-in y check-out bajo
+`/api/v1/bookings`. Autentica e introspecta la sesión, aplica roles, emite un JWT delegado con
+scope `bookings:invoke`, propaga idempotencia/traza y conserva Problem Details. El rate limit usa
+Redis y separa claves por usuario y tipo `bookings:write|bookings:read`; al exceder responde `429`
+con `Retry-After`.
 
 Estructura de capas (Constitucion II). El Gateway **no tiene `domain/`** porque no posee
 dominio de negocio:
@@ -79,15 +89,15 @@ Puntos que no son negociables:
 | Red | Uso |
 |---|---|
 | `stayhub-internal` | auth-db, auth-redis, auth-migrate, auth-service, gateway-redis, api-gateway |
-| `services` | comunicación del Gateway con Users y Reviews; no publica los microservicios |
+| `services` | comunicación del Gateway con Users, Reviews y Bookings; no publica los microservicios |
 
 `gateway-redis` es una instancia separada de `auth-redis`, con credenciales y namespace
 propios (`GATEWAY_REDIS_NAMESPACE`). El healthcheck lee la contrasena desde su fichero de
 secretos para no exponerla en los argumentos del proceso.
 
-`api-gateway` declara `restart: unless-stopped`; `auth-service` conserva su política propia.
+`api-gateway` declara `restart: always`; `auth-service` conserva su política propia.
 
 ## Fuera de alcance
 
-Sin `domain/`, sin RabbitMQ, sin logica de alojamientos, busquedas, reservas, pagos,
+Sin `domain/`, sin RabbitMQ, sin logica de alojamientos, busquedas, reservas o pagos,
 recuperacion de contrasena, verificacion de correo, MFA ni aprovisionamiento de `ADMIN`.
