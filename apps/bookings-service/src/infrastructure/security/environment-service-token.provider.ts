@@ -20,7 +20,13 @@ function requiredToken(name: string): string {
 }
 
 function tokenMap(): Readonly<Record<string, string>> {
-  const raw = process.env.BOOKINGS_OUTBOUND_SERVICE_TOKENS_JSON?.trim();
+  const file = process.env.BOOKINGS_OUTBOUND_SERVICE_TOKENS_JSON_FILE?.trim();
+  let raw: string | undefined;
+  try {
+    raw = (file ? readFileSync(file, 'utf8') : process.env.BOOKINGS_OUTBOUND_SERVICE_TOKENS_JSON)?.trim();
+  } catch {
+    throw new DomainError('SERVICE_CREDENTIALS_UNAVAILABLE');
+  }
   if (!raw) return {};
   try {
     const parsed: unknown = JSON.parse(raw);

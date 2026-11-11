@@ -20,8 +20,8 @@ const GATEWAY_LAYER_ALIASES = [
 ] as const;
 
 describe('Registro del workspace api-gateway (GW-001, GW-003)', () => {
-  it('registra los servicios integrados y mantiene alojamientos como paquete independiente', () => {
-    expect(rootPackage.workspaces).toEqual(['apps/api-gateway', 'apps/auth-service', 'apps/users-service', 'apps/search-service', 'apps/bookings-service', 'apps/reviews-service', 'apps/web', 'apps/payments-service']);
+  it('registra los servicios integrados en el workspace raíz', () => {
+    expect(rootPackage.workspaces).toEqual(['apps/accommodations-service', 'apps/api-gateway', 'apps/auth-service', 'apps/users-service', 'apps/search-service', 'apps/bookings-service', 'apps/reviews-service', 'apps/web', 'apps/payments-service']);
   });
 
   it('expone scripts con espacio de nombres para el gateway', () => {

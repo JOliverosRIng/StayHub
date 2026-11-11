@@ -1,26 +1,27 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process';
-import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
-import { createWriteStream, mkdtempSync, rmSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { generateKeyPairSync, randomUUID } from 'node:crypto';
 import { connect as netConnect } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { SignJWT, importPKCS8 } from 'jose';
 
 const require = createRequire(import.meta.url);
 const amqp = require('amqplib');
+const NPM_CLI = join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
 
 const ROOT = resolve(process.cwd());
 const NOTIFICATIONS_DIR = join(ROOT, 'apps/notifications-service');
 const REVIEWS_DIR = join(ROOT, 'apps/reviews-service');
+const ACCOMMODATIONS_DIR = join(ROOT, 'apps/accommodations-service');
 const DB_CONTAINER = 'stayhub-unir-e2e-db';
 const MQ_CONTAINER = 'stayhub-unir-e2e-mq';
 const DB_PORT = 55440;
 const MQ_PORT = 5674;
-const ACCOMMODATIONS_PORT = 3013;
+const ACCOMMODATIONS_PORT = 3003;
 const BOOKINGS_PORT = 3005;
 const PAYMENTS_PORT = 3006;
 const NOTIFICATIONS_PORT = 3009;
@@ -29,6 +30,7 @@ const BOOKINGS_URL = `http://127.0.0.1:${BOOKINGS_PORT}`;
 const PAYMENTS_URL = `http://127.0.0.1:${PAYMENTS_PORT}`;
 const NOTIFICATIONS_URL = `http://127.0.0.1:${NOTIFICATIONS_PORT}`;
 const REVIEWS_URL = `http://127.0.0.1:${REVIEWS_PORT}`;
+const ACCOMMODATIONS_URL = `http://127.0.0.1:${ACCOMMODATIONS_PORT}`;
 const MQ_URL = `amqp://test:test@127.0.0.1:${MQ_PORT}`;
 const DB_URL = (database) => `postgresql://test:test@127.0.0.1:${DB_PORT}/${database}?schema=public`;
 const OWNER_ID = '00000000-0000-4000-8000-00000000a001';
@@ -36,7 +38,6 @@ const OWNER_ID = '00000000-0000-4000-8000-00000000a001';
 const temp = mkdtempSync(join(tmpdir(), 'stayhub-unir-e2e-'));
 const children = [];
 const results = [];
-let accommodations;
 let bookingsEnv;
 
 function log(message) {
@@ -49,7 +50,9 @@ function record(name, detail) {
 }
 
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, {
+  const executable = process.platform === 'win32' && command === 'npm' ? process.execPath : command;
+  const executableArgs = process.platform === 'win32' && command === 'npm' ? [NPM_CLI, ...args] : args;
+  const result = spawnSync(executable, executableArgs, {
     cwd: options.cwd ?? ROOT,
     env: options.env ?? process.env,
     encoding: 'utf8',
@@ -66,7 +69,9 @@ function run(command, args, options = {}) {
 
 function runAsync(command, args, options = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(command, args, {
+    const executable = process.platform === 'win32' && command === 'npm' ? process.execPath : command;
+    const executableArgs = process.platform === 'win32' && command === 'npm' ? [NPM_CLI, ...args] : args;
+    const child = spawn(executable, executableArgs, {
       cwd: options.cwd ?? ROOT,
       env: options.env ?? process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -92,9 +97,13 @@ function docker(args, options = {}) {
   return run('docker', args, options);
 }
 
+function dockerSucceeds(args) {
+  return spawnSync('docker', args, { cwd: ROOT, env: process.env, stdio: 'ignore' }).status === 0;
+}
+
 function psql(database, sql) {
   return docker([
-    'exec', DB_CONTAINER, 'psql', '-p', String(DB_PORT), '-U', 'test', '-d', database, '-tAc', sql,
+    'exec', DB_CONTAINER, 'psql', '-U', 'test', '-d', database, '-tAc', sql,
   ]).trim();
 }
 
@@ -216,6 +225,43 @@ async function signJwt(privateKey, { kid, issuer, audience, subject, role, scope
     .sign(key);
 }
 
+async function issueRuntimeTokens() {
+  const guestId = '00000000-0000-4000-8000-00000000b001';
+  const guestToken = await signJwt(keys.bookings.privateKey, {
+    kid: 'bookings-key', issuer: 'stayhub-e2e-gateway', audience: 'stayhub-e2e-bookings-service',
+    subject: guestId, role: 'GUEST', scope: 'bookings:invoke', expiresIn: '10m',
+  });
+  const paymentsCharge = await signJwt(keys.payments.privateKey, {
+    kid: 'payments-service', issuer: 'stayhub-e2e-payments', audience: 'stayhub-e2e-payments-service',
+    subject: 'stayhub-bookings-service', scope: 'payments:charge',
+  });
+  const paymentsRefund = await signJwt(keys.payments.privateKey, {
+    kid: 'payments-service', issuer: 'stayhub-e2e-payments', audience: 'stayhub-e2e-payments-service',
+    subject: 'stayhub-bookings-service', scope: 'payments:refund',
+  });
+  const notificationsService = await signJwt(keys.notifications.privateKey, {
+    kid: 'notifications-service', issuer: 'stayhub-e2e-notifications', audience: 'stayhub-e2e-notifications-service',
+    subject: 'stayhub-bookings-service', scope: 'notifications:send',
+  });
+  const accommodationsQuote = await signJwt(keys.accommodations.privateKey, {
+    kid: 'accommodations-service-key', issuer: 'stayhub-e2e-bookings', audience: 'stayhub-e2e-accommodations-service',
+    subject: 'stayhub-bookings-service', scope: 'accommodations:booking-quote',
+  });
+  const ownerToken = await signJwt(keys.bookings.privateKey, {
+    kid: 'bookings-key', issuer: 'stayhub-e2e-gateway', audience: 'stayhub-e2e-bookings-service',
+    subject: OWNER_ID, role: 'OWNER', scope: 'bookings:invoke', expiresIn: '10m',
+  });
+  const reviewsServiceToken = await signJwt(keys.bookings.privateKey, {
+    kid: 'bookings-key', issuer: 'stayhub-e2e-gateway', audience: 'stayhub-e2e-bookings-service',
+    subject: 'stayhub-reviews-service', scope: 'reviews:eligibility', expiresIn: '10m',
+  });
+  const notificationsAccess = await signJwt(keys.notifications.privateKey, {
+    kid: 'notifications-access', issuer: 'stayhub-e2e-notifications-access', audience: 'stayhub-e2e-notifications-access',
+    subject: guestId, role: 'GUEST',
+  });
+  return { guestId, guestToken, ownerToken, reviewsServiceToken, accommodationsQuote, paymentsCharge, paymentsRefund, notificationsService, notificationsAccess };
+}
+
 async function publishPayments(payload, routingKey) {
   const connection = await amqp.connect(MQ_URL);
   try {
@@ -244,7 +290,7 @@ function bookingsEnvWith(overrides = {}) {
     BOOKINGS_SERVICE_JWT_SCOPE: 'bookings:invoke',
     BOOKINGS_REVIEWS_JWT_SCOPE: 'reviews:eligibility',
     BOOKINGS_REVIEWS_JWT_AUDIENCE: 'stayhub-e2e-bookings-service',
-    BOOKINGS_ACCOMMODATIONS_URL: `http://127.0.0.1:${ACCOMMODATIONS_PORT}`,
+    BOOKINGS_ACCOMMODATIONS_URL: ACCOMMODATIONS_URL,
     BOOKINGS_PAYMENTS_URL: PAYMENTS_URL,
     BOOKINGS_DEPENDENCY_TIMEOUT_MS: '5000',
     BOOKINGS_PAYMENT_HOLD_MINUTES: '15',
@@ -256,7 +302,11 @@ function bookingsEnvWith(overrides = {}) {
     BOOKINGS_NOTIFICATIONS_TIMEOUT_MS: '3000',
     BOOKINGS_NOTIFICATIONS_SERVICE_TOKEN: tokens.notificationsService,
     BOOKINGS_OUTBOUND_SERVICE_TOKEN: tokens.paymentsCharge,
-    BOOKINGS_OUTBOUND_SERVICE_TOKENS_JSON: JSON.stringify({ 'payments-service:payments:charge': tokens.paymentsCharge, 'payments-service:payments:refund': tokens.paymentsRefund }),
+    BOOKINGS_OUTBOUND_SERVICE_TOKENS_JSON: JSON.stringify({
+      'accommodations-service:accommodations:booking-quote': tokens.accommodationsQuote,
+      'payments-service:payments:charge': tokens.paymentsCharge,
+      'payments-service:payments:refund': tokens.paymentsRefund,
+    }),
     BOOKINGS_RABBITMQ_URL: MQ_URL,
     BOOKINGS_RABBITMQ_EXCHANGE: 'stayhub.bookings.v1',
     BOOKINGS_RABBITMQ_PAYMENTS_EXCHANGE: 'stayhub.payments',
@@ -345,6 +395,30 @@ async function startPayments() {
   return entry;
 }
 
+async function startAccommodations() {
+  const env = {
+    PATH: process.env.PATH,
+    HOME: process.env.HOME,
+    NODE_ENV: 'production',
+    ACCOMMODATIONS_PORT: String(ACCOMMODATIONS_PORT),
+    ACCOMMODATIONS_DATABASE_URL: DB_URL('accommodations_db'),
+    ACCOMMODATIONS_JWT_ISSUER: 'stayhub-e2e-gateway',
+    ACCOMMODATIONS_JWT_AUDIENCE: 'stayhub-e2e-accommodations-service',
+    ACCOMMODATIONS_JWT_KID: 'accommodations-key',
+    ACCOMMODATIONS_JWT_PUBLIC_KEY: keys.accommodations.publicKey,
+    ACCOMMODATIONS_SERVICE_JWT_ISSUER: 'stayhub-e2e-bookings',
+    ACCOMMODATIONS_SERVICE_JWT_AUDIENCE: 'stayhub-e2e-accommodations-service',
+    ACCOMMODATIONS_SERVICE_JWT_KID: 'accommodations-service-key',
+    ACCOMMODATIONS_SERVICE_JWT_PUBLIC_KEY: keys.accommodations.publicKey,
+    ACCOMMODATIONS_BOOKING_QUOTE_SCOPE: 'accommodations:booking-quote',
+    ACCOMMODATIONS_PHOTO_STORAGE_ROOT: join(temp, 'accommodations-photos'),
+    OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
+  };
+  const entry = startService('accommodations', process.execPath, [join(ACCOMMODATIONS_DIR, 'dist/main.js')], ACCOMMODATIONS_DIR, env);
+  await waitForReady(ACCOMMODATIONS_URL, 'accommodations');
+  return entry;
+}
+
 let keys;
 let tokens;
 let bookingsProcess;
@@ -352,16 +426,17 @@ let bookingsProcess;
 async function setup() {
   log(`temporary directory: ${temp}`);
   docker(['rm', '-f', DB_CONTAINER, MQ_CONTAINER]);
-  run('docker', ['run', '-d', '--rm', '--network', 'host', '--name', DB_CONTAINER,
+  run('docker', ['run', '-d', '--rm', '--name', DB_CONTAINER, '-p', `127.0.0.1:${DB_PORT}:5432`,
     '-e', 'POSTGRES_DB=postgres', '-e', 'POSTGRES_USER=test', '-e', 'POSTGRES_PASSWORD=test',
-    'postgres:16-alpine', '-p', String(DB_PORT)]);
-  run('docker', ['run', '-d', '--rm', '--network', 'host', '--name', MQ_CONTAINER,
-    '-e', `RABBITMQ_NODE_PORT=${MQ_PORT}`, '-e', 'RABBITMQ_DEFAULT_USER=test', '-e', 'RABBITMQ_DEFAULT_PASS=test',
+    'postgres:16-alpine']);
+  run('docker', ['run', '-d', '--rm', '--name', MQ_CONTAINER, '-p', `127.0.0.1:${MQ_PORT}:5672`,
+    '-e', 'RABBITMQ_DEFAULT_USER=test', '-e', 'RABBITMQ_DEFAULT_PASS=test',
     'rabbitmq:3.13-alpine']);
   await waitFor(() => tcpReachable(DB_PORT), 'PostgreSQL TCP');
+  await waitFor(() => dockerSucceeds(['exec', DB_CONTAINER, 'pg_isready', '-U', 'test', '-d', 'postgres']), 'PostgreSQL readiness');
   await waitFor(() => tcpReachable(MQ_PORT), 'RabbitMQ TCP');
 
-  for (const database of ['bookings_db', 'payments_db', 'notifications_db', 'reviews_db']) {
+  for (const database of ['accommodations_db', 'bookings_db', 'payments_db', 'notifications_db', 'reviews_db']) {
     psql('postgres', `CREATE DATABASE ${database}`);
   }
 
@@ -369,67 +444,32 @@ async function setup() {
     bookings: makeKey(),
     payments: makeKey(),
     notifications: makeKey(),
+    accommodations: makeKey(),
   };
-  const guestId = '00000000-0000-4000-8000-00000000b001';
-  const guestToken = await signJwt(keys.bookings.privateKey, {
-    kid: 'bookings-key', issuer: 'stayhub-e2e-gateway', audience: 'stayhub-e2e-bookings-service',
-    subject: guestId, role: 'GUEST', scope: 'bookings:invoke', expiresIn: '10m',
-  });
-  const paymentsCharge = await signJwt(keys.payments.privateKey, {
-    kid: 'payments-service', issuer: 'stayhub-e2e-payments', audience: 'stayhub-e2e-payments-service',
-    subject: 'stayhub-bookings-service', scope: 'payments:charge',
-  });
-  const paymentsRefund = await signJwt(keys.payments.privateKey, {
-    kid: 'payments-service', issuer: 'stayhub-e2e-payments', audience: 'stayhub-e2e-payments-service',
-    subject: 'stayhub-bookings-service', scope: 'payments:refund',
-  });
-  const notificationsService = await signJwt(keys.notifications.privateKey, {
-    kid: 'notifications-service', issuer: 'stayhub-e2e-notifications', audience: 'stayhub-e2e-notifications-service',
-    subject: 'stayhub-bookings-service', scope: 'notifications:send',
-  });
-  const ownerToken = await signJwt(keys.bookings.privateKey, {
-    kid: 'bookings-key', issuer: 'stayhub-e2e-gateway', audience: 'stayhub-e2e-bookings-service',
-    subject: OWNER_ID, role: 'OWNER', scope: 'bookings:invoke', expiresIn: '10m',
-  });
-  const reviewsServiceToken = await signJwt(keys.bookings.privateKey, {
-    kid: 'bookings-key', issuer: 'stayhub-e2e-gateway', audience: 'stayhub-e2e-bookings-service',
-    subject: 'stayhub-reviews-service', scope: 'reviews:eligibility', expiresIn: '10m',
-  });
-  const notificationsAccess = await signJwt(keys.notifications.privateKey, {
-    kid: 'notifications-access', issuer: 'stayhub-e2e-notifications-access', audience: 'stayhub-e2e-notifications-access',
-    subject: guestId, role: 'GUEST',
-  });
-  tokens = { guestId, guestToken, ownerToken, reviewsServiceToken, paymentsCharge, paymentsRefund, notificationsService, notificationsAccess };
-
-  accommodations = createServer((request, response) => {
-    const url = new URL(request.url ?? '/', `http://127.0.0.1:${ACCOMMODATIONS_PORT}`);
-    const parts = url.pathname.split('/');
-    if (parts.length < 8 || parts[1] !== 'internal' || parts[2] !== 'v1' || parts[3] !== 'properties' || parts[5] !== 'rooms') {
-      response.writeHead(404); response.end(); return;
-    }
-    const propertyId = parts[4];
-    const roomId = parts[6];
-    response.writeHead(200, { 'content-type': 'application/json' });
-    response.end(JSON.stringify({
-      propertyId, roomId, ownerId: OWNER_ID, propertyName: 'E2E Property', roomName: 'E2E Room',
-      propertyStatus: 'PUBLISHED', capacity: 2, basePrice: { amount: '100.00', currency: 'USD' },
-      propertyVersion: 1, roomUpdatedAt: '2030-01-01T00:00:00.000Z',
-    }));
-  });
-  await new Promise((resolvePromise) => accommodations.listen(ACCOMMODATIONS_PORT, '127.0.0.1', resolvePromise));
-
   log('building services');
+  if (!existsSync(join(NOTIFICATIONS_DIR, 'node_modules/nodemailer/package.json'))) {
+    run('npm', ['ci', '--no-audit', '--no-fund'], { cwd: NOTIFICATIONS_DIR, timeout: 600_000 });
+  }
+  run('npm', ['run', 'prisma:payments:generate']);
+  run('npm', ['run', 'prisma:bookings:generate']);
+  run('npm', ['run', 'prisma:reviews:generate']);
+  run('npm', ['run', 'prisma:accommodations:generate']);
+  run('npm', ['run', 'prisma:generate'], { cwd: NOTIFICATIONS_DIR });
   run('npm', ['run', 'build:payments']);
   run('npm', ['run', 'build:bookings']);
   run('npm', ['run', 'build'], { cwd: NOTIFICATIONS_DIR });
   run('npm', ['run', 'build:reviews']);
+  run('npm', ['run', 'build:accommodations']);
 
   log('applying migrations');
   run('npm', ['run', 'prisma:bookings:migrate:deploy'], { env: migrationEnvironment({ BOOKINGS_DATABASE_URL: DB_URL('bookings_db') }) });
   run('npm', ['run', 'prisma:payments:migrate:deploy'], { env: migrationEnvironment({ PAYMENTS_DATABASE_URL: DB_URL('payments_db') }) });
   run('npm', ['run', 'prisma:migrate:deploy'], { cwd: NOTIFICATIONS_DIR, env: migrationEnvironment({ NOTIFICATIONS_DATABASE_URL: DB_URL('notifications_db') }) });
   run('npm', ['run', 'prisma:reviews:migrate:deploy'], { env: migrationEnvironment({ REVIEWS_DATABASE_URL: DB_URL('reviews_db') }) });
+  run('npm', ['run', 'prisma:migrate:deploy'], { cwd: ACCOMMODATIONS_DIR, env: migrationEnvironment({ ACCOMMODATIONS_DATABASE_URL: DB_URL('accommodations_db') }) });
 
+  tokens = await issueRuntimeTokens();
+  await startAccommodations();
   await startPayments();
   await startNotifications();
   bookingsProcess = await startBookings();
@@ -474,6 +514,7 @@ async function countRows(database, sql) {
 }
 
 async function createBooking({ propertyId = randomUUID(), roomId = randomUUID(), checkIn = '2035-06-01', checkOut = '2035-06-03', guests = 1 } = {}) {
+  ensureAccommodation(propertyId, roomId);
   const body = await httpJson('POST', `${BOOKINGS_URL}/bookings`, {
     token: tokens.guestToken,
     headers: { 'Idempotency-Key': `unir-${randomUUID()}` },
@@ -481,6 +522,11 @@ async function createBooking({ propertyId = randomUUID(), roomId = randomUUID(),
     expected: 201,
   });
   return body.id;
+}
+
+function ensureAccommodation(propertyId, roomId) {
+  psql('accommodations_db', `INSERT INTO \"Property\" (id, \"ownerId\", type, name, \"addressLine\", city, region, country, status, version, \"createdAt\", \"updatedAt\") VALUES (${sqlString(propertyId)}::uuid, ${sqlString(OWNER_ID)}::uuid, 'APARTMENT', 'E2E Property', 'E2E Address', 'Bogota', 'Bogota', 'CO', 'PUBLISHED', 1, NOW(), NOW()) ON CONFLICT (id) DO NOTHING`);
+  psql('accommodations_db', `INSERT INTO \"Room\" (id, \"propertyId\", name, capacity, \"basePriceAmount\", \"basePriceCurrency\", \"createdAt\", \"updatedAt\") VALUES (${sqlString(roomId)}::uuid, ${sqlString(propertyId)}::uuid, 'E2E Room', 2, 100.00, 'USD', NOW(), NOW()) ON CONFLICT (id) DO NOTHING`);
 }
 
 async function waitConfirmed(id, timeoutMs = 30_000) {
@@ -600,6 +646,9 @@ async function scenarioConsumerRestart() {
 }
 
 async function scenarioReviews() {
+  const propertyId = randomUUID();
+  const roomId = randomUUID();
+  ensureAccommodation(propertyId, roomId);
   await runAsync('npm', ['run', 'test:e2e', '--workspace', '@stayhub/bookings-service', '--', '--runTestsByPath', 'test/e2e/bookings-reviews.e2e-spec.ts'], {
     env: {
       ...process.env,
@@ -607,6 +656,8 @@ async function scenarioReviews() {
       BOOKINGS_REVIEWS_E2E_REVIEWS_URL: REVIEWS_URL,
       BOOKINGS_REVIEWS_E2E_GUEST_TOKEN: tokens.guestToken,
       BOOKINGS_REVIEWS_E2E_OWNER_TOKEN: tokens.ownerToken,
+      BOOKINGS_REVIEWS_E2E_PROPERTY_ID: propertyId,
+      BOOKINGS_REVIEWS_E2E_ROOM_ID: roomId,
     },
     timeout: 180_000,
   });
@@ -614,8 +665,9 @@ async function scenarioReviews() {
 }
 
 async function scenarioRefund() {
+  const propertyId = randomUUID();
   const roomId = randomUUID();
-  const bookingId = await createBooking({ roomId, checkIn: '2035-10-01', checkOut: '2035-10-03' });
+  const bookingId = await createBooking({ propertyId, roomId, checkIn: '2035-10-01', checkOut: '2035-10-03' });
   await waitConfirmed(bookingId);
   await httpJson('DELETE', `${BOOKINGS_URL}/bookings/${bookingId}`, { token: tokens.guestToken, body: {}, expected: 200 });
   await waitFor(async () => {
@@ -627,7 +679,7 @@ async function scenarioRefund() {
   await httpJson('POST', `${BOOKINGS_URL}/bookings`, {
     token: tokens.guestToken,
     headers: { 'Idempotency-Key': `unir-overlap-${randomUUID()}` },
-    body: { propertyId: randomUUID(), roomId, checkIn: '2035-10-02', checkOut: '2035-10-04', guests: 1 },
+    body: { propertyId, roomId, checkIn: '2035-10-02', checkOut: '2035-10-04', guests: 1 },
     expected: 201,
   });
   record('refund and availability', 'refund completed and overlapping booking remained available');
@@ -666,7 +718,6 @@ async function main() {
     return 1;
   } finally {
     await stopAllServices();
-    if (accommodations) await new Promise((resolvePromise) => accommodations.close(resolvePromise));
     try { docker(['rm', '-f', DB_CONTAINER, MQ_CONTAINER]); } catch { /* Containers may already be gone. */ }
     try { rmSync(temp, { recursive: true, force: true }); } catch { /* Best-effort cleanup. */ }
   }

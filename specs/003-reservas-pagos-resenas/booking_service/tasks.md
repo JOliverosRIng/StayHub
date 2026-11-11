@@ -185,9 +185,9 @@
 - [x] T092 [P] Ejecutar hardening de JWT, header spoofing, DTO cerrado, SQL injection, PII/log redaction y códigos seguros en `apps/bookings-service/test/security/bookings-security.spec.ts`
 - [x] T093 [P] Crear dataset reproducible y gate p95 <500 ms para detalle/historial, registrando entorno y errores <1 %, en `apps/bookings-service/test/performance/bookings-performance.spec.ts` y `apps/bookings-service/test/fixtures/performance-dataset.ts`
 - [x] T094 Crear E2E aislado create→payment.confirmed→check-in→check-out y cancelaciones/refunds con colaboradores contractuales en `apps/bookings-service/test/e2e/bookings-isolated.e2e-spec.ts` (depends on T054,T060,T069,T078,T088)
-- [ ] T095 Ejecutar provider-consumer e integración real Bookings→Accommodations quote en `apps/bookings-service/test/contract/accommodations-provider.contract.spec.ts` y `apps/bookings-service/test/e2e/bookings-accommodations.e2e-spec.ts` (depends on T040,T054; external dependency: endpoint quote y Compose de accommodations-service)
+- [x] T095 Ejecutar provider-consumer e integración real Bookings→Accommodations quote mediante `apps/bookings-service/test/contract/accommodations-quote.consumer.spec.ts`, `apps/accommodations-service/test/contract/booking-quote.contract.spec.ts` y `scripts/unir-e2e.mjs` (depends on T040,T054; evidencia 2026-11-11 con Accommodations/PostgreSQL reales y JWT de servicio).
 - [x] T096a Ejecutar integración REST real Bookings→Payments para cobro aprobado, replay sin doble cobro, rechazo autoritativo, refund completado y replay sin doble reembolso en `apps/bookings-service/test/contract/payments-provider.contract.spec.ts` y `apps/bookings-service/test/e2e/bookings-payments.e2e-spec.ts` (depends on T046,T067; evidencia 2026-11-10 con Payments/PostgreSQL/RabbitMQ reales).
-- [x] T096b Ejecutar integración RabbitMQ real Payments→Bookings para aplicar eventos de aprobación, rechazo y refund, incluyendo duplicados, orden, retry y DLQ (depends on T049–T052,T068; evidencia 2026-11-10 con Payments/Bookings/Notifications/PostgreSQL/RabbitMQ reales mediante `npm run test:unir:e2e`; 7 escenarios PASS).
+- [x] T096b Ejecutar integración RabbitMQ real Payments→Bookings para aplicar eventos de aprobación, rechazo y refund, incluyendo duplicados, orden, retry y DLQ (depends on T049–T052,T068; evidencia actualizada 2026-11-11 con Accommodations/Payments/Bookings/Notifications/Reviews, PostgreSQL y RabbitMQ reales mediante `npm run test:unir:e2e`; 8 escenarios PASS).
 - [ ] T097 Ejecutar integración Gateway↔Bookings para rutas, identidad, roles, rate limit y Problem Details en `apps/bookings-service/test/e2e/gateway-bookings.e2e-spec.ts` (depends on T054,T060,T069,T077,T084; external dependency: API Gateway routing)
 - [x] T098 Ejecutar provider-consumer Bookings↔Reviews usando solo eligibility/evento y sin DB compartida en `apps/bookings-service/test/contract/reviews-provider.contract.spec.ts` y `apps/bookings-service/test/e2e/bookings-reviews.e2e-spec.ts` (depends on T088; evidencia 2026-11-10 con Bookings, Reviews, PostgreSQL y HTTP reales mediante `npm run test:unir:e2e`; 8/8 escenarios PASS).
 - [x] T099 [P] Implementar shutdown ordenado de HTTP/workers/RabbitMQ/Prisma y probar SIGTERM, no-root y filesystem read-only en `apps/bookings-service/src/infrastructure/lifecycle/graceful-shutdown.ts` y `apps/bookings-service/test/contract/shutdown.contract.spec.ts`
@@ -213,10 +213,10 @@
 
 | Gate | Tareas que pueden avanzar | Tarea que no se cierra sin externo |
 |---|---|---|
-| Accommodations quote | T031–T054 con stub/consumer contract | T095 |
+| Accommodations quote | provider/consumer y E2E distribuido con servicio y PostgreSQL reales | T095 completada |
 | Payments REST | cliente real, contrato provider-consumer y E2E de cobro/reembolso | T096a completada |
-| Payments eventos | consumidor alineado al contrato real, retry/DLQ reales, `NotificationWork` durable, worker HTTP Bookings→Notifications y E2E real 7/7 | T096b completada |
-| Gateway | controllers/security locales | T097 |
+| Payments eventos | consumidor alineado al contrato real, retry/DLQ reales, `NotificationWork` durable, worker HTTP Bookings→Notifications y E2E real 8/8 | T096b completada |
+| Gateway | proxy/routing, JWT delegado e integración local implementados; falta E2E contra Gateway real y cuota de rate limit | T097 |
 | review_service | T079–T088, handoff contractual y E2E real Reviews↔Bookings 8/8 | T098 completada |
 | Política productiva | infraestructura/fixture | T100–T101 para release productivo |
 

@@ -4,6 +4,8 @@ const bookingsUrl = process.env.BOOKINGS_REVIEWS_E2E_BOOKINGS_URL;
 const reviewsUrl = process.env.BOOKINGS_REVIEWS_E2E_REVIEWS_URL;
 const guestToken = process.env.BOOKINGS_REVIEWS_E2E_GUEST_TOKEN;
 const ownerToken = process.env.BOOKINGS_REVIEWS_E2E_OWNER_TOKEN;
+const propertyId = process.env.BOOKINGS_REVIEWS_E2E_PROPERTY_ID;
+const roomId = process.env.BOOKINGS_REVIEWS_E2E_ROOM_ID;
 const enabled = Boolean(bookingsUrl && reviewsUrl && guestToken && ownerToken);
 const describeReal = enabled ? describe : describe.skip;
 
@@ -56,7 +58,7 @@ async function createBooking(checkIn: string, checkOut: string): Promise<string>
     method: 'POST',
     token: guestToken!,
     headers: { 'Idempotency-Key': `reviews-e2e-${randomUUID()}` },
-    body: { propertyId: randomUUID(), roomId: randomUUID(), checkIn, checkOut, guests: 1 },
+    body: { propertyId: propertyId ?? randomUUID(), roomId: roomId ?? randomUUID(), checkIn, checkOut, guests: 1 },
   });
   if (response.status !== 201) throw new Error(`Booking creation failed with ${response.status}: ${JSON.stringify(response.body)}`);
   return String((response.body as { id: string }).id);

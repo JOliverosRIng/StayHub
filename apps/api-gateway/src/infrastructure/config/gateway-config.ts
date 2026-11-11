@@ -50,9 +50,11 @@ export interface GatewayConfig {
   readonly authBaseUrl: string;
   readonly usersBaseUrl: string;
   readonly reviewsBaseUrl: string;
+  readonly bookingsBaseUrl: string;
   readonly userJwt: UserJwtConfig;
   readonly serviceJwt: ServiceJwtConfig;
   readonly reviewsServiceJwt: Pick<ServiceJwtConfig, 'audience' | 'scope'>;
+  readonly bookingsServiceJwt: Pick<ServiceJwtConfig, 'audience' | 'scope'>;
   readonly redis: RedisConfig;
   readonly trustedProxyCidrs: readonly string[];
   readonly registerRateLimit: RateLimitPolicy;
@@ -61,6 +63,7 @@ export interface GatewayConfig {
   readonly auth: CircuitPolicy;
   readonly users: CircuitPolicy;
   readonly reviews: CircuitPolicy;
+  readonly bookings: CircuitPolicy;
   readonly introspectionTimeoutMs: number;
   readonly otlpEndpoint: string;
   readonly otelServiceName: string;
@@ -96,6 +99,7 @@ export function loadGatewayConfig(
     authBaseUrl: url(environment, 'GATEWAY_AUTH_BASE_URL', ['http:', 'https:']),
     usersBaseUrl: url(environment, 'GATEWAY_USERS_BASE_URL', ['http:', 'https:']),
     reviewsBaseUrl: url(environment, 'GATEWAY_REVIEWS_BASE_URL', ['http:', 'https:']),
+    bookingsBaseUrl: url(environment, 'GATEWAY_BOOKINGS_BASE_URL', ['http:', 'https:']),
     userJwt: {
       publicKeys: publicKeys(environment, 'GATEWAY_JWT_PUBLIC_KEYS_JSON'),
       issuer: required(environment, 'GATEWAY_JWT_ISSUER'),
@@ -112,6 +116,10 @@ export function loadGatewayConfig(
     reviewsServiceJwt: {
       audience: required(environment, 'GATEWAY_REVIEWS_SERVICE_AUDIENCE'),
       scope: required(environment, 'GATEWAY_REVIEWS_SERVICE_SCOPE'),
+    },
+    bookingsServiceJwt: {
+      audience: required(environment, 'GATEWAY_BOOKINGS_SERVICE_AUDIENCE'),
+      scope: required(environment, 'GATEWAY_BOOKINGS_SERVICE_SCOPE'),
     },
     redis: {
       url: url(environment, 'GATEWAY_REDIS_URL', ['redis:', 'rediss:']),
@@ -131,6 +139,7 @@ export function loadGatewayConfig(
     auth: circuit(environment, 'GATEWAY_AUTH_'),
     users: circuit(environment, 'GATEWAY_USERS_'),
     reviews: circuit(environment, 'GATEWAY_REVIEWS_'),
+    bookings: circuit(environment, 'GATEWAY_BOOKINGS_'),
     introspectionTimeoutMs: integer(environment, 'GATEWAY_INTROSPECTION_TIMEOUT_MS', 100, 30_000),
     otlpEndpoint: url(environment, 'GATEWAY_OTEL_EXPORTER_OTLP_ENDPOINT', ['http:', 'https:']),
     otelServiceName: required(environment, 'GATEWAY_OTEL_SERVICE_NAME'),

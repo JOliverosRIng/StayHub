@@ -175,8 +175,15 @@ Cumple el umbral global de 70 % con las integraciones PostgreSQL activas.
 
 Siguen pendientes y no se simulan como completadas:
 
-- T095 Gateway ↔ Bookings.
-- T096 Bookings ↔ Accommodations quote real.
+- T097 Gateway ↔ Bookings real, incluyendo la política de rate limit aún no definida.
+
+### Evidencia T095 — Bookings → Accommodations quote real (2026-11-11)
+
+Se ejecutaron las suites de Accommodations contra PostgreSQL 16 real: contract 48/48,
+security 66/66 e integration 55/55. Después, `npm run test:unir:e2e` levantó el
+`accommodations-service` real, aplicó sus migraciones y sembró propiedades/habitaciones de fixture.
+Bookings consultó `GET /internal/v1/properties/{propertyId}/rooms/{roomId}/booking-quote` con JWT
+RS256 de scope `accommodations:booking-quote`; no se utilizó el stub HTTP anterior.
 
 ### Evidencia T096a — Bookings → Payments REST real (2026-11-10)
 
@@ -189,7 +196,7 @@ Se levantó un proyecto Compose aislado con Payments, PostgreSQL 16 y RabbitMQ, 
 
 La prueba usa `BOOKINGS_PAYMENTS_E2E_URL`, `BOOKINGS_PAYMENTS_E2E_CHARGE_TOKEN` y `BOOKINGS_PAYMENTS_E2E_REFUND_TOKEN`; si faltan, se omite explícitamente.
 
-### Evidencia T096b — Payments → Bookings → Notifications real (2026-11-10)
+### Evidencia T096b — flujo distribuido real (actualizada 2026-11-11)
 
 Se ejecutó `npm run test:unir:e2e`, un harness aislado con PostgreSQL 16, RabbitMQ, Payments, Bookings, Notifications, outbox relays, consumidores, workers y HTTP reales. El harness genera sus propias claves/tokens RS256, aplica migraciones, levanta únicamente sus contenedores y los elimina al terminar.
 
@@ -201,7 +208,10 @@ Escenarios verificados:
 - caída temporal de Notifications deja `NotificationWork` recuperable y readiness reporta `degraded` sin deshabilitar la confirmación de pagos;
 - reinicio de Notifications y de los workers de Bookings procesa el trabajo pendiente;
 - reinicio del consumidor de Bookings no pierde un evento aprobado pendiente en RabbitMQ;
+- Bookings ↔ Reviews valida elegibilidad real, creación después de estadía completada y rechazo de duplicados/no completadas;
 - refund completado conserva `CANCELLED_BY_GUEST` y la disponibilidad liberada permite una reserva solapada.
+
+Resultado final: **8 escenarios / 8 PASS**, con cleanup de procesos y contenedores en exit code 0.
 
 Resultado: **7 escenarios PASS**. El harness no usa mocks de PostgreSQL, RabbitMQ ni HTTP para el flujo principal.
 

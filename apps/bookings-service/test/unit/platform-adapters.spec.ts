@@ -1,5 +1,8 @@
 import { firstValueFrom, of } from 'rxjs';
 import { ServiceUnavailableException } from '@nestjs/common';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { HealthController } from '@bookings/modules/health/health.controller';
 import { TraceInterceptor } from '@bookings/interfaces/http/trace.interceptor';
 import { EnvironmentServiceTokenProvider } from '@bookings/infrastructure/security/environment-service-token.provider';
@@ -59,6 +62,7 @@ describe('health, tracing and small adapters', () => {
     delete process.env.BOOKINGS_NOTIFICATIONS_SERVICE_TOKEN;
     delete process.env.BOOKINGS_NOTIFICATIONS_SERVICE_TOKEN_FILE;
     delete process.env.BOOKINGS_OUTBOUND_SERVICE_TOKENS_JSON;
+    delete process.env.BOOKINGS_OUTBOUND_SERVICE_TOKENS_JSON_FILE;
     await expect(provider.getToken('accommodations-service', 'accommodations:booking-quote')).resolves.toBe('token-value');
     await expect(provider.getToken('notifications-service', 'notifications:send')).resolves.toBe('token-value');
 
@@ -69,12 +73,23 @@ describe('health, tracing and small adapters', () => {
     await expect(provider.getToken('payments-service', 'payments:charge')).resolves.toBe('charge-token');
     await expect(provider.getToken('payments-service', 'payments:refund')).resolves.toBe('refund-token');
 
+    const tokenDirectory = mkdtempSync(join(tmpdir(), 'stayhub-bookings-tokens-'));
+    const tokenFile = join(tokenDirectory, 'outbound-tokens.json');
+    writeFileSync(tokenFile, JSON.stringify({
+      'accommodations-service:accommodations:booking-quote': 'accommodations-token',
+    }));
+    process.env.BOOKINGS_OUTBOUND_SERVICE_TOKENS_JSON_FILE = tokenFile;
+    await expect(provider.getToken('accommodations-service', 'accommodations:booking-quote')).resolves.toBe('accommodations-token');
+    delete process.env.BOOKINGS_OUTBOUND_SERVICE_TOKENS_JSON_FILE;
+    rmSync(tokenDirectory, { recursive: true, force: true });
+
     process.env.BOOKINGS_NOTIFICATIONS_SERVICE_TOKEN = 'notifications-token';
     await expect(provider.getToken('stayhub-notifications-service', 'notifications:send')).resolves.toBe('notifications-token');
 
     delete process.env.BOOKINGS_OUTBOUND_SERVICE_TOKEN;
     delete process.env.BOOKINGS_NOTIFICATIONS_SERVICE_TOKEN;
     delete process.env.BOOKINGS_OUTBOUND_SERVICE_TOKENS_JSON;
+    delete process.env.BOOKINGS_OUTBOUND_SERVICE_TOKENS_JSON_FILE;
     expect(() => provider.getToken('payments-service', 'payments:charge')).toThrow('SERVICE_CREDENTIALS_UNAVAILABLE');
   });
 
