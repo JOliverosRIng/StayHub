@@ -1,10 +1,11 @@
 import { generateKeyPairSync, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const root = fileURLToPath(new URL('../.artifacts/services/', import.meta.url));
-mkdirSync(root, { recursive: true });
+mkdirSync(root, { recursive: true, mode: 0o700 });
+chmodSync(root, 0o700);
 const write = (name, contents) => writeFileSync(path.join(root, name), contents, { mode: 0o600 });
 const env = (name, values) => write(name, Object.entries(values).map(([key, value]) => `${key}=${value}`).join('\n') + '\n');
 for (const service of ['payments', 'notifications']) {
@@ -30,5 +31,12 @@ for (const service of ['payments', 'notifications']) {
     Object.assign(values, { PAYMENTS_TOKEN_HMAC_SECRET_FILE: '/run/secrets/token_hmac', PAYMENTS_RABBITMQ_URL: `amqp://stayhub_payments:${rabbitPassword}@payments-rabbitmq:5672`, PAYMENTS_RABBITMQ_EXCHANGE: 'stayhub.payments', OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel:4318' });
   } else Object.assign(values, { NOTIFICATIONS_SEND_SCOPE: 'notifications:send', NOTIFICATIONS_EMAIL_MODE: 'stub' });
   env(`${service}.env`, values);
+}
+for (const name of [
+  'payments-database-url', 'payments-public.pem', 'payments-token-hmac',
+  'notifications-database-url', 'notifications-public.pem',
+]) {
+  const file = path.join(root, name);
+  if (existsSync(file)) chmodSync(file, 0o444);
 }
 console.log('Local service configuration ready in .artifacts/services (existing credentials preserved).');

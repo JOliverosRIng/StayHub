@@ -3,12 +3,13 @@ import type { ClaimedPaymentWork } from './payment-saga.port';
 export interface RequestRefundCommand {
   bookingId: string;
   paymentOrderId: string;
+  amount: string;
   mode: 'POLICY' | 'FULL';
   policyVersion?: string;
 }
 
 export interface PaymentRefundsPort {
-  requestRefund(command: RequestRefundCommand, idempotencyKey: string): Promise<{ status: 'ACCEPTED' }>;
+  requestRefund(command: RequestRefundCommand, idempotencyKey: string): Promise<{ refundId: string; status: 'PENDING' | 'COMPLETED' | 'FAILED' }>;
 }
 
 export const PAYMENT_REFUNDS_PORT = Symbol('PAYMENT_REFUNDS_PORT');

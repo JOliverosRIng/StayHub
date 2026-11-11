@@ -41,6 +41,7 @@ const OPTIONS: ValidatorOptions = {
 @Injectable()
 export class GatewayValidationPipe implements PipeTransform<unknown, unknown> {
   public transform(value: unknown, metadata: ArgumentMetadata): unknown {
+    if (metadata.type !== 'body') return value;
     if (!isPlainObject(value)) throw validationFailed([], BODY_MUST_BE_OBJECT);
     const metatype = metadata.metatype;
     if (metatype === undefined || metatype === Object) return value;

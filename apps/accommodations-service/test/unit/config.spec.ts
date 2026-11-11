@@ -11,6 +11,10 @@ export const validEnv = {
   ACCOMMODATIONS_DATABASE_URL: 'postgresql://accommodations:synthetic@localhost:5432/accommodations_db',
   ACCOMMODATIONS_JWT_ISSUER: 'auth', ACCOMMODATIONS_JWT_AUDIENCE: 'api', ACCOMMODATIONS_JWT_KID: 'access-v1',
   ACCOMMODATIONS_JWT_PUBLIC_KEY: publicKeyPem,
+  ACCOMMODATIONS_SERVICE_JWT_ISSUER: 'bookings',
+  ACCOMMODATIONS_SERVICE_JWT_AUDIENCE: 'accommodations-service',
+  ACCOMMODATIONS_SERVICE_JWT_KID: 'service-v1',
+  ACCOMMODATIONS_SERVICE_JWT_PUBLIC_KEY: publicKeyPem,
   ACCOMMODATIONS_PHOTO_STORAGE_ROOT: root,
   OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318',
 };
@@ -19,8 +23,13 @@ const jwk = { ...accessKeys.publicKey.export({ format: 'jwk' }), kid: 'access-v1
 describe('ACC-005/007 configuration fail-fast', () => {
   it('accepts the Accommodations configuration on internal port 3003', () => {
     const config = loadAccommodationsConfig(validEnv);
-    expect(config).toMatchObject({ port: 3003, photoStorageRoot: root, development: false, jwt: { issuer: 'auth', audience: 'api', kid: 'access-v1' } });
+    expect(config).toMatchObject({ port: 3003, photoStorageRoot: root, development: false, jwt: { issuer: 'auth', audience: 'api', kid: 'access-v1' }, serviceJwt: { issuer: 'bookings', audience: 'accommodations-service', kid: 'service-v1', scope: 'accommodations:booking-quote' } });
     expect(config.jwt.publicKey).toContain('BEGIN PUBLIC KEY');
+  });
+
+  it('uses the booking quote scope default and accepts an override', () => {
+    expect(loadAccommodationsConfig(validEnv).serviceJwt.scope).toBe('accommodations:booking-quote');
+    expect(loadAccommodationsConfig({ ...validEnv, ACCOMMODATIONS_BOOKING_QUOTE_SCOPE: 'custom:quote' }).serviceJwt.scope).toBe('custom:quote');
   });
 
   it.each(Object.keys(validEnv))('requires %s', (key) => {

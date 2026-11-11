@@ -11,6 +11,8 @@ import { OUTBOX_PORT } from '@bookings/application/ports/outbox.port';
 import { PAYMENT_ORDERS_PORT } from '@bookings/application/ports/payment-orders.port';
 import { PAYMENT_REFUNDS_PORT, REFUND_WORK_PORT } from '@bookings/application/ports/payment-refunds.port';
 import { SERVICE_TOKEN_PORT } from '@bookings/application/ports/service-token.port';
+import { BOOKING_NOTIFICATIONS_PORT } from '@bookings/application/ports/booking-notifications.port';
+import { NOTIFICATION_WORK_PORT } from '@bookings/application/ports/notification-work.port';
 import { CreateBookingUseCase } from '@bookings/application/create-booking/create-booking.use-case';
 import { GetBookingUseCase } from '@bookings/application/get-booking/get-booking.use-case';
 import { CancelGuestBookingUseCase } from '@bookings/application/cancel-booking/cancel-guest-booking.use-case';
@@ -24,9 +26,14 @@ import { ApplyRefundResultUseCase } from '@bookings/application/payments/apply-r
 import { CreatePaymentOrderWorker } from '@bookings/application/payments/create-payment-order.worker';
 import { ExpirePaymentHoldsWorker } from '@bookings/application/payments/expire-payment-holds.worker';
 import { RequestRefundWorker } from '@bookings/application/payments/request-refund.worker';
+import { SendBookingConfirmedNotificationWorker } from '@bookings/application/notifications/send-booking-confirmed-notification.worker';
+import { NotificationWorkScheduler } from '@bookings/infrastructure/scheduling/notification-work.scheduler';
+import { BookingsWorkersScheduler } from '@bookings/infrastructure/scheduling/bookings-workers.scheduler';
+import { NotificationDeliveryHealth } from '@bookings/infrastructure/observability/notification-delivery-health';
 import { AccommodationsBookingQuoteClient } from '@bookings/infrastructure/http/accommodations-booking-quote.client';
 import { PaymentsOrdersClient } from '@bookings/infrastructure/http/payments-orders.client';
 import { PaymentsRefundsClient } from '@bookings/infrastructure/http/payments-refunds.client';
+import { NotificationsClient } from '@bookings/infrastructure/http/notifications.client';
 import { RabbitMqOutboxPublisher } from '@bookings/infrastructure/messaging/rabbitmq-outbox.publisher';
 import { RabbitMqPaymentConsumer } from '@bookings/infrastructure/messaging/rabbitmq-payment.consumer';
 import { BookingRepository } from '@bookings/infrastructure/persistence/prisma/booking.repository';
@@ -37,6 +44,7 @@ import { PrismaOwnerBookingHistoryQuery } from '@bookings/infrastructure/persist
 import { PrismaStayLifecycleUnitOfWork } from '@bookings/infrastructure/persistence/prisma/stay-lifecycle.unit-of-work';
 import { PrismaRefundResultUnitOfWork } from '@bookings/infrastructure/persistence/prisma/refund-result.unit-of-work';
 import { PaymentWorkRepository } from '@bookings/infrastructure/persistence/prisma/payment-work.repository';
+import { NotificationWorkRepository } from '@bookings/infrastructure/persistence/prisma/notification-work.repository';
 import { EnvironmentServiceTokenProvider } from '@bookings/infrastructure/security/environment-service-token.provider';
 import { VersionedCancellationPolicyAdapter } from '@bookings/infrastructure/config/versioned-cancellation-policy.adapter';
 import { BookingsController } from '@bookings/interfaces/http/bookings/bookings.controller';
@@ -51,7 +59,7 @@ import { ServiceAuthGuard } from '@bookings/interfaces/http/guards/service-auth.
 import { ReviewServiceGuard } from '@bookings/interfaces/http/guards/review-service.guard';
 
 @Module({ controllers: [BookingsController, StayLifecycleController, ReviewEligibilityController], providers: [
-  BookingRepository, PaymentWorkRepository, PrismaCreateBookingUnitOfWork, PrismaCancelGuestBookingUnitOfWork, PrismaCancelOwnerBookingUnitOfWork, PrismaOwnerBookingHistoryQuery, PrismaStayLifecycleUnitOfWork, PrismaPaymentResultUnitOfWork, PrismaRefundResultUnitOfWork, PaymentHoldExpiryRepository, AccommodationsBookingQuoteClient, PaymentsOrdersClient, PaymentsRefundsClient, RabbitMqOutboxPublisher, RabbitMqPaymentConsumer, VersionedCancellationPolicyAdapter, EnvironmentServiceTokenProvider, ServiceJwtVerifier, ServiceAuthGuard, ReviewServiceGuard,
+  BookingRepository, PaymentWorkRepository, NotificationWorkRepository, PrismaCreateBookingUnitOfWork, PrismaCancelGuestBookingUnitOfWork, PrismaCancelOwnerBookingUnitOfWork, PrismaOwnerBookingHistoryQuery, PrismaStayLifecycleUnitOfWork, PrismaPaymentResultUnitOfWork, PrismaRefundResultUnitOfWork, PaymentHoldExpiryRepository, AccommodationsBookingQuoteClient, PaymentsOrdersClient, PaymentsRefundsClient, NotificationsClient, RabbitMqOutboxPublisher, RabbitMqPaymentConsumer, VersionedCancellationPolicyAdapter, EnvironmentServiceTokenProvider, ServiceJwtVerifier, ServiceAuthGuard, ReviewServiceGuard, NotificationWorkScheduler, BookingsWorkersScheduler, NotificationDeliveryHealth,
   { provide: CreateBookingUseCase, inject: [ACCOMMODATION_QUOTE_PORT, CLOCK_PORT, CREATE_BOOKING_UOW, BOOKINGS_CONFIG], useFactory: (quotes: AccommodationsBookingQuoteClient, clock: SystemClock, uow: PrismaCreateBookingUnitOfWork, config: BookingsConfig): CreateBookingUseCase => new CreateBookingUseCase(quotes, clock, uow, config) },
   { provide: GetBookingUseCase, inject: [BookingRepository], useFactory: (bookings: BookingRepository): GetBookingUseCase => new GetBookingUseCase(bookings) },
   { provide: CancelGuestBookingUseCase, inject: [BookingRepository, CANCELLATION_POLICY_PORT, CANCEL_GUEST_BOOKING_UOW, CLOCK_PORT], useFactory: (bookings: BookingRepository, policy: VersionedCancellationPolicyAdapter, uow: PrismaCancelGuestBookingUnitOfWork, clock: SystemClock): CancelGuestBookingUseCase => new CancelGuestBookingUseCase(bookings, policy, uow, clock) },
@@ -65,6 +73,8 @@ import { ReviewServiceGuard } from '@bookings/interfaces/http/guards/review-serv
   { provide: CreatePaymentOrderWorker, inject: [PaymentWorkRepository, BookingRepository, PAYMENT_ORDERS_PORT], useFactory: (work: PaymentWorkRepository, bookings: BookingRepository, payments: PaymentsOrdersClient): CreatePaymentOrderWorker => new CreatePaymentOrderWorker(work, bookings, payments) },
   { provide: RequestRefundWorker, inject: [REFUND_WORK_PORT, BookingRepository, PAYMENT_REFUNDS_PORT], useFactory: (work: PaymentWorkRepository, bookings: BookingRepository, refunds: PaymentsRefundsClient): RequestRefundWorker => new RequestRefundWorker(work, bookings, refunds) },
   { provide: ExpirePaymentHoldsWorker, inject: [PaymentHoldExpiryRepository], useFactory: (expiry: PaymentHoldExpiryRepository): ExpirePaymentHoldsWorker => new ExpirePaymentHoldsWorker(expiry) },
+  { provide: SendBookingConfirmedNotificationWorker, inject: [NOTIFICATION_WORK_PORT, BookingRepository, BOOKING_NOTIFICATIONS_PORT, BOOKINGS_CONFIG], useFactory: (work: NotificationWorkRepository, bookings: BookingRepository, notifications: NotificationsClient, config: BookingsConfig): SendBookingConfirmedNotificationWorker => new SendBookingConfirmedNotificationWorker(work, bookings, notifications, config.notificationMaxAttempts) },
+  { provide: NOTIFICATION_WORK_PORT, useExisting: NotificationWorkRepository }, { provide: BOOKING_NOTIFICATIONS_PORT, useExisting: NotificationsClient },
   { provide: CLOCK_PORT, useClass: SystemClock }, { provide: CREATE_BOOKING_UOW, useExisting: PrismaCreateBookingUnitOfWork }, { provide: ACCOMMODATION_QUOTE_PORT, useExisting: AccommodationsBookingQuoteClient }, { provide: PAYMENT_ORDERS_PORT, useExisting: PaymentsOrdersClient }, { provide: PAYMENT_REFUNDS_PORT, useExisting: PaymentsRefundsClient }, { provide: CANCELLATION_POLICY_PORT, useExisting: VersionedCancellationPolicyAdapter }, { provide: CANCEL_GUEST_BOOKING_UOW, useExisting: PrismaCancelGuestBookingUnitOfWork }, { provide: CANCEL_OWNER_BOOKING_UOW, useExisting: PrismaCancelOwnerBookingUnitOfWork }, { provide: OWNER_BOOKING_HISTORY_PORT, useExisting: PrismaOwnerBookingHistoryQuery }, { provide: STAY_LIFECYCLE_UOW, useExisting: PrismaStayLifecycleUnitOfWork }, { provide: REFUND_WORK_PORT, useExisting: PaymentWorkRepository }, { provide: OUTBOX_PORT, useExisting: RabbitMqOutboxPublisher }, { provide: SERVICE_TOKEN_PORT, useExisting: EnvironmentServiceTokenProvider },
-] })
+], exports: [RabbitMqPaymentConsumer, NotificationDeliveryHealth] })
 export class BookingsModule {}

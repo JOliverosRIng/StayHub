@@ -11,6 +11,7 @@ const EXPECTED = [
   { path: '/properties/{id}', method: 'get', operationId: 'getProperty', statuses: [200, 400, 401, 404, 503] },
   { path: '/properties/{id}', method: 'put', operationId: 'replaceProperty', statuses: [200, 400, 401, 403, 404, 409, 503] },
   { path: '/properties/{id}/photos', method: 'post', operationId: 'addPropertyPhoto', statuses: [201, 400, 401, 403, 404, 409, 413, 415, 503] },
+  { path: '/internal/v1/properties/{propertyId}/rooms/{roomId}/booking-quote', method: 'get', operationId: 'getBookingQuote', statuses: [200, 400, 401, 404, 409, 503] },
 ];
 const SECRET_RULES = [
   { name: 'private key', pattern: /-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----/ },
@@ -48,4 +49,4 @@ if (problems.length > 0) {
   process.stderr.write(`Accommodations OpenAPI drift detected:\n- ${problems.join('\n- ')}\n`);
   process.exit(1);
 }
-process.stdout.write('Accommodations OpenAPI is valid, matches the four v1 operations and carries no secrets\n');
+process.stdout.write('Accommodations OpenAPI is valid, matches the five v1 operations and carries no secrets\n');

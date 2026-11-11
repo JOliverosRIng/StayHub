@@ -3,6 +3,8 @@ import { RateLimitStore, type RedisScriptPort } from '@gateway/infrastructure/ca
 
 import { createTestGatewayConfig } from '../support/gateway-config-fixture';
 
+const GUEST_ID = '11111111-1111-4111-8111-111111111111';
+
 class FakeRedis implements RedisScriptPort {
   public readonly calls: { key: string; windowMillis: number }[] = [];
   private result: unknown = [1, 600_000];
@@ -58,6 +60,22 @@ describe('RateLimitStore (GW-014)', () => {
     expect(decision.allowed).toBe(true);
     expect(decision.remaining).toBe(29);
     expect(redis.calls[0]?.windowMillis).toBe(300_000);
+  });
+
+  it('aplica las cuotas aprobadas de Bookings por usuario durante 60 s', async () => {
+    const { store, redis } = build();
+    redis.setResult([1, 60_000]);
+
+    const write = await store.consume('bookings:write', GUEST_ID);
+    const read = await store.consume('bookings:read', GUEST_ID);
+
+    expect(write.remaining).toBe(9);
+    expect(read.remaining).toBe(59);
+    expect(redis.calls.map((call) => call.key)).toEqual([
+      `gateway:edge:bookings:write:${GUEST_ID}`,
+      `gateway:edge:bookings:read:${GUEST_ID}`,
+    ]);
+    expect(redis.calls.map((call) => call.windowMillis)).toEqual([60_000, 60_000]);
   });
 
   it('permite exactamente el limite y deniega el intento siguiente', async () => {

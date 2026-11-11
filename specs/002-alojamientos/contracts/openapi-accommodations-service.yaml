@@ -190,12 +190,45 @@ paths:
                 $ref: '#/components/schemas/Problem'
         '503':
           $ref: '#/components/responses/Problem'
+  /internal/v1/properties/{propertyId}/rooms/{roomId}/booking-quote:
+    get:
+      tags: [Properties]
+      operationId: getBookingQuote
+      summary: Obtener snapshot reservable autoritativo para Bookings
+      security:
+        - serviceJwt: []
+      parameters:
+        - { name: propertyId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: roomId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: guests, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200':
+          description: Propiedad publicada, habitación relacionada, con capacidad y precio válidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingQuote'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT (RS256)
+    serviceJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT (RS256)
+      description: Service JWT de Bookings con scope `accommodations:booking-quote`.
   parameters:
     PropertyId:
       name: id
@@ -213,6 +246,49 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    BookingQuote:
+      type: object
+      additionalProperties: false
+      required: [propertyId, roomId, ownerId, propertyName, roomName, propertyStatus, capacity, basePrice, propertyVersion, roomUpdatedAt]
+      properties:
+        propertyId:
+          type: string
+          format: uuid
+        roomId:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+          format: uuid
+        propertyName:
+          type: string
+          maxLength: 120
+        roomName:
+          type: string
+          maxLength: 120
+        propertyStatus:
+          type: string
+          enum: [PUBLISHED]
+        capacity:
+          type: integer
+          minimum: 1
+        basePrice:
+          type: object
+          additionalProperties: false
+          required: [amount, currency]
+          properties:
+            amount:
+              type: string
+              pattern: '^\d{1,10}(\.\d{1,2})?$'
+            currency:
+              type: string
+              pattern: '^[A-Z]{3}$'
+        propertyVersion:
+          type: integer
+          minimum: 1
+        roomUpdatedAt:
+          type: string
+          format: date-time
     PropertyCreate:
       type: object
       additionalProperties: false

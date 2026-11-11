@@ -32,7 +32,7 @@
 | `accommodationVersion` | integer | Versión Property cotizada. |
 | `roomSourceUpdatedAt` | timestamptz | Versión temporal de la habitación. |
 | `status` | enum | Estado de reserva. |
-| `paymentStatus` | enum | Resumen financiero no autoritativo. |
+| `paymentStatus` | enum | Resumen financiero no autoritativo; incluye `REVIEW_REQUIRED`, `REFUND_REVIEW_REQUIRED` y `REFUND_FAILED` para incertidumbre/fallos explícitos. |
 | `paymentOrderId` | UUID nullable | Referencia externa única cuando existe. |
 | `holdExpiresAt` | timestamptz nullable | Obligatorio en `PENDING_PAYMENT`. |
 | `cancellationPolicyVersion` | varchar nullable | Política evaluada. |
@@ -99,6 +99,22 @@ Representa trabajo de integración recuperable, no la transacción financiera.
 | `status` | enum | `PENDING|IN_FLIGHT|SUCCEEDED|FAILED_RETRYABLE|DEAD`. |
 | `attempts`, `nextAttemptAt` | integer/timestamptz | Backoff limitado. |
 | `lastErrorCode` | varchar nullable | Seguro, sin payload remoto. |
+
+## NotificationWork
+
+Trabajo durable Bookings→Notifications creado atómicamente al confirmar el pago.
+
+| Campo | Tipo | Regla |
+|---|---|---|
+| `id` | UUID | PK. |
+| `bookingId` | UUID FK local | Único por `(bookingId, operation)`. |
+| `operation` | enum | `BOOKING_CONFIRMED`. |
+| `status` | enum | `PENDING|IN_FLIGHT|SUCCEEDED|FAILED_RETRYABLE|DEAD`. |
+| `attempts`, `nextAttemptAt` | integer/timestamptz | Backoff limitado y recuperación de lease. |
+| `lastErrorCode` | varchar nullable | Código seguro; nunca JWT, correo ni cuerpo. |
+| `createdAt`, `updatedAt` | timestamptz | Auditoría y detección de trabajo abandonado. |
+
+El claim usa `FOR UPDATE SKIP LOCKED`; una fila `IN_FLIGHT` vencida se reclama de nuevo. La entrega HTTP se ejecuta fuera de la transacción de confirmación y Notifications deduplica por `bookingId`.
 
 ## OutboxEvent
 

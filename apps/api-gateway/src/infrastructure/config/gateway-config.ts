@@ -50,17 +50,22 @@ export interface GatewayConfig {
   readonly authBaseUrl: string;
   readonly usersBaseUrl: string;
   readonly reviewsBaseUrl: string;
+  readonly bookingsBaseUrl: string;
   readonly userJwt: UserJwtConfig;
   readonly serviceJwt: ServiceJwtConfig;
   readonly reviewsServiceJwt: Pick<ServiceJwtConfig, 'audience' | 'scope'>;
+  readonly bookingsServiceJwt: Pick<ServiceJwtConfig, 'audience' | 'scope'>;
   readonly redis: RedisConfig;
   readonly trustedProxyCidrs: readonly string[];
   readonly registerRateLimit: RateLimitPolicy;
   readonly loginRateLimit: RateLimitPolicy;
+  readonly bookingsWriteRateLimit: RateLimitPolicy;
+  readonly bookingsReadRateLimit: RateLimitPolicy;
   readonly maxPhotoBytes: 5000000;
   readonly auth: CircuitPolicy;
   readonly users: CircuitPolicy;
   readonly reviews: CircuitPolicy;
+  readonly bookings: CircuitPolicy;
   readonly introspectionTimeoutMs: number;
   readonly otlpEndpoint: string;
   readonly otelServiceName: string;
@@ -96,6 +101,7 @@ export function loadGatewayConfig(
     authBaseUrl: url(environment, 'GATEWAY_AUTH_BASE_URL', ['http:', 'https:']),
     usersBaseUrl: url(environment, 'GATEWAY_USERS_BASE_URL', ['http:', 'https:']),
     reviewsBaseUrl: url(environment, 'GATEWAY_REVIEWS_BASE_URL', ['http:', 'https:']),
+    bookingsBaseUrl: url(environment, 'GATEWAY_BOOKINGS_BASE_URL', ['http:', 'https:']),
     userJwt: {
       publicKeys: publicKeys(environment, 'GATEWAY_JWT_PUBLIC_KEYS_JSON'),
       issuer: required(environment, 'GATEWAY_JWT_ISSUER'),
@@ -113,6 +119,10 @@ export function loadGatewayConfig(
       audience: required(environment, 'GATEWAY_REVIEWS_SERVICE_AUDIENCE'),
       scope: required(environment, 'GATEWAY_REVIEWS_SERVICE_SCOPE'),
     },
+    bookingsServiceJwt: {
+      audience: required(environment, 'GATEWAY_BOOKINGS_SERVICE_AUDIENCE'),
+      scope: required(environment, 'GATEWAY_BOOKINGS_SERVICE_SCOPE'),
+    },
     redis: {
       url: url(environment, 'GATEWAY_REDIS_URL', ['redis:', 'rediss:']),
       password: secretFile(environment, 'GATEWAY_REDIS_PASSWORD_FILE', readFile, 8),
@@ -127,10 +137,19 @@ export function loadGatewayConfig(
       limit: exactInteger(environment, 'GATEWAY_LOGIN_RATE_LIMIT', 30),
       windowSeconds: exactInteger(environment, 'GATEWAY_LOGIN_RATE_WINDOW_SECONDS', 300),
     },
+    bookingsWriteRateLimit: {
+      limit: exactInteger(environment, 'GATEWAY_BOOKINGS_WRITE_RATE_LIMIT', 10),
+      windowSeconds: exactInteger(environment, 'GATEWAY_BOOKINGS_WRITE_RATE_WINDOW_SECONDS', 60),
+    },
+    bookingsReadRateLimit: {
+      limit: exactInteger(environment, 'GATEWAY_BOOKINGS_READ_RATE_LIMIT', 60),
+      windowSeconds: exactInteger(environment, 'GATEWAY_BOOKINGS_READ_RATE_WINDOW_SECONDS', 60),
+    },
     maxPhotoBytes: exactInteger(environment, 'GATEWAY_MAX_PHOTO_BYTES', 5000000),
     auth: circuit(environment, 'GATEWAY_AUTH_'),
     users: circuit(environment, 'GATEWAY_USERS_'),
     reviews: circuit(environment, 'GATEWAY_REVIEWS_'),
+    bookings: circuit(environment, 'GATEWAY_BOOKINGS_'),
     introspectionTimeoutMs: integer(environment, 'GATEWAY_INTROSPECTION_TIMEOUT_MS', 100, 30_000),
     otlpEndpoint: url(environment, 'GATEWAY_OTEL_EXPORTER_OTLP_ENDPOINT', ['http:', 'https:']),
     otelServiceName: required(environment, 'GATEWAY_OTEL_SERVICE_NAME'),

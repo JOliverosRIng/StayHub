@@ -168,6 +168,9 @@ docker compose --env-file .env.example -f docker-compose.yml config -q
 - **T069 completada**: consumer/provider y E2E real Bookings↔Reviews ejecutados con bases
   aisladas y service JWT `reviews:eligibility`; harness en
   `test/e2e/bookings-reviews.e2e-spec.ts`.
+- **Verificación conjunta actual**: `npm run test:unir:e2e` (8/8 PASS) levanta Bookings, Reviews,
+  Payments, Notifications, PostgreSQL y RabbitMQ reales; incluye creación de reseña, duplicado
+  `409` y reserva no completada `404`.
 - **T070 bloqueada**: el API Gateway todavía no implementa routing/cliente de Reviews; el
   harness queda en `test/e2e/gateway-reviews.e2e-spec.ts`.
 

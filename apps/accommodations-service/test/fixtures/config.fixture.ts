@@ -11,6 +11,10 @@ export const publicKeyPem = accessKeys.publicKey.export({ type: 'spki', format: 
 export const TEST_ISSUER = 'test-auth';
 export const TEST_AUDIENCE = 'test-api';
 export const TEST_KID = 'access-v1';
+export const SERVICE_ISSUER = 'test-bookings';
+export const SERVICE_AUDIENCE = 'test-accommodations-service';
+export const SERVICE_KID = 'service-v1';
+export const SERVICE_SCOPE = 'accommodations:booking-quote';
 export const SYNTHETIC_DATABASE_URL = 'postgresql://accommodations:synthetic@localhost:5432/accommodations_db';
 
 export function storageRoot(): string {
@@ -21,6 +25,7 @@ export function testConfig(databaseUrl = SYNTHETIC_DATABASE_URL, photoStorageRoo
   return {
     port: 3003, databaseUrl, photoStorageRoot, otlpEndpoint: 'http://localhost:4318', development: false,
     jwt: { issuer: TEST_ISSUER, audience: TEST_AUDIENCE, kid: TEST_KID, publicKey: publicKeyPem },
+    serviceJwt: { issuer: SERVICE_ISSUER, audience: SERVICE_AUDIENCE, kid: SERVICE_KID, publicKey: publicKeyPem, scope: SERVICE_SCOPE },
   };
 }
 
@@ -33,6 +38,11 @@ export function token(sub: string = randomUUID(), role: Role = 'OWNER', claims: 
 
 export function bearer(sub?: string, role: Role = 'OWNER'): string {
   return `Bearer ${token(sub, role)}`;
+}
+
+export function serviceToken(sub: string = 'stayhub-bookings-service', scope: string = SERVICE_SCOPE, claims: Record<string, unknown> = {}, options: SignOptions = {}): string {
+  const now = Math.floor(Date.now() / 1000);
+  return sign({ sub, scope, iss: SERVICE_ISSUER, aud: SERVICE_AUDIENCE, iat: now, exp: now + 240, ...claims }, accessKeys.privateKey, { algorithm: 'RS256', keyid: SERVICE_KID, ...options });
 }
 
 const base64url = (value: unknown): string => Buffer.from(typeof value === 'string' ? value : JSON.stringify(value)).toString('base64url');

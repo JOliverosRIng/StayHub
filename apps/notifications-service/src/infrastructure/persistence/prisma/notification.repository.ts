@@ -62,8 +62,8 @@ export class PrismaNotificationRepository implements NotificationRepository, Rem
       const existing = await this.prisma.scheduledNotification.findUnique({ where: { bookingId: reminder.bookingId } });
       if (!existing
         || existing.userId !== reminder.userId
-        || existing.roomTitle !== reminder.roomTitle
-        || existing.roomLocation !== reminder.roomLocation
+        || existing.propertyName !== reminder.propertyName
+        || existing.roomName !== reminder.roomName
         || existing.checkIn !== reminder.checkIn) {
         throw new ReminderScheduleConflictError('Booking already has a different reminder');
       }
@@ -85,14 +85,14 @@ export class PrismaNotificationRepository implements NotificationRepository, Rem
       SET "status" = 'PROCESSING', "claimedAt" = ${now}
       FROM due
       WHERE reminder."id" = due."id"
-      RETURNING reminder."id", reminder."bookingId", reminder."userId",
-        reminder."roomTitle", reminder."roomLocation", reminder."checkIn"
+        RETURNING reminder."id", reminder."bookingId", reminder."userId",
+        reminder."propertyName", reminder."roomName", reminder."checkIn"
     `;
     return rows.map((row: unknown) => {
       const record = row as Record<string, unknown>;
       return {
         id: String(record.id), bookingId: String(record.bookingId), userId: String(record.userId),
-        roomTitle: String(record.roomTitle), roomLocation: String(record.roomLocation), checkIn: String(record.checkIn),
+        propertyName: String(record.propertyName), roomName: String(record.roomName), checkIn: String(record.checkIn),
       };
     });
   }

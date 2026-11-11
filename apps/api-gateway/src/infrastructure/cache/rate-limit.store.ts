@@ -6,6 +6,8 @@ import { GATEWAY_CONFIG, type GatewayConfig } from '@gateway/infrastructure/conf
 export const RATE_LIMIT_SCOPE = {
   REGISTER: 'register',
   LOGIN: 'login',
+  BOOKINGS_WRITE: 'bookings:write',
+  BOOKINGS_READ: 'bookings:read',
 } as const;
 
 export const GATEWAY_REDIS = Symbol('GATEWAY_REDIS');
@@ -40,10 +42,7 @@ export class RateLimitStore {
   ) {}
 
   public async consume(scope: RateLimitScope, origin: string): Promise<RateLimitDecision> {
-    const policy =
-      scope === RATE_LIMIT_SCOPE.REGISTER
-        ? this.config.registerRateLimit
-        : this.config.loginRateLimit;
+    const policy = policyFor(this.config, scope);
     const key = `${this.config.redis.namespace}:${scope}:${origin}`;
 
     let result: unknown;
@@ -72,6 +71,15 @@ export class RateLimitStore {
       remaining: Math.max(0, policy.limit - count),
       retryAfterSeconds: allowed ? 0 : toRetryAfterSeconds(ttlMillis),
     };
+  }
+}
+
+function policyFor(config: GatewayConfig, scope: RateLimitScope): GatewayConfig['registerRateLimit'] {
+  switch (scope) {
+    case RATE_LIMIT_SCOPE.REGISTER: return config.registerRateLimit;
+    case RATE_LIMIT_SCOPE.LOGIN: return config.loginRateLimit;
+    case RATE_LIMIT_SCOPE.BOOKINGS_WRITE: return config.bookingsWriteRateLimit;
+    case RATE_LIMIT_SCOPE.BOOKINGS_READ: return config.bookingsReadRateLimit;
   }
 }
 

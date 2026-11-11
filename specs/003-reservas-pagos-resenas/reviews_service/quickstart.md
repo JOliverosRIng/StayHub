@@ -130,14 +130,16 @@ Entorno: Node 22 (lockfile raíz), podman 5.8 y PostgreSQL 16-alpine efímero en
 | Rendimiento | `npm run test:reviews:performance` | 2 aprobadas, p95 < 500 ms |
 | E2E aislado | `npm run test:reviews:e2e` | 2 aprobadas; Bookings/Gateway omitidos sin variables |
 | E2E real Bookings | `npm run test:reviews:e2e -- --runTestsByPath test/e2e/bookings-reviews.e2e-spec.ts` | 1 aprobada contra Bookings real, PostgreSQL propio y service JWT RS256 |
+| E2E conjunto actual | `npm run test:unir:e2e` | 8/8 PASS; incluye Bookings↔Reviews con reseña única, duplicado 409 y no completada 404 |
 | Contratos | `npm run openapi:reviews:check` | OpenAPI válido y sin drift |
 | Cobertura | `npm run test:reviews:coverage` | statements 89.73 %, branches 81.67 %, functions 84.69 %, lines 92.14 % |
 | Compose | `docker compose --env-file .env.example config -q` | exit 0 |
 
 Evidencia **contra stub/PostgreSQL real**: creación, rechazos, concurrencia, consultas por
-propiedad e historial propio. La integración real Bookings↔Reviews (T069) se ejecutó con el
+propiedad e historial propio. La integración real Bookings↔Reviews (T069/T098) se ejecutó con el
 handoff versionado, reserva `COMPLETED`, audience `stayhub-bookings-service` y scope
-`reviews:eligibility`, sin compartir bases. Gateway↔Reviews ya cuenta con cliente, las tres rutas
+`reviews:eligibility`, sin compartir bases. El harness conjunto `npm run test:unir:e2e` volvió a
+verificar 8/8 escenarios, incluido el flujo completo desde Bookings. Gateway↔Reviews ya cuenta con cliente, las tres rutas
 públicas, JWT de servicio específico, propagación de bearer/`x-request-id`, ownership y mapeo de
 Problem Details. Las pruebas del adaptador/routing aprobaron y el E2E
 `gateway-reviews-real.e2e-spec.ts` pasó con Gateway + Reviews reales y PostgreSQL 16 temporal en

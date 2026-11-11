@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsNumber, IsString, IsUUID, Length, Matches, Max, Min } from 'class-validator';
+import { IsInt, IsString, IsUUID, Length, Matches, Max, Min } from 'class-validator';
+
+const DECIMAL_AMOUNT = /^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$/;
 
 export class BookingConfirmedDto {
   @ApiProperty({ format: 'uuid' })
@@ -14,12 +16,12 @@ export class BookingConfirmedDto {
   @ApiProperty({ maxLength: 120 })
   @IsString()
   @Length(1, 120)
-  roomTitle!: string;
+  propertyName!: string;
 
-  @ApiProperty({ maxLength: 200 })
+  @ApiProperty({ maxLength: 120 })
   @IsString()
-  @Length(1, 200)
-  roomLocation!: string;
+  @Length(1, 120)
+  roomName!: string;
 
   @ApiProperty({ example: '2026-12-01', format: 'date' })
   @IsString()
@@ -37,10 +39,10 @@ export class BookingConfirmedDto {
   @Max(100)
   guests!: number;
 
-  @ApiProperty({ minimum: 0, maximum: 9999999999.99, multipleOf: 0.01 })
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  totalPrice!: number;
+  @ApiProperty({ example: '250000.00', pattern: DECIMAL_AMOUNT.source, description: 'Decimal amount as a string to preserve precision.' })
+  @IsString()
+  @Matches(DECIMAL_AMOUNT)
+  totalPrice!: string;
 
   @ApiProperty({ format: 'date-time', description: 'Check-in instant with its UTC offset; used to calculate the reminder time.' })
   @IsString()

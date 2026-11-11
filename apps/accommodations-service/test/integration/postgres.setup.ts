@@ -26,7 +26,7 @@ export async function withRollback(db: PrismaService, test: (tx: Prisma.Transact
 
 export function migrate(url: string): void {
   const env = { ...process.env, ACCOMMODATIONS_DATABASE_URL: url, CHECKPOINT_DISABLE: '1', CI: '1' };
-  const args = [resolve('node_modules/prisma/build/index.js'), 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'];
+  const args = [resolve(__dirname, '../../../../node_modules/prisma/build/index.js'), 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'];
   let last: unknown;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {

@@ -88,7 +88,13 @@
       "entryFile": "main",
       "sourceRoot": "apps/payments-service/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/payments-service/tsconfig.build.json"
+        "tsConfigPath": "apps/payments-service/tsconfig.build.json",
+        "assets": [
+          {
+            "include": "infrastructure/persistence/generated/client/**/*",
+            "outDir": "dist/apps/payments-service"
+          }
+        ]
       }
     }
   }

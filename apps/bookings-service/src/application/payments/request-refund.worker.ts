@@ -10,7 +10,7 @@ export class RequestRefundWorker {
       try {
         const booking = await this.bookings.findById(item.bookingId);
         if (!booking?.paymentOrderId) throw new DomainError('NOT_FOUND');
-        const command = { bookingId: booking.id, paymentOrderId: booking.paymentOrderId, mode: booking.cancelledBy === 'OWNER' ? 'FULL' as const : 'POLICY' as const, ...(booking.cancellationPolicyVersion ? { policyVersion: booking.cancellationPolicyVersion } : {}) };
+        const command = { bookingId: booking.id, paymentOrderId: booking.paymentOrderId, amount: item.amount, mode: booking.cancelledBy === 'OWNER' ? 'FULL' as const : 'POLICY' as const, ...(booking.cancellationPolicyVersion ? { policyVersion: booking.cancellationPolicyVersion } : {}) };
         await this.refunds.requestRefund(command, item.idempotencyKey);
         await this.work.succeededRefund(item.id);
       } catch (error) {

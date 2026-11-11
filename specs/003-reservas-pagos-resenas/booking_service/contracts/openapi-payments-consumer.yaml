@@ -2,81 +2,130 @@ openapi: 3.1.0
 info:
   title: Payments API consumed by Bookings
   version: 1.0.0
-  description: Contrato consumer propuesto; Payments conserva autoridad financiera.
+  description: Consumer contract aligned with the Payments provider API.
 servers:
   - url: http://payments-service:3006
 paths:
-  /internal/v1/payment-orders:
+  /payments:
     post:
-      operationId: createPaymentOrder
-      security: [ { serviceJwt: [] } ]
+      operationId: createPayment
+      security: [{ serviceJwt: [payments:charge] }]
       parameters:
-        - name: Idempotency-Key
-          in: header
-          required: true
-          schema: { type: string, minLength: 16, maxLength: 128 }
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [bookingId, guestId, amount, currency]
-              properties:
-                bookingId: { type: string, format: uuid }
-                guestId: { type: string, format: uuid }
-                amount: { type: string, pattern: '^\d{1,10}(\.\d{2})$' }
-                currency: { type: string, pattern: '^[A-Z]{3}$' }
+            schema: { $ref: '#/components/schemas/CreatePaymentRequest' }
       responses:
         '201':
-          description: Orden creada idempotentemente.
+          description: Payment reached an authoritative approved or declined result.
           content:
             application/json:
-              schema:
-                type: object
-                required: [paymentOrderId, status]
-                properties:
-                  paymentOrderId: { type: string, format: uuid }
-                  status: { enum: [PENDING] }
+              schema: { $ref: '#/components/schemas/Payment' }
+        '202':
+          description: Payment remains pending because the provider result is uncertain.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
         '400': { $ref: '#/components/responses/Problem' }
         '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
-  /internal/v1/refunds:
+  /payments/{id}/refund:
     post:
-      operationId: requestRefund
-      security: [ { serviceJwt: [] } ]
+      operationId: refundPayment
+      security: [{ serviceJwt: [payments:refund] }]
       parameters:
-        - name: Idempotency-Key
-          in: header
+        - name: id
+          in: path
           required: true
-          schema: { type: string, minLength: 16, maxLength: 128 }
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [bookingId, paymentOrderId, mode]
-              properties:
-                bookingId: { type: string, format: uuid }
-                paymentOrderId: { type: string, format: uuid }
-                mode: { enum: [POLICY, FULL] }
-                policyVersion: { type: string, maxLength: 80 }
+            schema: { $ref: '#/components/schemas/RefundRequest' }
       responses:
-        '202': { description: Solicitud aceptada idempotentemente. }
+        '201':
+          description: Refund reached an authoritative completed or failed result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+        '202':
+          description: Refund remains pending because the provider result is uncertain.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
         '400': { $ref: '#/components/responses/Problem' }
         '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
 components:
   securitySchemes:
-    serviceJwt: { type: http, scheme: bearer, bearerFormat: JWT RS256 }
+    serviceJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    PaymentMethod:
+      type: object
+      additionalProperties: false
+      required: [type, token]
+      properties:
+        type: { type: string, const: CARD_TOKEN }
+        token: { type: string, minLength: 8, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$' }
+    CreatePaymentRequest:
+      type: object
+      additionalProperties: false
+      required: [bookingId, payerUserId, amountMinor, currency, paymentMethod]
+      properties:
+        bookingId: { type: string, format: uuid }
+        payerUserId: { type: string, format: uuid }
+        amountMinor: { type: integer, minimum: 1, maximum: 9000000000000 }
+        currency: { type: string, enum: [COP, USD] }
+        paymentMethod: { $ref: '#/components/schemas/PaymentMethod' }
+    Payment:
+      type: object
+      additionalProperties: true
+      required: [id, bookingId, payerUserId, amountMinor, currency, status]
+      properties:
+        id: { type: string, format: uuid }
+        bookingId: { type: string, format: uuid }
+        payerUserId: { type: string, format: uuid }
+        amountMinor: { type: integer }
+        currency: { type: string, enum: [COP, USD] }
+        status: { type: string, enum: [PENDING, APPROVED, DECLINED, FAILED] }
+    RefundRequest:
+      type: object
+      additionalProperties: false
+      required: [amountMinor, reason]
+      properties:
+        amountMinor: { type: integer, minimum: 1, maximum: 9000000000000 }
+        reason: { type: string, enum: [GUEST_CANCELLATION, OWNER_CANCELLATION] }
+    Refund:
+      type: object
+      additionalProperties: true
+      required: [id, paymentId, amountMinor, status]
+      properties:
+        id: { type: string, format: uuid }
+        paymentId: { type: string, format: uuid }
+        amountMinor: { type: integer }
+        status: { type: string, enum: [PENDING, COMPLETED, FAILED] }
   responses:
     Problem:
-      description: Problem Details remoto.
+      description: Remote Problem Details response.
       content:
         application/problem+json:
           schema:
