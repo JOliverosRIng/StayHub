@@ -19,6 +19,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // ---------------------------------------------------------------------------
 
 const db = { properties: buildProperties(), reviews: buildReviews(), bookings: buildBookings() };
+/** Bookings that already have a review (RQ-11: at most one review per booking). */
+let reviewedBookings = new Set<string>();
 /** Idempotency ledger for `POST /bookings`, keyed by `${guestId}|${Idempotency-Key}`. */
 let bookingIdempotency = new Map<string, { hash: string; booking: Booking }>();
 
@@ -28,6 +30,7 @@ export function resetMockDb(): void {
   db.reviews = buildReviews();
   db.bookings = buildBookings();
   bookingIdempotency = new Map();
+  reviewedBookings = new Set();
 }
 
 export const mockDb = {
@@ -529,7 +532,64 @@ const cancelBookingHandler = http.delete(`${API}/bookings/:bookingId`, async ({ 
   return HttpResponse.json(viewBooking(next, caller));
 });
 
+// ---------------------------------------------------------------------------
+// Reviews (RQ-11) — contract mock. External dependency: the Gateway does not expose `/reviews` yet.
+// Aligned to `openapi-reviews-service.yaml`: only a GUEST with their OWN booking in status COMPLETED
+// can create a review (rating 1–5, comment 1–2000); at most one review per booking; the created
+// review is {id, propertyId, rating, comment, createdAt}. `GET /reviews/user/:id` lists own reviews.
+// ---------------------------------------------------------------------------
+
+const createReviewHandler = http.post(`${API}/reviews`, async ({ request }) => {
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHENTICATED');
+  const caller = auth.caller;
+  const body = await request.json().catch(() => undefined);
+  if (!isObject(body)) return invalid('body');
+  const errors = Object.keys(body).filter((k) => !['bookingId', 'rating', 'comment'].includes(k));
+  if (typeof body.bookingId !== 'string' || !UUID.test(body.bookingId)) errors.push('bookingId');
+  if (!Number.isInteger(body.rating) || (body.rating as number) < 1 || (body.rating as number) > 5) errors.push('rating');
+  const comment = typeof body.comment === 'string' ? body.comment.trim() : '';
+  if (!comment || comment.length > 2000) errors.push('comment');
+  if (errors.length) return invalid(...errors);
+
+  const booking = mockDb.booking(body.bookingId as string);
+  if (!booking) return problem(404, 'NOT_FOUND');
+  if (booking.guestId !== caller.sub) return problem(403, 'FORBIDDEN'); // only the guest of the booking
+  if (booking.status !== 'COMPLETED') return problem(403, 'STAY_NOT_COMPLETED'); // only a completed stay
+  if (reviewedBookings.has(booking.id)) return problem(409, 'REVIEW_ALREADY_EXISTS'); // one review per booking
+
+  reviewedBookings.add(booking.id);
+  const createdAt = new Date().toISOString();
+  const stored: Review = {
+    id: crypto.randomUUID(), propertyId: booking.propertyId, authorId: caller.sub,
+    rating: body.rating as number, comment, createdAt,
+  };
+  db.reviews.push(stored); // reflects on property reviews (FE-038)
+  // The contract Review has no author fields.
+  return HttpResponse.json({ id: stored.id, propertyId: stored.propertyId, rating: stored.rating, comment: stored.comment, createdAt }, { status: 201 });
+});
+
+const userReviewsHandler = http.get(`${API}/reviews/user/:userId`, ({ request, params }) => {
+  const userId = String(params.userId);
+  if (!UUID.test(userId)) return invalid('userId');
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHENTICATED');
+  if (auth.caller.sub !== userId) return problem(403, 'FORBIDDEN'); // only your own reviews
+  const search = new URL(request.url).searchParams;
+  const page = int(search.get('page')) ?? 1;
+  const pageSize = int(search.get('pageSize')) ?? 20;
+  if (page === null || page < 1 || pageSize === null || pageSize < 1 || pageSize > 100) return invalid('page');
+  const all = db.reviews
+    .filter((r) => r.authorId === userId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+  const start = (page - 1) * pageSize;
+  const items = all.slice(start, start + pageSize).map((r) => ({ id: r.id, propertyId: r.propertyId, rating: r.rating, comment: r.comment, createdAt: r.createdAt }));
+  return HttpResponse.json({ items, page, pageSize, total: all.length, totalPages: Math.ceil(all.length / pageSize) });
+});
+
 export const handlers = [
+  createReviewHandler,
+  userReviewsHandler,
   suggestHandler,
   searchHandler,
   reviewsHandler,
