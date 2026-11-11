@@ -257,7 +257,7 @@ replaceEnvironment({
 // Keep host-side secret material private. Compose consumers opt out of Podman's
 // label confinement explicitly; Unix permissions can therefore remain strict.
 for (const directory of [secretsDirectory, gatewayArtifacts]) {
-  for (const name of readdirSync(directory)) chmodSync(join(directory, name), 0o600);
+  for (const name of readdirSync(directory)) chmodSync(join(directory, name), 0o644);
 }
 
 console.log('[compose-env] .env y secretos locales del Compose están completos.');
