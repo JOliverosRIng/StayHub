@@ -12,6 +12,10 @@ export const OTHER_GUEST_ID = '7d1f4c1e-2b7a-4c3e-9a51-0c4b6f1e2a04';
 export const BOOKING_IDS = {
   /** Confirmed stay by GUEST_ID at Casa Azul (room 1) over [2026-12-10, 2026-12-14); blocks those nights. */
   casaAzulConfirmed: '6e2c9a84-5b7d-4c6e-9a1f-00000000b001',
+  /** Completed stay by GUEST_ID at Villa Serena (room 1); oldest in the owner history. */
+  villaCompleted: '6e2c9a84-5b7d-4c6e-9a1f-00000000b002',
+  /** Guest-cancelled stay by OTHER_GUEST_ID at Cabaña del Bosque; newest in the owner history. */
+  cabanaCancelled: '6e2c9a84-5b7d-4c6e-9a1f-00000000b003',
 } as const;
 
 export const PROPERTY_IDS = {
@@ -153,32 +157,34 @@ export function toSearchResult(property: Property, relevance = 0): SearchResult 
  * (409) and ownership (own vs. other guest) paths.
  */
 export function buildBookings(): Booking[] {
-  const casaAzul = buildProperties().find((p) => p.id === PROPERTY_IDS.casaAzul)!;
-  const room = casaAzul.rooms[0]!;
-  const nightly = room.basePrice!;
-  const nights = 4;
+  const props = buildProperties();
+  const prop = (id: string) => props.find((p) => p.id === id)!;
+  const nightsBetween = (checkIn: string, checkOut: string) =>
+    Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86_400_000);
+
+  const make = (
+    id: string, property: Property, roomIndex: number, guestId: string,
+    checkIn: string, checkOut: string, guests: number,
+    status: Booking['status'], paymentStatus: Booking['paymentStatus'], createdAt: string,
+  ): Booking => {
+    const room = property.rooms[roomIndex]!;
+    const price = room.basePrice!;
+    const nights = nightsBetween(checkIn, checkOut);
+    return {
+      id, guestId, ownerId: property.ownerId, propertyId: property.id, roomId: room.id,
+      propertyName: property.name, roomName: room.name, checkIn, checkOut, guests, nights,
+      nightlyPrice: { amount: price.amount, currency: price.currency },
+      total: { amount: (Number(price.amount) * nights).toFixed(2), currency: price.currency },
+      status, paymentStatus, paymentOrderId: null, holdExpiresAt: null, cancellationReason: null,
+      createdAt, updatedAt: createdAt,
+    };
+  };
+
+  // All owned by OWNER_ID. Distinct createdAt so the owner history order (DESC) is deterministic:
+  // cabanaPending (11-05) > casaAzulConfirmed (10-01) > villaCompleted (09-01).
   return [
-    {
-      id: BOOKING_IDS.casaAzulConfirmed,
-      guestId: GUEST_ID,
-      ownerId: casaAzul.ownerId,
-      propertyId: casaAzul.id,
-      roomId: room.id,
-      propertyName: casaAzul.name,
-      roomName: room.name,
-      checkIn: '2026-12-10',
-      checkOut: '2026-12-14',
-      guests: 2,
-      nights,
-      nightlyPrice: { amount: nightly.amount, currency: nightly.currency },
-      total: { amount: (Number(nightly.amount) * nights).toFixed(2), currency: nightly.currency },
-      status: 'CONFIRMED',
-      paymentStatus: 'CAPTURED',
-      paymentOrderId: null,
-      holdExpiresAt: null,
-      cancellationReason: null,
-      createdAt: created,
-      updatedAt: created,
-    },
+    make(BOOKING_IDS.casaAzulConfirmed, prop(PROPERTY_IDS.casaAzul), 0, GUEST_ID, '2026-12-10', '2026-12-14', 2, 'CONFIRMED', 'CAPTURED', '2026-10-01T12:00:00.000Z'),
+    make(BOOKING_IDS.villaCompleted, prop(PROPERTY_IDS.villa), 0, GUEST_ID, '2026-09-05', '2026-09-08', 2, 'COMPLETED', 'CAPTURED', '2026-09-01T10:00:00.000Z'),
+    make(BOOKING_IDS.cabanaCancelled, prop(PROPERTY_IDS.cabana), 0, OTHER_GUEST_ID, '2027-03-01', '2027-03-05', 3, 'CANCELLED_BY_GUEST', 'REFUNDED', '2026-11-05T10:00:00.000Z'),
   ];
 }

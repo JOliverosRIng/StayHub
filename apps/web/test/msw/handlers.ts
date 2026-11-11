@@ -1,7 +1,7 @@
 import { http, HttpResponse, type PathParams } from 'msw';
 import type { Booking, CreateBookingInput, Problem, Property, PropertyCreate, PropertyReplace, Review, RoomReplaceInput } from '../../src/types/catalog';
 import {
-  CATALOG_LIMITS, FEATURE_CATALOG, PHOTO_MEDIA_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES,
+  BOOKING_STATUSES, CATALOG_LIMITS, FEATURE_CATALOG, PHOTO_MEDIA_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES,
 } from '../../src/types/catalog';
 import { buildBookings, buildProperties, buildReviews, toSearchResult } from './fixtures';
 
@@ -403,6 +403,47 @@ const createBookingHandler = http.post(`${API}/bookings`, async ({ request }) =>
   return HttpResponse.json(viewBooking(booking, caller), { status: 201 });
 });
 
+/**
+ * RQ-08 owner booking history (`GET /bookings/history`, `getOwnerBookingHistory`). OWNER only: a guest
+ * gets 403. Filters `from`/`to` (by checkIn), `status`, `guestId`; paginated; ordered createdAt DESC,
+ * id DESC. The guest has no history list endpoint in the contract — only per-id lookups.
+ */
+const bookingHistoryHandler = http.get(`${API}/bookings/history`, ({ request }) => {
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHORIZED');
+  const caller = auth.caller;
+  if (caller.role !== 'OWNER') return problem(403, 'FORBIDDEN');
+
+  const search = new URL(request.url).searchParams;
+  const DATE = /^\d{4}-\d{2}-\d{2}$/;
+  const from = search.get('from') ?? undefined;
+  const to = search.get('to') ?? undefined;
+  const status = search.get('status') ?? undefined;
+  const guestId = search.get('guestId') ?? undefined;
+  const page = int(search.get('page')) ?? 1;
+  const pageSize = int(search.get('pageSize')) ?? 20;
+
+  const errors: string[] = [];
+  if (from !== undefined && !DATE.test(from)) errors.push('from');
+  if (to !== undefined && !DATE.test(to)) errors.push('to');
+  if (status !== undefined && !BOOKING_STATUSES.includes(status as never)) errors.push('status');
+  if (guestId !== undefined && !UUID.test(guestId)) errors.push('guestId');
+  if (page === null || page < 1) errors.push('page');
+  if (pageSize === null || pageSize < 1 || pageSize > 100) errors.push('pageSize');
+  if (errors.length) return invalid(...errors);
+
+  let rows = db.bookings.filter((b) => b.ownerId === caller.sub);
+  if (status) rows = rows.filter((b) => b.status === status);
+  if (guestId) rows = rows.filter((b) => b.guestId === guestId);
+  if (from) rows = rows.filter((b) => b.checkIn >= from);
+  if (to) rows = rows.filter((b) => b.checkIn <= to);
+  rows = [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+
+  const start = ((page as number) - 1) * (pageSize as number);
+  const items = rows.slice(start, start + (pageSize as number)).map((b) => viewBooking(b, caller));
+  return HttpResponse.json({ items, page, pageSize, total: rows.length, hasNext: start + (pageSize as number) < rows.length });
+});
+
 const getBookingHandler = http.get(`${API}/bookings/:bookingId`, ({ request, params }) => {
   const id = String(params.bookingId);
   if (!UUID.test(id)) return problem(404, 'NOT_FOUND');
@@ -422,6 +463,7 @@ export const handlers = [
   uploadPhotoHandler,
   myPropertiesHandler,
   createBookingHandler,
+  bookingHistoryHandler,
   getBookingHandler,
   getPropertyHandler,
   createPropertyHandler,
