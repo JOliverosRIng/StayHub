@@ -75,6 +75,7 @@ export function MyBookings({ onNavigate }: MyBookingsProps) {
       onNavigate={onNavigate}
       eyebrow="Tu cuenta"
       title="Mis reservas"
+      titleAction={<Link to={paths.reviews} className="text-sm font-semibold text-primary hover:underline">Mis reseñas</Link>}
       status={status} from={from} to={to}
       onStatus={setStatus} onFrom={setFrom} onTo={setTo}
       query={query}
@@ -121,6 +122,7 @@ interface HistoryShellProps {
   extraFilters?: React.ReactNode;
   listFilter?: (items: Booking[]) => Booking[];
   listLabel?: string;
+  titleAction?: React.ReactNode;
 }
 
 export function HistoryShell(props: HistoryShellProps) {
@@ -132,7 +134,10 @@ export function HistoryShell(props: HistoryShellProps) {
       <Header onNavigate={props.onNavigate} />
       <main className="flex-1 max-w-screen-lg mx-auto px-6 py-10 w-full">
         <p className="text-sm text-primary font-semibold mb-1">{props.eyebrow}</p>
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">{props.title}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">{props.title}</h1>
+          {props.titleAction}
+        </div>
 
         <div className="flex flex-wrap items-end gap-4 mb-6">
           <div className="flex flex-col gap-1">

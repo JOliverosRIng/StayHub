@@ -1,10 +1,11 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { http as mock } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../test/msw/server';
 import { mockDb, mockToken, problem } from '../../test/msw/handlers';
-import { GUEST_ID, OWNER_ID, PROPERTY_IDS } from '../../test/msw/fixtures';
-import { renderWithProviders } from '../../test/utils';
+import { BOOKING_IDS, GUEST_ID, OWNER_ID, PROPERTY_IDS } from '../../test/msw/fixtures';
+import { createQueryWrapper, createTestQueryClient, renderWithProviders } from '../../test/utils';
+import { useCreateReview } from '../api/reviews';
 import { session } from '../api/session';
 import { BookingProvider } from '../context/BookingContext';
 import type { PendingBookingData } from '../types';
@@ -141,5 +142,41 @@ describe('PropertyDetail', () => {
     expect(onBookingConfirmed).toHaveBeenCalled();
     expect(screen.getByText('¡Reserva confirmada!')).toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem('stayhub_bookings')!)).toEqual([expect.objectContaining({ roomId, userId: GUEST_ID, totalPrice: 478.5 })]);
+  });
+});
+
+describe('PropertyDetail reviews (FE-038)', () => {
+  function renderWithClient(propertyId: string, client = createTestQueryClient()) {
+    renderWithProviders(
+      <BookingProvider>
+        <PropertyDetail propertyId={propertyId} pendingBooking={null} onBookingRequired={vi.fn()} onBookingConfirmed={vi.fn()} />
+      </BookingProvider>,
+      { route: `/property/${propertyId}`, path: '/property/:id', client },
+    );
+    return client;
+  }
+
+  it('reflects a newly created review in the detail without a reload, as plain text', async () => {
+    vi.spyOn(session, 'accessToken').mockReturnValue(mockToken('GUEST', GUEST_ID));
+    const client = renderWithClient(PROPERTY_IDS.villa);
+    const reviews = await screen.findByRole('region', { name: /Reseñas/ });
+    await within(reviews).findByText('Volveremos sin duda.'); // the 3 seeded reviews
+    expect(screen.getByText('(3 reseñas)')).toBeInTheDocument();
+
+    const { result } = renderHook(() => useCreateReview(), { wrapper: createQueryWrapper(client) });
+    act(() => { result.current.mutate({ bookingId: BOOKING_IDS.villaCompleted, rating: 1, comment: 'Reseña con <b>etiquetas</b>.' }); });
+
+    // The detail refetches by cache invalidation: new review appears and the count updates.
+    expect(await within(reviews).findByText('Reseña con <b>etiquetas</b>.')).toBeInTheDocument(); // rendered as text, not HTML
+    await waitFor(() => expect(screen.getByText('(4 reseñas)')).toBeInTheDocument());
+  });
+
+  it('shows the reviews error with retry while the rest of the detail keeps working', async () => {
+    server.use(mock.get('*/api/v1/properties/:id/reviews', () => problem(503, 'UNAVAILABLE')));
+    renderWithClient(PROPERTY_IDS.villa);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Villa Serena Boutique Hotel & Spa' })).toBeInTheDocument();
+    const reviews = screen.getByRole('region', { name: /Reseñas/ });
+    expect(await within(reviews).findByRole('alert')).toHaveTextContent('No pudimos cargar las reseñas.');
+    expect(within(reviews).getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
   });
 });

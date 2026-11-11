@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Home } from '../pages/Home';
 import { Login } from '../pages/Login';
 import { MyBookings } from '../pages/MyBookings';
+import { MyReviews } from '../pages/MyReviews';
 import { Booking } from '../pages/booking/Booking';
 import { CancelBooking } from '../pages/booking/CancelBooking';
 import { Payment } from '../pages/booking/Payment';
@@ -105,6 +106,10 @@ function MyBookingsRoute() {
   return <MyBookings onNavigate={useLegacyNavigate()} />;
 }
 
+function MyReviewsRoute() {
+  return <MyReviews onNavigate={useLegacyNavigate()} />;
+}
+
 /**
  * Role-based access map (enforced by `RequireRole`; the Gateway still authorizes every request):
  * - Public: home, search, detail, login, register.
@@ -126,6 +131,7 @@ export const appRoutes: RouteObject[] = [
       { path: '/property/:id', element: <PropertyDetailRoute /> },
       // Guest (the page itself prompts anonymous visitors to sign in)
       { path: paths.bookings, element: <MyBookingsRoute /> },
+      { path: paths.reviews, element: <MyReviewsRoute /> },
       // Authenticated (guest or owner): cancellation step. The page redirects to login on a 401 and
       // the server enforces ownership (403/404), so no single-role guard fits here.
       { path: '/bookings/:bookingId/cancel', element: <CancelBooking /> },

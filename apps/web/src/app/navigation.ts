@@ -10,6 +10,8 @@ export const paths = {
   search: '/search',
   property: (id: string) => `/property/${encodeURIComponent(id)}`,
   bookings: '/bookings',
+  /** RQ-11 the guest's own reviews. */
+  reviews: '/reviews',
   host: '/host',
   hostNew: '/host/new',
   hostProperties: '/host/properties',
