@@ -114,6 +114,16 @@ export function publishProperty(property: Property): Promise<Property> {
   return replaceProperty(property.id, toReplaceInput(property, { status: 'PUBLISHED' }));
 }
 
+/**
+ * RQ-03 edit: persists the editable fields of an owned property. Builds the full PUT representation
+ * from the current property plus `changes` (so the server never clears a field the owner left
+ * untouched) and carries the current `version` for optimistic concurrency. Transport failures surface
+ * as `ApiError` (400/401/403/404/409) exactly like the rest of the write client.
+ */
+export function saveProperty(property: Property, changes: Partial<PropertyReplace> = {}): Promise<Property> {
+  return replaceProperty(property.id, toReplaceInput(property, changes));
+}
+
 /** Client-side guard mirroring the contract. The server still decides by magic bytes. */
 export function validatePhotoFile(file: Pick<File, 'size' | 'type'>): string | undefined {
   if (file.size < 1) return 'El archivo está vacío.';
@@ -192,6 +202,18 @@ export function usePublishProperty() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: publishProperty,
+    onSuccess: (property) => {
+      client.setQueryData(propertyKeys.detail(property.id), property);
+      void client.invalidateQueries({ queryKey: searchKeys.all });
+    },
+  });
+}
+
+/** RQ-03 edit mutation. On success refreshes the cached detail and search so both reflect the edit. */
+export function useUpdateProperty() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ property, changes }: { property: Property; changes?: Partial<PropertyReplace> }) => saveProperty(property, changes),
     onSuccess: (property) => {
       client.setQueryData(propertyKeys.detail(property.id), property);
       void client.invalidateQueries({ queryKey: searchKeys.all });
