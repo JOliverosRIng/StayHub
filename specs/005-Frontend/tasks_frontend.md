@@ -111,7 +111,7 @@ aparecen solo como dependencias contractuales externas, consumidas a través del
 **Independent Test**: el huésped cancela dentro de la política; el propietario cancela con justificación; se refleja el reembolso cuando aplica.
 
 - [x] FE-034 [P] [RQ-09][RQ-10] Escribir primero pruebas de cancelación (`DELETE /bookings/:id`) para huésped (política) y propietario (justificación) y de los estados de reembolso (Component: Cancel tests; Trace: RQ-09/RQ-10; Depends on: FE-032) in `apps/web/src/api/bookings-cancel.test.ts`
-- [ ] FE-035 [RQ-09][RQ-10] Implementar cancelación con confirmación, mostrando la política aplicable y el resultado del reembolso (Component: Cancel flow; Trace: RQ-09/RQ-10; Depends on: FE-033, FE-034) in `apps/web/src/pages/booking/CancelBooking.tsx`
+- [x] FE-035 [RQ-09][RQ-10] Implementar cancelación con confirmación, mostrando la política aplicable y el resultado del reembolso (Component: Cancel flow; Trace: RQ-09/RQ-10; Depends on: FE-033, FE-034) in `apps/web/src/pages/booking/CancelBooking.tsx`
 
 ### Phase 10: RQ-11 — Calificar la propiedad
 

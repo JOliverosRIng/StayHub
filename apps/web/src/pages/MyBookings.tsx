@@ -12,6 +12,9 @@ interface MyBookingsProps {
   onNavigate: (page: string, id?: string) => void;
 }
 
+/** A booking can be cancelled only while it is pending payment or confirmed. */
+export const isCancelable = (booking: Booking) => booking.status === 'PENDING_PAYMENT' || booking.status === 'CONFIRMED';
+
 const STATUS_STYLES: Record<string, string> = {
   CONFIRMED: 'bg-green-50 text-green-700 border-green-200',
   COMPLETED: 'bg-gray-100 text-gray-700 border-gray-200',
@@ -82,7 +85,15 @@ export function MyBookings({ onNavigate }: MyBookingsProps) {
           <Link to={paths.search} className="h-11 inline-flex items-center px-5 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90">Buscar alojamientos</Link>
         </div>
       )}
-      renderItem={(booking) => <BookingRow key={booking.id} booking={booking} />}
+      renderItem={(booking) => (
+        <BookingRow key={booking.id} booking={booking}>
+          {isCancelable(booking) && (
+            <Link to={paths.cancelBooking(booking.id)} className="inline-block mt-2 text-sm font-semibold text-red-600 hover:underline">
+              Cancelar reserva
+            </Link>
+          )}
+        </BookingRow>
+      )}
     />
   );
 }

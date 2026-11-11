@@ -20,6 +20,8 @@ export const paths = {
   book: (id: string) => `/property/${encodeURIComponent(id)}/book`,
   /** Payment step for a created booking (screen implemented in FE-031). */
   bookingPay: (bookingId: string) => `/booking/${encodeURIComponent(bookingId)}/pay`,
+  /** RQ-09/RQ-10 cancellation step for a booking. */
+  cancelBooking: (bookingId: string) => `/bookings/${encodeURIComponent(bookingId)}/cancel`,
 } as const;
 
 /** Router state shapes carried between routes (never persisted, never contains credentials). */

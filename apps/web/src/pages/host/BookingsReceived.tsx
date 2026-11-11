@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useOwnerBookingHistory } from '../../api/bookings-history';
+import { paths } from '../../app/navigation';
 import type { Booking } from '../../types/catalog';
-import { BookingRow, HistoryShell } from '../MyBookings';
+import { BookingRow, HistoryShell, isCancelable } from '../MyBookings';
 
 /**
  * RQ-08 (FE-033) — owner "bookings received", driven by the real contract `GET /bookings/history`
@@ -50,6 +52,11 @@ export function BookingsReceived() {
       renderItem={(booking) => (
         <BookingRow key={booking.id} booking={booking}>
           <p className="text-xs text-gray-500 mt-1">Huésped: {booking.guestId}</p>
+          {isCancelable(booking) && (
+            <Link to={paths.cancelBooking(booking.id)} className="inline-block mt-2 text-sm font-semibold text-red-600 hover:underline">
+              Cancelar reserva
+            </Link>
+          )}
         </BookingRow>
       )}
     />

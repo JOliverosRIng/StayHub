@@ -5,6 +5,7 @@ import { Home } from '../pages/Home';
 import { Login } from '../pages/Login';
 import { MyBookings } from '../pages/MyBookings';
 import { Booking } from '../pages/booking/Booking';
+import { CancelBooking } from '../pages/booking/CancelBooking';
 import { Payment } from '../pages/booking/Payment';
 import { PropertyDetail } from '../pages/PropertyDetail';
 import { Register } from '../pages/Register';
@@ -124,6 +125,9 @@ export const appRoutes: RouteObject[] = [
       { path: '/property/:id', element: <PropertyDetailRoute /> },
       // Guest (the page itself prompts anonymous visitors to sign in)
       { path: paths.bookings, element: <MyBookingsRoute /> },
+      // Authenticated (guest or owner): cancellation step. The page redirects to login on a 401 and
+      // the server enforces ownership (403/404), so no single-role guard fits here.
+      { path: '/bookings/:bookingId/cancel', element: <CancelBooking /> },
       // Authenticated guest: booking flow (RQ-07). Payment screen (`/booking/:id/pay`) arrives in FE-031.
       {
         path: '/property/:id/book',
