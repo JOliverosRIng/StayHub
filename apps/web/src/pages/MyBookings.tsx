@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BOOKING_STATUS_LABELS, bookingHistoryErrorMessage, useGuestBookingHistory } from '../api/bookings-history';
+import { isReviewable } from '../api/reviews';
 import { formatMoney } from '../api/properties';
 import { paths } from '../app/navigation';
 import { Button } from '../components/Button';
@@ -88,8 +89,13 @@ export function MyBookings({ onNavigate }: MyBookingsProps) {
       renderItem={(booking) => (
         <BookingRow key={booking.id} booking={booking}>
           {isCancelable(booking) && (
-            <Link to={paths.cancelBooking(booking.id)} className="inline-block mt-2 text-sm font-semibold text-red-600 hover:underline">
+            <Link to={paths.cancelBooking(booking.id)} className="inline-block mt-2 mr-4 text-sm font-semibold text-red-600 hover:underline">
               Cancelar reserva
+            </Link>
+          )}
+          {isReviewable(booking) && (
+            <Link to={paths.reviewBooking(booking.id)} className="inline-block mt-2 text-sm font-semibold text-primary hover:underline">
+              Calificar alojamiento
             </Link>
           )}
         </BookingRow>

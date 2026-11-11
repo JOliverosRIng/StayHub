@@ -118,7 +118,7 @@ aparecen solo como dependencias contractuales externas, consumidas a través del
 **Independent Test**: tras una estadía completada, el huésped deja 1–5 estrellas y un comentario sobre la propiedad.
 
 - [x] FE-036 [P] [RQ-11] Escribir primero pruebas del cliente de reseñas (`POST /reviews`, `GET /reviews/user/:id`) y de la condición "estadía completada" (Component: Review tests; Trace: RQ-11; Depends on: FE-012) in `apps/web/src/api/reviews-write.test.ts`
-- [ ] FE-037 [RQ-11] Implementar la vista Calificar propiedad (estrellas + comentario) habilitada solo tras estadía completada (Component: Review form; Trace: RQ-11; Depends on: FE-033, FE-036; External dependency: Gateway expone `/reviews`) in `apps/web/src/pages/booking/ReviewProperty.tsx`
+- [x] FE-037 [RQ-11] Implementar la vista Calificar propiedad (estrellas + comentario) habilitada solo tras estadía completada (Component: Review form; Trace: RQ-11; Depends on: FE-033, FE-036; External dependency: Gateway expone `/reviews`) in `apps/web/src/pages/booking/ReviewProperty.tsx`
 - [ ] FE-038 [RQ-11] Mostrar reseñas del usuario y reflejar la nueva reseña en el detalle de la propiedad (Component: Review display; Trace: RQ-11, RQ-06; Depends on: FE-014, FE-037) in `apps/web/src/pages/PropertyDetail.tsx`
 
 ### Phase 11: Integración y cierre Sprint 3

@@ -583,7 +583,7 @@ const userReviewsHandler = http.get(`${API}/reviews/user/:userId`, ({ request, p
     .filter((r) => r.authorId === userId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
   const start = (page - 1) * pageSize;
-  const items = all.slice(start, start + pageSize).map((r) => ({ id: r.id, propertyId: r.propertyId, rating: r.rating, comment: r.comment, createdAt: r.createdAt }));
+  const items = all.slice(start, start + pageSize).map((r) => ({ id: r.id, propertyId: r.propertyId, authorId: r.authorId, rating: r.rating, comment: r.comment, createdAt: r.createdAt }));
   return HttpResponse.json({ items, page, pageSize, total: all.length, totalPages: Math.ceil(all.length / pageSize) });
 });
 
