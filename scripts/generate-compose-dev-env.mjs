@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createPublicKey, generateKeyPairSync } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { importPKCS8, SignJWT } from 'jose';
@@ -253,6 +253,12 @@ replaceEnvironment({
   NOTIFICATIONS_SERVICE_JWT_ISSUER: bookingsIssuer,
   ACCOMMODATIONS_SERVICE_JWT_ISSUER: bookingsIssuer,
 });
+
+// Keep host-side secret material private. Compose consumers opt out of Podman's
+// label confinement explicitly; Unix permissions can therefore remain strict.
+for (const directory of [secretsDirectory, gatewayArtifacts]) {
+  for (const name of readdirSync(directory)) chmodSync(join(directory, name), 0o600);
+}
 
 console.log('[compose-env] .env y secretos locales del Compose están completos.');
 console.log('[compose-env] Las credenciales existentes se conservaron; los tokens de servicio se renovaron por 30 días.');

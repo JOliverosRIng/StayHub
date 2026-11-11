@@ -1,4 +1,6 @@
 FROM node:20-bookworm-slim AS dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 COPY package.json package-lock.json ./
 COPY apps/bookings-service/package.json apps/bookings-service/package.json
@@ -11,6 +13,7 @@ RUN npm run prisma:bookings:generate && npm run build:bookings
 
 FROM dependencies AS migration
 COPY apps/bookings-service/prisma apps/bookings-service/prisma
+COPY apps/bookings-service/scripts apps/bookings-service/scripts
 CMD ["npm", "run", "prisma:bookings:migrate:deploy"]
 
 FROM node:20-bookworm-slim AS runtime
