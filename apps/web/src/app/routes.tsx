@@ -5,6 +5,7 @@ import { Home } from '../pages/Home';
 import { Login } from '../pages/Login';
 import { MyBookings } from '../pages/MyBookings';
 import { Booking } from '../pages/booking/Booking';
+import { Payment } from '../pages/booking/Payment';
 import { PropertyDetail } from '../pages/PropertyDetail';
 import { Register } from '../pages/Register';
 import { Search } from '../pages/Search';
@@ -132,6 +133,18 @@ export const appRoutes: RouteObject[] = [
             forbiddenNotice="Las reservas son para cuentas de huésped."
           >
             <Booking />
+          </RequireRole>
+        ),
+      },
+      {
+        path: '/booking/:bookingId/pay',
+        element: (
+          <RequireRole
+            role="GUEST"
+            anonymousNotice="Inicia sesión como huésped para completar tu pago."
+            forbiddenNotice="Los pagos de reserva son para cuentas de huésped."
+          >
+            <Payment />
           </RequireRole>
         ),
       },

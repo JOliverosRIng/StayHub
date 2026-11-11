@@ -97,7 +97,7 @@ aparecen solo como dependencias contractuales externas, consumidas a través del
 - [x] FE-028 [P] [RQ-07] Escribir primero pruebas del flujo de reserva: selección de fechas sin solapamiento, cálculo de total y confirmación (Component: Booking flow tests; Trace: RQ-07; Depends on: FE-001) in `apps/web/src/pages/booking/Booking.test.tsx`
 - [x] FE-029 [RQ-07] Implementar cliente de reservas con React Query (crear, consultar) (Component: Booking client; Trace: RQ-07; Depends on: FE-027; External dependency: Gateway expone `/bookings`) in `apps/web/src/api/bookings.ts`
 - [x] FE-030 [RQ-07] Implementar flujo de reserva reutilizando `BookingContext`: fechas, habitación, cálculo de total y confirmación → orden de pago (Component: Booking flow; Trace: RQ-07; Depends on: FE-028–FE-029) in `apps/web/src/pages/booking/` and `apps/web/src/context/BookingContext.tsx`
-- [ ] FE-031 [RQ-07] Integrar pago (mock de pasarela): `POST /payments` y estado `GET /payments/:id/status` con resultados pagado/fallido y reintento (Component: Payment UI; Trace: RQ-07; Depends on: FE-030; External dependency: Gateway expone `/payments`) in `apps/web/src/api/payments.ts` and `apps/web/src/pages/booking/Payment.tsx`
+- [x] FE-031 [RQ-07] Integrar pago (mock de pasarela): `POST /payments` y estado `GET /payments/:id/status` con resultados pagado/fallido y reintento (Component: Payment UI; Trace: RQ-07; Depends on: FE-030; External dependency: Gateway expone `/payments`) in `apps/web/src/api/payments.ts` and `apps/web/src/pages/booking/Payment.tsx`
 
 ### Phase 8: RQ-08 — Histórico de reservas
 
