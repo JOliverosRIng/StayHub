@@ -12,6 +12,8 @@ export const paths = {
   bookings: '/bookings',
   host: '/host',
   hostNew: '/host/new',
+  hostProperties: '/host/properties',
+  hostPropertyEdit: (id: string) => `/host/properties/${encodeURIComponent(id)}/edit`,
   /** RQ-07 booking flow for a property. */
   book: (id: string) => `/property/${encodeURIComponent(id)}/book`,
   /** Payment step for a created booking (screen implemented in FE-031). */

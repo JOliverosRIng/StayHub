@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { queryClient as defaultQueryClient } from '../api/queryClient';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { BookingProvider } from '../context/BookingContext';
+import { ToastViewport } from '../components/ui/Toast';
 import { AppRoutes } from './routes';
 
 export const routerFuture = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
@@ -32,6 +33,7 @@ export function App({ client = defaultQueryClient }: { client?: QueryClient }) {
           </BrowserRouter>
         </BookingProvider>
       </AuthProvider>
+      <ToastViewport />
     </QueryClientProvider>
   );
 }

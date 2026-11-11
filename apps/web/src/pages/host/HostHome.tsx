@@ -4,7 +4,7 @@ import { Button } from '../../components/Button';
 import { Header } from '../../components/Header';
 import { useAuth } from '../../context/AuthContext';
 
-/** Owner landing (`/host`). The "my properties" list arrives with RQ-03 (FE-023). */
+/** Owner landing (`/host`), with shortcuts to publish and to manage the owner's properties (RQ-03). */
 export function HostHome() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -15,7 +15,10 @@ export function HostHome() {
         <p className="text-sm text-primary font-semibold mb-1">Panel de anfitrión</p>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Hola, {currentUser?.name.split(' ')[0] ?? 'anfitrión'}</h1>
         <p className="text-gray-500 text-sm mb-8">Publica tus alojamientos para que los huéspedes puedan encontrarlos y reservarlos.</p>
-        <Button variant="primary" size="lg" onClick={() => navigate(paths.hostNew)}>Publicar una propiedad</Button>
+        <div className="flex flex-wrap gap-3">
+          <Button variant="primary" size="lg" onClick={() => navigate(paths.hostNew)}>Publicar una propiedad</Button>
+          <Button variant="outline" size="lg" onClick={() => navigate(paths.hostProperties)}>Ver mis propiedades</Button>
+        </div>
       </main>
     </div>
   );

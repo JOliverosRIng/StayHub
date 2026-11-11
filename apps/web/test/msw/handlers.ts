@@ -221,6 +221,20 @@ const suggestHandler = http.get(`${API}/search/suggest`, ({ request }) => {
 
 type IdParams = PathParams<'id'>;
 
+/**
+ * PROVISIONAL owner-scoped listing (`GET /properties?mine=true`). The accommodations contract has no
+ * owner listing yet (External dependency: G1); this mock lets FE-023 develop against the shape the
+ * real endpoint is expected to take. Returns every property owned by the caller, all statuses.
+ */
+const myPropertiesHandler = http.get(`${API}/properties`, ({ request }) => {
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'HTTP_401');
+  const caller = auth.caller;
+  if (caller.role !== 'OWNER') return problem(403, 'FORBIDDEN');
+  const mine = db.properties.filter((p) => p.ownerId === caller.sub).sort((a, b) => a.name.localeCompare(b.name));
+  return HttpResponse.json(mine);
+});
+
 const getPropertyHandler = http.get<IdParams>(`${API}/properties/:id`, ({ request, params }) => {
   const id = String(params.id);
   if (!UUID.test(id)) return invalid('id');
@@ -406,6 +420,7 @@ export const handlers = [
   searchHandler,
   reviewsHandler,
   uploadPhotoHandler,
+  myPropertiesHandler,
   createBookingHandler,
   getBookingHandler,
   getPropertyHandler,

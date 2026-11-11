@@ -73,15 +73,15 @@ aparecen solo como dependencias contractuales externas, consumidas a través del
 
 **Independent Test**: el propietario modifica nombre, descripción, precios, características, fotos y disponibilidad de una propiedad propia.
 
-- [ ] FE-021 [P] [RQ-03] Escribir primero pruebas del cliente de edición (`PUT /properties/:id`) y de la precarga del formulario (Component: Edit client tests; Trace: RQ-03; Depends on: FE-016) in `apps/web/src/api/properties-edit.test.ts`
-- [ ] FE-022 [RQ-03] Implementar edición: reutilizar el formulario de publicación en modo edición con datos precargados y guardado (Component: Edit property; Trace: RQ-03; Depends on: FE-019, FE-021) in `apps/web/src/pages/host/EditProperty.tsx`
-- [ ] FE-023 [RQ-03] Vista "mis propiedades" del propietario con enlaces a editar (Component: Owner listings; Trace: RQ-03; Depends on: FE-013, FE-022) in `apps/web/src/pages/host/MyProperties.tsx`
+- [x] FE-021 [P] [RQ-03] Escribir primero pruebas del cliente de edición (`PUT /properties/:id`) y de la precarga del formulario (Component: Edit client tests; Trace: RQ-03; Depends on: FE-016) in `apps/web/src/api/properties-edit.test.ts`
+- [x] FE-022 [RQ-03] Implementar edición: reutilizar el formulario de publicación en modo edición con datos precargados y guardado (Component: Edit property; Trace: RQ-03; Depends on: FE-019, FE-021) in `apps/web/src/pages/host/EditProperty.tsx`
+- [x] FE-023 [RQ-03] Vista "mis propiedades" del propietario con enlaces a editar (Component: Owner listings; Trace: RQ-03; Depends on: FE-013, FE-022) in `apps/web/src/pages/host/MyProperties.tsx`
 
 ### Phase 6: Integración y cierre Sprint 2
 
-- [ ] FE-024 [P] Guards de navegación por rol (público/huésped/propietario) y manejo global de 401/403 con toasts no intrusivos (Component: Authz UX; Trace: Seguridad; Depends on: FE-020) in `apps/web/src/app/routes.tsx` and `apps/web/src/components/ui/Toast.tsx`
-- [ ] FE-025 E2E de navegación buscar→detalle→publicar/editar con MSW y, si el Gateway ya expone las rutas, contra el entorno real (Component: Sprint 2 E2E; Trace: RQ-03–RQ-06; Depends on: FE-011, FE-015, FE-023) in `apps/web/test/e2e/catalog.e2e.test.tsx`
-- [ ] FE-026 Verificación Sprint 2: typecheck, lint, cobertura, accesibilidad básica y percepción de latencia <500 ms en búsqueda; registrar evidencia (Component: Sprint 2 DoD; Trace: NFR; Depends on: FE-006–FE-025) in `apps/web` and `specs/validation-report-frontend.md`
+- [x] FE-024 [P] Guards de navegación por rol (público/huésped/propietario) y manejo global de 401/403 con toasts no intrusivos (Component: Authz UX; Trace: Seguridad; Depends on: FE-020) in `apps/web/src/app/routes.tsx` and `apps/web/src/components/ui/Toast.tsx`
+- [x] FE-025 E2E de navegación buscar→detalle→publicar/editar con MSW y, si el Gateway ya expone las rutas, contra el entorno real (Component: Sprint 2 E2E; Trace: RQ-03–RQ-06; Depends on: FE-011, FE-015, FE-023) in `apps/web/test/e2e/catalog.e2e.test.tsx`
+- [x] FE-026 Verificación Sprint 2: typecheck, lint, cobertura, accesibilidad básica y percepción de latencia <500 ms en búsqueda; registrar evidencia (Component: Sprint 2 DoD; Trace: NFR; Depends on: FE-006–FE-025) in `apps/web` and `specs/validation-report-frontend.md`
 
 **Checkpoint**: huésped busca con filtros y ve detalle; propietario publica y edita. Cierra el frontend de Sprint 2.
 
