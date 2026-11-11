@@ -12,6 +12,10 @@ export const paths = {
   bookings: '/bookings',
   host: '/host',
   hostNew: '/host/new',
+  /** RQ-07 booking flow for a property. */
+  book: (id: string) => `/property/${encodeURIComponent(id)}/book`,
+  /** Payment step for a created booking (screen implemented in FE-031). */
+  bookingPay: (bookingId: string) => `/booking/${encodeURIComponent(bookingId)}/pay`,
 } as const;
 
 /** Router state shapes carried between routes (never persisted, never contains credentials). */

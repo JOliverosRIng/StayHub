@@ -61,9 +61,11 @@ describe('Booking flow — dates and total', () => {
     expect(screen.getByLabelText('HUÉSPEDES')).toHaveValue('1');
   });
 
-  it('validates required dates and a valid range before any request', async () => {
-    const listener = vi.fn();
-    server.events.on('request:start', listener);
+  it('validates required dates and a valid range before any booking request', async () => {
+    let posts = 0;
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'POST' && request.url.includes('/bookings')) posts += 1;
+    });
     renderBooking();
     await screen.findByRole('heading', { name: /Casa Azul/ });
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar reserva' }));
@@ -73,7 +75,7 @@ describe('Booking flow — dates and total', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar reserva' }));
     expect(screen.getByText('La fecha de salida debe ser posterior a la de entrada')).toBeInTheDocument();
     server.events.removeAllListeners();
-    expect(listener).not.toHaveBeenCalled();
+    expect(posts).toBe(0);
   });
 
   it('rejects dates in the past', async () => {

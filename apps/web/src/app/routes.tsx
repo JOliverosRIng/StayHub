@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Home } from '../pages/Home';
 import { Login } from '../pages/Login';
 import { MyBookings } from '../pages/MyBookings';
+import { Booking } from '../pages/booking/Booking';
 import { PropertyDetail } from '../pages/PropertyDetail';
 import { Register } from '../pages/Register';
 import { Search } from '../pages/Search';
@@ -110,6 +111,19 @@ export const appRoutes: RouteObject[] = [
       { path: '/property/:id', element: <PropertyDetailRoute /> },
       // Guest (the page itself prompts anonymous visitors to sign in)
       { path: paths.bookings, element: <MyBookingsRoute /> },
+      // Authenticated guest: booking flow (RQ-07). Payment screen (`/booking/:id/pay`) arrives in FE-031.
+      {
+        path: '/property/:id/book',
+        element: (
+          <RequireRole
+            role="GUEST"
+            anonymousNotice="Inicia sesión como huésped para completar tu reserva."
+            forbiddenNotice="Las reservas son para cuentas de huésped."
+          >
+            <Booking />
+          </RequireRole>
+        ),
+      },
       // Owner
       { path: paths.host, element: <RequireRole role="OWNER"><HostHome /></RequireRole> },
       { path: paths.hostNew, element: <RequireRole role="OWNER"><PublishProperty /></RequireRole> },
