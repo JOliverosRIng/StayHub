@@ -2,8 +2,8 @@ import { assertStatusTransition, fingerprintRequest, renderNotification } from '
 
 describe('notification domain policy (NTF-004)', () => {
   it.each([
-    ['BOOKING_CONFIRMATION', { bookingId: 'b1', roomTitle: 'Suite', roomLocation: 'Bogotá', checkIn: '2026-12-01', checkOut: '2026-12-03', guests: 2, totalPrice: '12.50' }],
-    ['CHECKIN_REMINDER', { bookingId: 'b1', roomTitle: 'Suite', roomLocation: 'Bogotá', checkIn: '2026-12-01' }],
+    ['BOOKING_CONFIRMATION', { bookingId: 'b1', propertyName: 'Hotel Central', roomName: 'Suite', checkIn: '2026-12-01', checkOut: '2026-12-03', guests: 2, totalPrice: '12.50' }],
+    ['CHECKIN_REMINDER', { bookingId: 'b1', propertyName: 'Hotel Central', roomName: 'Suite', checkIn: '2026-12-01' }],
     ['SYSTEM_ALERT', { alertCode: 'SYSTEM_DOWN', title: '<b>Maintenance</b>', message: 'Update soon' }],
   ])('renders %s as plain text', (type, data) => {
     const rendered = renderNotification(type as never, data);
@@ -13,6 +13,7 @@ describe('notification domain policy (NTF-004)', () => {
 
   it('rejects extra template fields and invalid transitions', () => {
     expect(() => renderNotification('SYSTEM_ALERT', { alertCode: 'A1', title: 'x', message: 'y', email: 'x' })).toThrow();
+    expect(() => renderNotification('BOOKING_CONFIRMATION', { bookingId: 'b1', roomTitle: 'Suite', roomLocation: 'Bogotá', checkIn: '2026-12-01', checkOut: '2026-12-03', guests: 2, totalPrice: '12.50' })).toThrow();
     expect(() => assertStatusTransition('SENT', 'FAILED')).toThrow();
   });
 

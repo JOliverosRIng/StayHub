@@ -16,7 +16,7 @@ describeDb('guest cancellation', () => {
   let useCase: CancelGuestBookingUseCase;
   let refundWorker: RequestRefundWorker;
   let refundResult: PrismaRefundResultUnitOfWork;
-  const refunds = { requestRefund: jest.fn(async () => ({ status: 'ACCEPTED' as const })) };
+  const refunds = { requestRefund: jest.fn(async () => ({ refundId: randomUUID(), status: 'PENDING' as const })) };
   const guestId = randomUUID(); const ownerId = randomUUID(); const propertyId = randomUUID(); const roomId = randomUUID();
   const bookingId = randomUUID(); const paymentOrderId = randomUUID(); const overlappingBookingId = randomUUID(); const refundEventId = randomUUID();
 
@@ -69,11 +69,11 @@ describeDb('guest cancellation', () => {
 
   it('requests the refund once and applies the refund result without reactivating availability', async () => {
     expect(await refundWorker.runOnce()).toBe(1);
-    expect(refunds.requestRefund).toHaveBeenCalledWith({ bookingId, paymentOrderId, mode: 'POLICY', policyVersion: 'v1' }, `booking:${bookingId}:refund`);
+    expect(refunds.requestRefund).toHaveBeenCalledWith({ bookingId, paymentOrderId, amount: '20.00', mode: 'POLICY', policyVersion: 'v1' }, `booking:${bookingId}:refund`);
     expect((await prisma.paymentWork.findFirstOrThrow({ where: { bookingId, operation: 'REQUEST_REFUND' } })).status).toBe('SUCCEEDED');
     expect((await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } })).paymentStatus).toBe('REFUND_PENDING');
     expect(await refundWorker.runOnce()).toBe(0);
-    const event = { eventId: refundEventId, eventType: 'payment.v1.refund-completed' as const, schemaVersion: 1 as const, occurredAt: new Date().toISOString(), bookingId, paymentOrderId, refundId: randomUUID() };
+    const event = { eventId: refundEventId, eventType: 'payment.v1.refunded' as const, schemaVersion: 1 as const, occurredAt: new Date().toISOString(), paymentId: paymentOrderId, bookingId, payerUserId: randomUUID(), amountMinor: 2000, currency: 'USD', refundId: randomUUID(), refundedAmountMinor: 2000, totalRefundedAmountMinor: 2000, reason: 'GUEST_CANCELLATION' as const, paymentStatus: 'REFUNDED' as const };
     await expect(refundResult.apply(event, 'c'.repeat(64))).resolves.toBe('APPLIED');
     const booking = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
     expect(booking.paymentStatus).toBe('REFUNDED');

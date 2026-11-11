@@ -6,8 +6,8 @@ export class NotificationPolicyError extends Error {
 }
 
 const layouts: Record<NotificationType, string[]> = {
-  BOOKING_CONFIRMATION: ['bookingId', 'roomTitle', 'roomLocation', 'checkIn', 'checkOut', 'guests', 'totalPrice'],
-  CHECKIN_REMINDER: ['bookingId', 'roomTitle', 'roomLocation', 'checkIn'],
+  BOOKING_CONFIRMATION: ['bookingId', 'propertyName', 'roomName', 'checkIn', 'checkOut', 'guests', 'totalPrice'],
+  CHECKIN_REMINDER: ['bookingId', 'propertyName', 'roomName', 'checkIn'],
   SYSTEM_ALERT: ['alertCode', 'title', 'message'],
 };
 
@@ -35,8 +35,8 @@ export function renderNotification(type: NotificationType, input: unknown): Rend
     if (typeof value !== 'string' && typeof value !== 'number') throw new NotificationPolicyError('Invalid template value');
     data[key] = value;
   }
-  const title = cleanText(String(data.roomTitle ?? data.title ?? ''), 120);
-  const location = data.roomLocation === undefined ? undefined : cleanText(String(data.roomLocation), 200);
+  const title = cleanText(String(data.propertyName ?? data.title ?? ''), 120);
+  const roomName = data.roomName === undefined ? undefined : cleanText(String(data.roomName), 120);
   const dateFields = type === 'BOOKING_CONFIRMATION' ? ['checkIn', 'checkOut'] : type === 'CHECKIN_REMINDER' ? ['checkIn'] : [];
   for (const field of dateFields) {
     const date = data[field];
@@ -46,13 +46,13 @@ export function renderNotification(type: NotificationType, input: unknown): Rend
   if (type === 'BOOKING_CONFIRMATION') {
     const id = cleanText(String(data.bookingId), 100);
     if (!Number.isInteger(data.guests) || (data.guests as number) < 1 || (data.guests as number) > 100 || !/^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$/.test(String(data.totalPrice))) throw new NotificationPolicyError('Invalid booking values');
-    data.bookingId = id; data.roomTitle = title; data.roomLocation = location!;
-    return { subject: `Reserva confirmada: ${title}`, body: `Reserva ${id} en ${title}, ${location}. Check-in ${data.checkIn}; check-out ${data.checkOut}. Huéspedes: ${data.guests}. Total: ${data.totalPrice}.`, data };
+    data.bookingId = id; data.propertyName = title; data.roomName = roomName!;
+    return { subject: `Reserva confirmada: ${title}`, body: `Reserva ${id} en ${title}, ${roomName}. Check-in ${data.checkIn}; check-out ${data.checkOut}. Huéspedes: ${data.guests}. Total: ${data.totalPrice}.`, data };
   }
   if (type === 'CHECKIN_REMINDER') {
     const id = cleanText(String(data.bookingId), 100);
-    data.bookingId = id; data.roomTitle = title; data.roomLocation = location!;
-    return { subject: `Recordatorio de check-in: ${title}`, body: `Tu check-in para ${title}, ${location}, es el ${data.checkIn}. Reserva ${id}.`, data };
+    data.bookingId = id; data.propertyName = title; data.roomName = roomName!;
+    return { subject: `Recordatorio de check-in: ${title}`, body: `Tu check-in para ${title}, ${roomName}, es el ${data.checkIn}. Reserva ${id}.`, data };
   }
   const alertCode = String(data.alertCode);
   if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(alertCode)) throw new NotificationPolicyError('Invalid alert code');

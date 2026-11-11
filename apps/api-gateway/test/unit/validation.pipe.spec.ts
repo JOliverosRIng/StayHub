@@ -156,6 +156,13 @@ describe('GatewayValidationPipe (GW-011)', () => {
     );
   });
 
+  it('deja pasar parametros de ruta y query para que cada controlador aplique su validacion', () => {
+    expect(pipe.transform('11111111-1111-4111-8111-111111111111', {
+      type: 'param', metatype: String, data: 'bookingId',
+    })).toBe('11111111-1111-4111-8111-111111111111');
+    expect(pipe.transform('20', { type: 'query', metatype: String, data: 'pageSize' })).toBe('20');
+  });
+
   it('rechaza un cuerpo que no es objeto', () => {
     expect(() => pipe.transform('texto', metadata(RegistroDto))).toThrow(BadRequestException);
   });

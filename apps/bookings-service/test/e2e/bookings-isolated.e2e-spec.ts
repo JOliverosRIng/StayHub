@@ -40,8 +40,8 @@ describeDb('isolated bookings end-to-end', () => {
       capacity: 2, basePrice: { amount: '10.00', currency: 'USD' }, propertyVersion: 1, roomUpdatedAt: '2035-01-01T00:00:00.000Z',
     }),
   };
-  const payments = { createOrder: async () => ({ paymentOrderId: randomUUID(), status: 'PENDING' as const }) };
-  const refunds = { requestRefund: jest.fn(async () => ({ status: 'ACCEPTED' as const })) };
+  const payments = { createOrder: async () => ({ paymentId: randomUUID(), status: 'PENDING' as const }) };
+  const refunds = { requestRefund: jest.fn(async () => ({ refundId: randomUUID(), status: 'PENDING' as const })) };
 
   beforeAll(async () => {
     prisma = new PrismaService({ datasources: { db: { url: process.env.BOOKINGS_TEST_DATABASE_URL! } } });
@@ -64,6 +64,7 @@ describeDb('isolated bookings end-to-end', () => {
     if (!prisma) return;
     await prisma.processedEvent.deleteMany({ where: { eventId: { in: processedEvents } } });
     await prisma.outboxEvent.deleteMany({ where: { aggregateId: { in: bookingIds } } });
+    await prisma.notificationWork.deleteMany({ where: { bookingId: { in: bookingIds } } });
     await prisma.paymentWork.deleteMany({ where: { bookingId: { in: bookingIds } } });
     await prisma.cancellationDecision.deleteMany({ where: { bookingId: { in: bookingIds } } });
     await prisma.bookingTransition.deleteMany({ where: { bookingId: { in: bookingIds } } });
@@ -78,7 +79,7 @@ describeDb('isolated bookings end-to-end', () => {
     expect(await orderWorker.runOnce()).toBeGreaterThanOrEqual(1);
     const paymentOrderId = (await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } })).paymentOrderId;
     expect(paymentOrderId).not.toBeNull();
-    const confirmed = { eventId: randomUUID(), eventType: 'payment.v1.confirmed' as const, schemaVersion: 1 as const, occurredAt: new Date().toISOString(), bookingId: booking.id, paymentOrderId: paymentOrderId! };
+    const confirmed = { eventId: randomUUID(), eventType: 'payment.v1.approved' as const, schemaVersion: 1 as const, occurredAt: new Date().toISOString(), paymentId: paymentOrderId!, bookingId: booking.id, payerUserId: guestId, amountMinor: 1000, currency: 'USD' };
     processedEvents.push(confirmed.eventId);
     await expect(paymentResult.apply(confirmed, 'a'.repeat(64))).resolves.toBe('APPLIED');
     today = '2036-01-10';
@@ -96,7 +97,7 @@ describeDb('isolated bookings end-to-end', () => {
     await orderWorker.runOnce();
     const paymentOrderId = (await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } })).paymentOrderId;
     expect(paymentOrderId).not.toBeNull();
-    const confirmed = { eventId: randomUUID(), eventType: 'payment.v1.confirmed' as const, schemaVersion: 1 as const, occurredAt: new Date().toISOString(), bookingId: booking.id, paymentOrderId: paymentOrderId! };
+    const confirmed = { eventId: randomUUID(), eventType: 'payment.v1.approved' as const, schemaVersion: 1 as const, occurredAt: new Date().toISOString(), paymentId: paymentOrderId!, bookingId: booking.id, payerUserId: guestId, amountMinor: 1000, currency: 'USD' };
     processedEvents.push(confirmed.eventId);
     await paymentResult.apply(confirmed, 'b'.repeat(64));
     await expect(cancelGuest.execute({ bookingId: booking.id, actorId: guestId })).resolves.toMatchObject({ status: 'CANCELLED_BY_GUEST' });
@@ -104,7 +105,7 @@ describeDb('isolated bookings end-to-end', () => {
     expect(await refundWorker.runOnce()).toBeGreaterThanOrEqual(1);
     const refundEventId = randomUUID();
     processedEvents.push(refundEventId);
-    await refundResult.apply({ eventId: refundEventId, eventType: 'payment.v1.refund-completed', schemaVersion: 1, occurredAt: new Date().toISOString(), bookingId: booking.id, paymentOrderId: paymentOrderId!, refundId: randomUUID() }, 'c'.repeat(64));
+    await refundResult.apply({ eventId: refundEventId, eventType: 'payment.v1.refunded', schemaVersion: 1, occurredAt: new Date().toISOString(), paymentId: paymentOrderId!, bookingId: booking.id, payerUserId: guestId, amountMinor: 2000, currency: 'USD', refundId: randomUUID(), refundedAmountMinor: 2000, totalRefundedAmountMinor: 2000, reason: 'GUEST_CANCELLATION', paymentStatus: 'REFUNDED' }, 'c'.repeat(64));
     const stored = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
     expect(stored.status).toBe('CANCELLED_BY_GUEST');
     expect(stored.paymentStatus).toBe('REFUNDED');

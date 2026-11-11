@@ -5,12 +5,12 @@
 **Spec**: `specs/003-reservas-pagos-resenas/booking_service/spec.md`  
 **Scope**: backend exclusivo de `bookings-service`; no implementa frontend, Payments, Reviews, Notifications ni cambios de negocio en Accommodations.
 
-## Estado de implementación — corte 2026-11-05
+## Estado de implementación — corte 2026-11-11
 
-- Completadas y verificadas **T001–T078 y T079–T101 salvo integraciones externas (98/101)**: Setup, Foundation, US1–US5, evidencia PostgreSQL real, cobertura 74.32 %, contratos, Compose/CI, E2E aislado, rendimiento y shutdown ordenado.
+- Completadas y verificadas todas las tareas, incluida **T097 Gateway↔Bookings real**: Setup, Foundation, US1–US5, evidencia PostgreSQL real, cobertura 74.32 %, contratos, Compose/CI, E2E aislado, rendimiento y shutdown ordenado.
 - Evidencia local: lint, typecheck y build; migración real PostgreSQL 16; concurrencia GiST, idempotencia y saga; 60 pruebas unitarias/contrato/seguridad/integración/concurrencia; arranque con readiness/liveness/Swagger; imagen Docker reproducible.
-- La integración real con `accommodations-service`, `payments-service`, API Gateway y `review_service` continúa explícitamente fuera de este corte y permanece en T095–T098. No se considera E2E externo completado.
-- Pendientes **T095–T098**: solo integraciones externas reales (Accommodations, Payments, Gateway, Reviews). US2–US5, E2E y rendimiento se ejecutaron contra PostgreSQL 16 real con 184 pruebas aprobadas y cobertura 74.32 %. Ver `validation-report.md` y `quickstart.md`.
+- Las integraciones reales con `accommodations-service`, `payments-service`, `notifications-service` y `reviews-service` pasaron en `npm run test:unir:e2e` con **8/8 escenarios**. El harness ya no utiliza stub de Accommodations.
+- **T097 completada**: Gateway y Bookings NestJS reales, PostgreSQL 16 y Redis 7 temporales; rutas, JWT delegado, roles, trazas, Problem Details y cuotas aprobadas de 10 escrituras/minuto/usuario y 60 lecturas/minuto/usuario pasaron 4/4 escenarios. Ver `validation-report.md` y `quickstart.md`.
 
 ## 1. Summary
 

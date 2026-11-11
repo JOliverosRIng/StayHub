@@ -6,7 +6,7 @@
     "node": ">=20 <21"
   },
   "scripts": {
-    "build": "nest build payments-service",
+    "build": "nest build payments-service && node scripts/copy-prisma-client.cjs",
     "start": "node ../../dist/apps/payments-service/main.js",
     "start:dev": "nest start payments-service --watch",
     "lint": "eslint --no-error-on-unmatched-pattern \"src/**/*.ts\" \"test/**/*.ts\"",

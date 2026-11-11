@@ -61,23 +61,25 @@ in OpenAPI. The event is idempotent by `bookingId`. The service records an `IN_A
 `BOOKING_CONFIRMATION`, then stores an `IN_APP` `CHECKIN_REMINDER` for 24 hours before `checkInAt`.
 If the reservation is confirmed within that 24-hour window, the reminder is due immediately. A
 database-backed worker polls every 30 seconds and claims rows safely across multiple instances.
-The booking producer is not wired by this repository change; it must call the event route.
+Bookings is the producer and invokes this route through its durable HTTP worker; the full Payments→Bookings→Notifications flow is verified with `npm run test:unir:e2e`.
 
-Example event body (timestamps include the accommodation's UTC offset):
+Example event body (`checkInAt` es ISO-8601; Bookings lo deriva como `${checkIn}T00:00:00.000Z` hasta que exista zona horaria de propiedad):
 
 ```json
 {
   "userId": "6b2bf6ea-4d76-4f3e-84a7-5a7857825b66",
   "bookingId": "booking-123",
-  "roomTitle": "Suite",
-  "roomLocation": "Bogotá",
+  "propertyName": "Hotel Central",
+  "roomName": "Suite",
   "checkIn": "2026-12-01",
   "checkOut": "2026-12-03",
   "guests": 2,
-  "totalPrice": 250000,
-  "checkInAt": "2026-12-01T15:00:00-05:00"
+  "totalPrice": "250000.00",
+  "checkInAt": "2026-12-01T00:00:00.000Z"
 }
 ```
+
+Los campos canónicos son `propertyName` y `roomName`; Bookings no conserva una ubicación y este servicio no inventa una dirección. `totalPrice` viaja como string decimal para no perder precisión.
 
 In a deployed environment, apply checked-in migrations with `npm run prisma:migrate:deploy` and run `npm start`. Swagger UI is enabled only when `NODE_ENV=development`, at `/docs`; it is not an application endpoint in the production route set.
 

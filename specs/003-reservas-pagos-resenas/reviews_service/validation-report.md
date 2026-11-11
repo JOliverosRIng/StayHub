@@ -80,3 +80,10 @@ todos los umbrales superan el 70 % constitucional.
 3. Obtener ejecución verde del pipeline remoto y revisión humana exigida por la constitución.
 
 No se declara T070 ni integración distribuida completa a partir de un stub.
+
+## 7. Actualización de evidencia — integración conjunta (2026-11-10)
+
+- Se añadió `apps/bookings-service/test/e2e/bookings-reviews.e2e-spec.ts`, que crea una reserva, la confirma, ejecuta check-in/check-out como OWNER y crea la reseña a través de Reviews usando elegibilidad REST real.
+- `npm run test:unir:e2e` levanta Bookings, Reviews, Payments, Notifications, PostgreSQL y RabbitMQ reales en contenedores aislados y ejecuta el E2E conjunto.
+- Resultado: **8/8 escenarios PASS** (7 de Payments/Bookings/Notifications + 1 de Bookings↔Reviews). Se verificaron creación única, respuesta sin `bookingId`/`guestId`, duplicado `409` y reserva no completada `404`.
+- Los contenedores y volúmenes temporales se eliminaron al terminar. T070 sigue pendiente por la cuota de rate limit no definida.

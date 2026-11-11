@@ -4,12 +4,12 @@ import type { SendNotificationUseCase } from './send-notification.use-case';
 export interface BookingConfirmedCommand {
   userId: string;
   bookingId: string;
-  roomTitle: string;
-  roomLocation: string;
+  propertyName: string;
+  roomName: string;
   checkIn: string;
   checkOut: string;
   guests: number;
-  totalPrice: number;
+  totalPrice: string;
   checkInAt: string;
 }
 
@@ -46,8 +46,8 @@ export class BookingConfirmedUseCase {
       channel: 'IN_APP',
       templateData: {
         bookingId: command.bookingId,
-        roomTitle: command.roomTitle,
-        roomLocation: command.roomLocation,
+        propertyName: command.propertyName,
+        roomName: command.roomName,
         checkIn: command.checkIn,
         checkOut: command.checkOut,
         guests: command.guests,
@@ -61,8 +61,8 @@ export class BookingConfirmedUseCase {
     await this.reminders.scheduleBookingReminder({
       bookingId: command.bookingId,
       userId: command.userId,
-      roomTitle: command.roomTitle,
-      roomLocation: command.roomLocation,
+      propertyName: command.propertyName,
+      roomName: command.roomName,
       checkIn: command.checkIn,
       scheduledAt,
     });

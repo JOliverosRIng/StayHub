@@ -9,7 +9,7 @@ Esta guía define evidencia esperada; no afirma que el código exista todavía.
 - RabbitMQ 3 con vhost/usuario de mínimo privilegio.
 - contratos en `contracts/` congelados.
 - claves sintéticas de prueba; nunca secretos reales versionados.
-- adaptadores contractuales de Accommodations y Payments mientras esos endpoints no estén integrados.
+- adaptador contractual de Accommodations y cliente REST de Payments alineado con `POST /payments` y `POST /payments/{id}/refund`; la prueba compuesta real sigue pendiente.
 
 ## 2. Configuración mínima
 
@@ -169,15 +169,64 @@ Cumple el umbral global de 70 % con las integraciones PostgreSQL activas.
 - `node scripts/validate-bookings-contracts.mjs`: OpenAPI válido, operaciones requeridas y JSON Schema válido.
 - `openapi-drift.spec.ts` sin drift generado↔fuente.
 - Compose y CI validados estáticamente (YAML parseable); contenedor no-root, read-only, `restart: always`, healthchecks y grace period.
-- No se ejecutó `docker compose` ni RabbitMQ real en este entorno por falta de Docker. Esos escenarios quedan explícitamente fuera de la evidencia local.
+- Los escenarios reales se ejecutaron con contenedores temporales gestionados por los harnesses; sus recursos se eliminaron al terminar.
 
-## 16. Evidencia diferida — integraciones externas
+## 16. Evidencia de integraciones externas
 
-Siguen pendientes y no se simulan como completadas:
+### Evidencia T097 — Gateway ↔ Bookings real (2026-11-11)
 
-- T095 Gateway ↔ Bookings.
-- T096 Bookings ↔ Accommodations quote real.
-- T097 Bookings ↔ Payments y eventos reales.
-- T098 Bookings ↔ review_service consumer.
+`npm run test:gateway:bookings:e2e` levantó Gateway y Bookings NestJS reales, PostgreSQL 16 y
+Redis 7 temporales. Los 4/4 escenarios aprobaron autenticación/roles, creación, detalle,
+historial, check-in/out, JWT delegado, trazas y Problem Details. La política aprobada se verificó
+por usuario: las primeras 10 escrituras y 60 lecturas dentro de 60 segundos se aceptan; la
+escritura 11 y lectura 61 responden `429 BOOKINGS_RATE_LIMITED` con `Retry-After`.
 
-El handoff contractual de Reviews ya está congelado en `REVIEWS-HANDOFF.md`; solo falta la ejecución conjunta real.
+### Evidencia T095 — Bookings → Accommodations quote real (2026-11-11)
+
+Se ejecutaron las suites de Accommodations contra PostgreSQL 16 real: contract 48/48,
+security 66/66 e integration 55/55. Después, `npm run test:unir:e2e` levantó el
+`accommodations-service` real, aplicó sus migraciones y sembró propiedades/habitaciones de fixture.
+Bookings consultó `GET /internal/v1/properties/{propertyId}/rooms/{roomId}/booking-quote` con JWT
+RS256 de scope `accommodations:booking-quote`; no se utilizó el stub HTTP anterior.
+
+### Evidencia T096a — Bookings → Payments REST real (2026-11-10)
+
+Se levantó un proyecto Compose aislado con Payments, PostgreSQL 16 y RabbitMQ, se aplicaron las dos migraciones de Payments y se ejecutó `test/e2e/bookings-payments.e2e-spec.ts` con JWT RS256 de scopes `payments:charge` y `payments:refund`.
+
+- cobro aprobado y replay con el mismo `paymentId`, sin segundo cargo;
+- cobro rechazado con estado autoritativo `DECLINED`;
+- reembolso completado y replay con el mismo `refundId`, sin segundo reembolso;
+- resultado: **3 suites de escenario / 3 PASS**.
+
+La prueba usa `BOOKINGS_PAYMENTS_E2E_URL`, `BOOKINGS_PAYMENTS_E2E_CHARGE_TOKEN` y `BOOKINGS_PAYMENTS_E2E_REFUND_TOKEN`; si faltan, se omite explícitamente.
+
+### Evidencia T096b — flujo distribuido real (actualizada 2026-11-11)
+
+Se ejecutó `npm run test:unir:e2e`, un harness aislado con PostgreSQL 16, RabbitMQ, Payments, Bookings, Notifications, outbox relays, consumidores, workers y HTTP reales. El harness genera sus propias claves/tokens RS256, aplica migraciones, levanta únicamente sus contenedores y los elimina al terminar.
+
+Escenarios verificados:
+
+- reserva creada y cobrada; Payments publica `payment.v1.approved`; Bookings confirma; el worker invoca Notifications; se crea una sola `BOOKING_CONFIRMATION` y un solo `CHECKIN_REMINDER`;
+- replay con el mismo `eventId` no duplica transición, outbox, trabajo, confirmación ni recordatorio;
+- pago rechazado termina en `PAYMENT_FAILED` sin notificación y un aprobado tardío no reactiva el estado terminal;
+- caída temporal de Notifications deja `NotificationWork` recuperable y readiness reporta `degraded` sin deshabilitar la confirmación de pagos;
+- reinicio de Notifications y de los workers de Bookings procesa el trabajo pendiente;
+- reinicio del consumidor de Bookings no pierde un evento aprobado pendiente en RabbitMQ;
+- Bookings ↔ Reviews valida elegibilidad real, creación después de estadía completada y rechazo de duplicados/no completadas;
+- refund completado conserva `CANCELLED_BY_GUEST` y la disponibilidad liberada permite una reserva solapada.
+
+Resultado final: **8 escenarios / 8 PASS**, con cleanup de procesos y contenedores en exit code 0.
+
+Resultado: **7 escenarios PASS**. El harness no usa mocks de PostgreSQL, RabbitMQ ni HTTP para el flujo principal.
+
+### Evidencia T098 — Bookings ↔ Reviews real (2026-11-10)
+
+`npm run test:unir:e2e` levanta también Reviews y ejecuta `apps/bookings-service/test/e2e/bookings-reviews.e2e-spec.ts` contra Bookings y Reviews reales con PostgreSQL y JWT RS256:
+
+- reserva creada y cobrada, check-in y check-out por el OWNER;
+- Reviews consulta elegibilidad REST y crea una reseña `GUEST` para la estadía `COMPLETED`;
+- la respuesta no expone `bookingId` ni `guestId`;
+- reintento de la misma reserva devuelve `409`;
+- reserva no completada devuelve `404` sin divulgación.
+
+Resultado: **8/8 escenarios del harness PASS** (7 de Payments/Notifications + 1 de Reviews). El handoff `REVIEWS-HANDOFF.md` se mantiene congelado.

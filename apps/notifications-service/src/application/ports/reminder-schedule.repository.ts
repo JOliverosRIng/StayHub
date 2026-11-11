@@ -2,8 +2,8 @@ export interface ScheduledReminder {
   id: string;
   bookingId: string;
   userId: string;
-  roomTitle: string;
-  roomLocation: string;
+  propertyName: string;
+  roomName: string;
   checkIn: string;
 }
 

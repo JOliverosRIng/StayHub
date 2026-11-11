@@ -27,6 +27,7 @@ function baseEnvironment(): NodeJS.ProcessEnv {
     GATEWAY_AUTH_BASE_URL: 'http://auth-service:3001',
     GATEWAY_USERS_BASE_URL: 'http://users-service:3002',
     GATEWAY_REVIEWS_BASE_URL: 'http://reviews-service:3007',
+    GATEWAY_BOOKINGS_BASE_URL: 'http://bookings-service:3005',
     GATEWAY_JWT_PUBLIC_KEYS_JSON:
       '{"stayhub-auth-2026-01":"-----BEGIN PUBLIC KEY-----\\npublic\\n-----END PUBLIC KEY-----"}',
     GATEWAY_JWT_ISSUER: 'https://auth.stayhub.internal',
@@ -39,6 +40,8 @@ function baseEnvironment(): NodeJS.ProcessEnv {
     GATEWAY_SERVICE_TTL_SECONDS: '60',
     GATEWAY_REVIEWS_SERVICE_AUDIENCE: 'stayhub-reviews-service',
     GATEWAY_REVIEWS_SERVICE_SCOPE: 'reviews:read',
+    GATEWAY_BOOKINGS_SERVICE_AUDIENCE: 'stayhub-bookings-service',
+    GATEWAY_BOOKINGS_SERVICE_SCOPE: 'bookings:invoke',
     GATEWAY_REDIS_URL: 'redis://:change-me@gateway-redis:6379/0',
     GATEWAY_REDIS_PASSWORD_FILE: '/run/secrets/gateway_redis_password',
     GATEWAY_REDIS_NAMESPACE: 'gateway:edge',
@@ -47,6 +50,10 @@ function baseEnvironment(): NodeJS.ProcessEnv {
     GATEWAY_REGISTER_RATE_WINDOW_SECONDS: '600',
     GATEWAY_LOGIN_RATE_LIMIT: '30',
     GATEWAY_LOGIN_RATE_WINDOW_SECONDS: '300',
+    GATEWAY_BOOKINGS_WRITE_RATE_LIMIT: '10',
+    GATEWAY_BOOKINGS_WRITE_RATE_WINDOW_SECONDS: '60',
+    GATEWAY_BOOKINGS_READ_RATE_LIMIT: '60',
+    GATEWAY_BOOKINGS_READ_RATE_WINDOW_SECONDS: '60',
     GATEWAY_MAX_PHOTO_BYTES: '5000000',
     GATEWAY_AUTH_TIMEOUT_MS: '3000',
     GATEWAY_AUTH_CIRCUIT_FAILURE_THRESHOLD: '5',
@@ -57,6 +64,9 @@ function baseEnvironment(): NodeJS.ProcessEnv {
     GATEWAY_REVIEWS_TIMEOUT_MS: '3000',
     GATEWAY_REVIEWS_CIRCUIT_FAILURE_THRESHOLD: '5',
     GATEWAY_REVIEWS_CIRCUIT_RESET_MS: '30000',
+    GATEWAY_BOOKINGS_TIMEOUT_MS: '5000',
+    GATEWAY_BOOKINGS_CIRCUIT_FAILURE_THRESHOLD: '5',
+    GATEWAY_BOOKINGS_CIRCUIT_RESET_MS: '30000',
     GATEWAY_INTROSPECTION_TIMEOUT_MS: '2000',
     GATEWAY_OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318',
     GATEWAY_OTEL_SERVICE_NAME: 'stayhub-api-gateway',
@@ -80,6 +90,8 @@ describe('loadGatewayConfig documented values (GW-009)', () => {
     expect(config.apiPrefix).toBe('/api/v1');
     expect(config.registerRateLimit).toEqual({ limit: 10, windowSeconds: 600 });
     expect(config.loginRateLimit).toEqual({ limit: 30, windowSeconds: 300 });
+    expect(config.bookingsWriteRateLimit).toEqual({ limit: 10, windowSeconds: 60 });
+    expect(config.bookingsReadRateLimit).toEqual({ limit: 60, windowSeconds: 60 });
     expect(config.maxPhotoBytes).toBe(5000000);
   });
 
@@ -154,6 +166,10 @@ describe('loadGatewayConfig fails fast on missing configuration (GW-009)', () =>
     'GATEWAY_REGISTER_RATE_WINDOW_SECONDS',
     'GATEWAY_LOGIN_RATE_LIMIT',
     'GATEWAY_LOGIN_RATE_WINDOW_SECONDS',
+    'GATEWAY_BOOKINGS_WRITE_RATE_LIMIT',
+    'GATEWAY_BOOKINGS_WRITE_RATE_WINDOW_SECONDS',
+    'GATEWAY_BOOKINGS_READ_RATE_LIMIT',
+    'GATEWAY_BOOKINGS_READ_RATE_WINDOW_SECONDS',
     'GATEWAY_MAX_PHOTO_BYTES',
     'GATEWAY_AUTH_TIMEOUT_MS',
     'GATEWAY_AUTH_CIRCUIT_FAILURE_THRESHOLD',
@@ -197,6 +213,12 @@ describe('loadGatewayConfig rejects values that break the closed contract (GW-00
     );
     expect(() => load({ GATEWAY_LOGIN_RATE_WINDOW_SECONDS: '600' })).toThrow(
       /GATEWAY_LOGIN_RATE_WINDOW_SECONDS/,
+    );
+    expect(() => load({ GATEWAY_BOOKINGS_WRITE_RATE_LIMIT: '11' })).toThrow(
+      /GATEWAY_BOOKINGS_WRITE_RATE_LIMIT/,
+    );
+    expect(() => load({ GATEWAY_BOOKINGS_READ_RATE_LIMIT: '61' })).toThrow(
+      /GATEWAY_BOOKINGS_READ_RATE_LIMIT/,
     );
   });
 

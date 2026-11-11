@@ -46,6 +46,8 @@ Implementar un servicio NestJS/TypeScript que autentica llamadas de envío y lec
 5. Cursor compuesto reemplaza la paginación no existente en Users; responde a la decisión aprobada.
 6. La base será `notifications_db`; Compose no puede configurarla en esta tarea debido a la prohibición de cambios compartidos.
 7. El validador OpenAPI será local al servicio (`apps/notifications-service/scripts/validate-openapi.mjs`) usando Swagger Parser, en vez de modificar `scripts/validate-users-openapi.mjs` o scripts raíz.
+8. El evento de reserva usa el contrato canónico de Bookings: `propertyName` y `roomName` (snapshots reales), `totalPrice` como string decimal y `checkInAt`; no se inventa una ubicación. Los nombres legacy `roomTitle`/`roomLocation` quedan rechazados por el DTO cerrado.
+9. La integración Bookings→Notifications se verificó con el harness aislado `npm run test:unir:e2e` (PostgreSQL, RabbitMQ, HTTP y contenedores reales; 7/7 escenarios).
 
 ## Diseño por capa
 
