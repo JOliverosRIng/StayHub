@@ -75,7 +75,7 @@ aparecen solo como dependencias contractuales externas, consumidas a través del
 
 - [x] FE-021 [P] [RQ-03] Escribir primero pruebas del cliente de edición (`PUT /properties/:id`) y de la precarga del formulario (Component: Edit client tests; Trace: RQ-03; Depends on: FE-016) in `apps/web/src/api/properties-edit.test.ts`
 - [x] FE-022 [RQ-03] Implementar edición: reutilizar el formulario de publicación en modo edición con datos precargados y guardado (Component: Edit property; Trace: RQ-03; Depends on: FE-019, FE-021) in `apps/web/src/pages/host/EditProperty.tsx`
-- [ ] FE-023 [RQ-03] Vista "mis propiedades" del propietario con enlaces a editar (Component: Owner listings; Trace: RQ-03; Depends on: FE-013, FE-022) in `apps/web/src/pages/host/MyProperties.tsx`
+- [x] FE-023 [RQ-03] Vista "mis propiedades" del propietario con enlaces a editar (Component: Owner listings; Trace: RQ-03; Depends on: FE-013, FE-022) in `apps/web/src/pages/host/MyProperties.tsx`
 
 ### Phase 6: Integración y cierre Sprint 2
 

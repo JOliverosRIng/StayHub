@@ -12,6 +12,8 @@ export const paths = {
   bookings: '/bookings',
   host: '/host',
   hostNew: '/host/new',
+  hostProperties: '/host/properties',
+  hostPropertyEdit: (id: string) => `/host/properties/${encodeURIComponent(id)}/edit`,
 } as const;
 
 /** Router state shapes carried between routes (never persisted, never contains credentials). */
