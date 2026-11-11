@@ -100,6 +100,15 @@ function MyBookingsRoute() {
   return <MyBookings onNavigate={useLegacyNavigate()} />;
 }
 
+/**
+ * Role-based access map (enforced by `RequireRole`; the Gateway still authorizes every request):
+ * - Public: home, search, detail, login, register.
+ * - Guest/history: `/bookings` renders for everyone and the page itself prompts anonymous visitors to
+ *   sign in; booking flows that require a guest session arrive with Sprint 3.
+ * - Owner (OWNER): every `/host/*` route (panel, publish, my properties, edit) is guarded, redirecting
+ *   anonymous visitors to login (remembering the destination) and other roles home with a notice.
+ * Global 401/403 responses are handled once in `api/queryClient.ts` (session invalidation + a toast).
+ */
 export const appRoutes: RouteObject[] = [
   {
     element: <AppLayout />,

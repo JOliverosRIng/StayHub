@@ -79,7 +79,7 @@ aparecen solo como dependencias contractuales externas, consumidas a través del
 
 ### Phase 6: Integración y cierre Sprint 2
 
-- [ ] FE-024 [P] Guards de navegación por rol (público/huésped/propietario) y manejo global de 401/403 con toasts no intrusivos (Component: Authz UX; Trace: Seguridad; Depends on: FE-020) in `apps/web/src/app/routes.tsx` and `apps/web/src/components/ui/Toast.tsx`
+- [x] FE-024 [P] Guards de navegación por rol (público/huésped/propietario) y manejo global de 401/403 con toasts no intrusivos (Component: Authz UX; Trace: Seguridad; Depends on: FE-020) in `apps/web/src/app/routes.tsx` and `apps/web/src/components/ui/Toast.tsx`
 - [ ] FE-025 E2E de navegación buscar→detalle→publicar/editar con MSW y, si el Gateway ya expone las rutas, contra el entorno real (Component: Sprint 2 E2E; Trace: RQ-03–RQ-06; Depends on: FE-011, FE-015, FE-023) in `apps/web/test/e2e/catalog.e2e.test.tsx`
 - [ ] FE-026 Verificación Sprint 2: typecheck, lint, cobertura, accesibilidad básica y percepción de latencia <500 ms en búsqueda; registrar evidencia (Component: Sprint 2 DoD; Trace: NFR; Depends on: FE-006–FE-025) in `apps/web` and `specs/validation-report-frontend.md`
 

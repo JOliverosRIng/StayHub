@@ -4,6 +4,7 @@ import { Blob as NodeBlob, File as NodeFile } from 'node:buffer';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { resetMockDb } from './msw/handlers';
 import { server } from './msw/server';
+import { clearToasts } from '../src/components/ui/Toast';
 
 // --- jsdom/Node interop -----------------------------------------------------
 // MSW builds Fetch `Request`s with Node's implementation, which does not understand jsdom's
@@ -33,5 +34,6 @@ afterEach(() => {
   cleanup();
   server.resetHandlers();
   resetMockDb();
+  clearToasts();
 });
 afterAll(() => server.close());
