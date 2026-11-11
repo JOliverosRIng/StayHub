@@ -493,6 +493,42 @@ const getBookingHandler = http.get(`${API}/bookings/:bookingId`, ({ request, par
   return HttpResponse.json(viewBooking(booking, caller));
 });
 
+/**
+ * RQ-09/RQ-10 cancellation (`DELETE /bookings/:id`, `cancelBooking`). The guest or the owner cancels.
+ * `reason` is required when the actor is the OWNER (400 otherwise). Only PENDING_PAYMENT/CONFIRMED are
+ * cancelable (else 409). A captured payment moves to REFUND_PENDING (refund is coordinated internally
+ * by payments-service; the contract defines no deadlines/percentages). No Idempotency-Key on cancel.
+ */
+const cancelBookingHandler = http.delete(`${API}/bookings/:bookingId`, async ({ request, params }) => {
+  const id = String(params.bookingId);
+  if (!UUID.test(id)) return problem(404, 'NOT_FOUND');
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHORIZED');
+  const caller = auth.caller;
+  const booking = mockDb.booking(id);
+  if (!booking) return problem(404, 'NOT_FOUND');
+
+  const isGuest = booking.guestId === caller.sub;
+  const asOwner = booking.ownerId === caller.sub && !isGuest;
+  if (!isGuest && !asOwner) return problem(403, 'FORBIDDEN');
+
+  const body = await request.json().catch(() => undefined) as { reason?: string } | undefined;
+  const reason = typeof body?.reason === 'string' ? body.reason.trim() : '';
+  if (asOwner && !reason) return invalid('reason'); // OWNER justification is mandatory
+
+  if (booking.status !== 'PENDING_PAYMENT' && booking.status !== 'CONFIRMED') return problem(409, 'STATE_CONFLICT');
+
+  const next: Booking = {
+    ...booking,
+    status: asOwner ? 'CANCELLED_BY_OWNER' : 'CANCELLED_BY_GUEST',
+    cancellationReason: asOwner ? reason : null,
+    paymentStatus: booking.paymentStatus === 'CAPTURED' ? 'REFUND_PENDING' : booking.paymentStatus,
+    updatedAt: new Date().toISOString(),
+  };
+  db.bookings = db.bookings.map((b) => (b.id === id ? next : b));
+  return HttpResponse.json(viewBooking(next, caller));
+});
+
 export const handlers = [
   suggestHandler,
   searchHandler,
@@ -500,6 +536,7 @@ export const handlers = [
   uploadPhotoHandler,
   myPropertiesHandler,
   createBookingHandler,
+  cancelBookingHandler,
   bookingHistoryHandler,
   guestBookingsHandler,
   getBookingHandler,
