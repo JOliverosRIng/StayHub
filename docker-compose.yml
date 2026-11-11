@@ -6,6 +6,7 @@ services:
     command: ["redis-server", "--requirepass", "${GATEWAY_REDIS_PASSWORD}"]
     secrets:
       - gateway_redis_password
+    security_opt: [label=disable]
     networks: [stayhub-internal]
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a \"$$(cat /run/secrets/gateway_redis_password)\" ping | grep PONG"]
@@ -143,7 +144,7 @@ services:
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
+    security_opt: [no-new-privileges:true, label=disable]
     restart: always
     healthcheck:
       test: ["CMD", "node", "-e", "process.env.NODE_TLS_REJECT_UNAUTHORIZED='0';fetch('https://127.0.0.1:8080/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
@@ -164,6 +165,7 @@ services:
       POSTGRES_USER: stayhub_accommodations
       POSTGRES_PASSWORD_FILE: /run/secrets/accommodations_db_password
     secrets: [accommodations_db_password]
+    security_opt: [label=disable]
     volumes: [accommodations_data:/var/lib/postgresql/data]
     networks: [accommodations-internal]
     restart: unless-stopped
@@ -181,6 +183,7 @@ services:
     environment:
       ACCOMMODATIONS_DATABASE_URL_FILE: /run/secrets/accommodations_database_url
     secrets: [accommodations_database_url]
+    security_opt: [label=disable]
     networks: [accommodations-internal]
     restart: "no"
     depends_on:
@@ -206,6 +209,7 @@ services:
       ACCOMMODATIONS_BOOKING_QUOTE_SCOPE: ${ACCOMMODATIONS_BOOKING_QUOTE_SCOPE:-accommodations:booking-quote}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:?required}
     secrets: [accommodations_database_url, accommodations_access_public, accommodations_service_public]
+    security_opt: [label=disable]
     volumes: [accommodations_photos:/var/lib/stayhub/accommodations/photos]
     networks: [accommodations-internal, services]
     restart: unless-stopped
@@ -224,6 +228,7 @@ services:
       POSTGRES_USER: users
       POSTGRES_PASSWORD_FILE: /run/secrets/users_db_password
     secrets: [users_db_password]
+    security_opt: [label=disable]
     volumes: [users_data:/var/lib/postgresql/data]
     networks: [users-internal]
     restart: unless-stopped
@@ -241,6 +246,7 @@ services:
     environment:
       USERS_DATABASE_URL_FILE: /run/secrets/users_database_url
     secrets: [users_database_url]
+    security_opt: [label=disable]
     networks: [users-internal]
     restart: 'no'
     depends_on:
@@ -268,6 +274,7 @@ services:
       USERS_MAX_PHOTO_BYTES: '5000000'
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:?required}
     secrets: [users_database_url, users_access_public, users_service_public]
+    security_opt: [label=disable]
     networks: [users-internal, services]
     restart: unless-stopped
     healthcheck:
@@ -384,6 +391,7 @@ services:
       POSTGRES_USER: stayhub_bookings
       POSTGRES_PASSWORD_FILE: /run/secrets/bookings_db_password
     secrets: [bookings_db_password]
+    security_opt: [label=disable]
     volumes: [bookings_data:/var/lib/postgresql/data]
     networks: [bookings-internal]
     restart: unless-stopped
@@ -415,6 +423,7 @@ services:
     environment:
       BOOKINGS_DATABASE_URL_FILE: /run/secrets/bookings_database_url
     secrets: [bookings_database_url]
+    security_opt: [label=disable]
     networks: [bookings-internal]
     restart: "no"
     depends_on:
@@ -461,7 +470,7 @@ services:
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
+    security_opt: [no-new-privileges:true, label=disable]
     restart: always
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3005/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
@@ -482,6 +491,7 @@ services:
       POSTGRES_USER: stayhub_reviews
       POSTGRES_PASSWORD_FILE: /run/secrets/reviews_db_password
     secrets: [reviews_db_password]
+    security_opt: [label=disable]
     volumes: [reviews_data:/var/lib/postgresql/data]
     networks: [reviews-internal]
     restart: unless-stopped
@@ -499,6 +509,7 @@ services:
     environment:
       REVIEWS_DATABASE_URL_FILE: /run/secrets/reviews_database_url
     secrets: [reviews_database_url]
+    security_opt: [label=disable]
     networks: [reviews-internal]
     restart: "no"
     depends_on:
@@ -531,7 +542,7 @@ services:
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
+    security_opt: [no-new-privileges:true, label=disable]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3007/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
@@ -548,6 +559,7 @@ services:
       POSTGRES_USER: stayhub_payments
       POSTGRES_PASSWORD_FILE: /run/secrets/payments_db_password
     secrets: [payments_db_password]
+    security_opt: [label=disable]
     volumes: [payments_db_data:/var/lib/postgresql/data]
     networks: [payments-internal]
     restart: unless-stopped
@@ -565,6 +577,7 @@ services:
     environment:
       PAYMENTS_DATABASE_URL_FILE: /run/secrets/payments_database_url
     secrets: [payments_database_url]
+    security_opt: [label=disable]
     networks: [payments-internal]
     restart: 'no'
     depends_on:
@@ -601,6 +614,7 @@ services:
       - payments_service_jwt_public
       - payments_token_hmac_secret
       - bookings_rabbitmq_url
+    security_opt: [label=disable]
     networks: [payments-internal, bookings-internal, services]
     restart: always
     healthcheck:
@@ -620,6 +634,7 @@ services:
       POSTGRES_USER: stayhub_notifications
       POSTGRES_PASSWORD_FILE: /run/secrets/notifications_db_password
     secrets: [notifications_db_password]
+    security_opt: [label=disable]
     volumes: [notifications_data:/var/lib/postgresql/data]
     networks: [notifications-internal]
     restart: unless-stopped
@@ -637,6 +652,7 @@ services:
     environment:
       NOTIFICATIONS_DATABASE_URL_FILE: /run/secrets/notifications_database_url
     secrets: [notifications_database_url]
+    security_opt: [label=disable]
     networks: [notifications-internal]
     restart: "no"
     depends_on:
@@ -662,6 +678,7 @@ services:
       NOTIFICATIONS_SEND_SCOPE: ${NOTIFICATIONS_SEND_SCOPE:-notifications:send}
       NOTIFICATIONS_EMAIL_MODE: ${NOTIFICATIONS_EMAIL_MODE:-stub}
     secrets: [notifications_database_url, notifications_access_public, notifications_service_public]
+    security_opt: [label=disable]
     networks: [notifications-internal, services]
     restart: unless-stopped
     depends_on:

@@ -1,4 +1,6 @@
 FROM node:20-bookworm-slim AS dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 COPY package.json package-lock.json ./
 COPY apps/reviews-service/package.json apps/reviews-service/package.json
@@ -11,6 +13,7 @@ RUN npm run prisma:reviews:generate && npm run build:reviews
 
 FROM dependencies AS migration
 COPY apps/reviews-service/prisma apps/reviews-service/prisma
+COPY apps/reviews-service/scripts apps/reviews-service/scripts
 CMD ["npm", "run", "prisma:reviews:migrate:deploy"]
 
 FROM node:20-bookworm-slim AS runtime
