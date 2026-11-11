@@ -123,7 +123,7 @@ aparecen solo como dependencias contractuales externas, consumidas a través del
 
 ### Phase 11: Integración y cierre Sprint 3
 
-- [ ] FE-039 E2E del flujo completo reservar→pagar→confirmar→(cancelar)→calificar con MSW y, si aplica, contra el entorno real (Component: Sprint 3 E2E; Trace: RQ-07–RQ-11; Depends on: FE-031, FE-035, FE-038) in `apps/web/test/e2e/booking.e2e.test.tsx`
+- [x] FE-039 E2E del flujo completo reservar→pagar→confirmar→(cancelar)→calificar con MSW y, si aplica, contra el entorno real (Component: Sprint 3 E2E; Trace: RQ-07–RQ-11; Depends on: FE-031, FE-035, FE-038) in `apps/web/test/e2e/booking.e2e.test.tsx`
 - [ ] FE-040 Verificación Sprint 3: typecheck, lint, cobertura, accesibilidad y manejo de errores de pago/cancelación; actualizar el reporte (Component: Sprint 3 DoD; Trace: NFR; Depends on: FE-027–FE-039) in `apps/web` and `specs/validation-report-frontend.md`
 
 **Checkpoint**: huésped reserva, paga, consulta historial, cancela según política y califica tras la estadía. Cierra el frontend de Sprint 3.
