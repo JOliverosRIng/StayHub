@@ -104,7 +104,7 @@ aparecen solo como dependencias contractuales externas, consumidas a través del
 **Independent Test**: huésped y propietario consultan sus reservas con filtros por fecha, estado y huésped.
 
 - [x] FE-032 [P] [RQ-08] Escribir primero pruebas del cliente de historial (`GET /bookings/history`) con filtros (Component: History client tests; Trace: RQ-08; Depends on: FE-027) in `apps/web/src/api/bookings-history.test.ts`
-- [ ] FE-033 [RQ-08] Implementar `MyBookings` (huésped) e historial del propietario con filtros, reemplazando el mock (Component: Bookings history; Trace: RQ-08; Depends on: FE-029, FE-032) in `apps/web/src/pages/MyBookings.tsx` and `apps/web/src/pages/host/BookingsReceived.tsx`
+- [x] FE-033 [RQ-08] Implementar `MyBookings` (huésped) e historial del propietario con filtros, reemplazando el mock (Component: Bookings history; Trace: RQ-08; Depends on: FE-029, FE-032) in `apps/web/src/pages/MyBookings.tsx` and `apps/web/src/pages/host/BookingsReceived.tsx`
 
 ### Phase 9: RQ-09 / RQ-10 — Cancelar reserva
 

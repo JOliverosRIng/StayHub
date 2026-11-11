@@ -10,6 +10,7 @@ import { PropertyDetail } from '../pages/PropertyDetail';
 import { Register } from '../pages/Register';
 import { Search } from '../pages/Search';
 import { EditProperty } from '../pages/host/EditProperty';
+import { BookingsReceived } from '../pages/host/BookingsReceived';
 import { HostHome } from '../pages/host/HostHome';
 import { MyProperties } from '../pages/host/MyProperties';
 import { PublishProperty } from '../pages/host/PublishProperty';
@@ -150,6 +151,7 @@ export const appRoutes: RouteObject[] = [
       },
       // Owner
       { path: paths.host, element: <RequireRole role="OWNER"><HostHome /></RequireRole> },
+      { path: paths.hostBookings, element: <RequireRole role="OWNER"><BookingsReceived /></RequireRole> },
       { path: paths.hostNew, element: <RequireRole role="OWNER"><PublishProperty /></RequireRole> },
       { path: paths.hostProperties, element: <RequireRole role="OWNER"><MyProperties /></RequireRole> },
       { path: '/host/properties/:id/edit', element: <RequireRole role="OWNER"><EditProperty /></RequireRole> },

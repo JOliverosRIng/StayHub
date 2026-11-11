@@ -444,6 +444,43 @@ const bookingHistoryHandler = http.get(`${API}/bookings/history`, ({ request }) 
   return HttpResponse.json({ items, page, pageSize, total: rows.length, hasNext: start + (pageSize as number) < rows.length });
 });
 
+/**
+ * PROVISIONAL guest history (`GET /bookings`): the caller's own bookings. The booking_service contract
+ * has no guest history list (only per-id lookups); this stands in until a guest-facing listing exists
+ * (External dependency: G1). Any authenticated caller lists their own bookings (no role restriction).
+ */
+const guestBookingsHandler = http.get(`${API}/bookings`, ({ request }) => {
+  const auth = authenticate(request);
+  if (!auth.caller) return problem(401, 'UNAUTHORIZED');
+  const caller = auth.caller;
+
+  const search = new URL(request.url).searchParams;
+  const DATE = /^\d{4}-\d{2}-\d{2}$/;
+  const from = search.get('from') ?? undefined;
+  const to = search.get('to') ?? undefined;
+  const status = search.get('status') ?? undefined;
+  const page = int(search.get('page')) ?? 1;
+  const pageSize = int(search.get('pageSize')) ?? 20;
+
+  const errors: string[] = [];
+  if (from !== undefined && !DATE.test(from)) errors.push('from');
+  if (to !== undefined && !DATE.test(to)) errors.push('to');
+  if (status !== undefined && !BOOKING_STATUSES.includes(status as never)) errors.push('status');
+  if (page === null || page < 1) errors.push('page');
+  if (pageSize === null || pageSize < 1 || pageSize > 100) errors.push('pageSize');
+  if (errors.length) return invalid(...errors);
+
+  let rows = db.bookings.filter((b) => b.guestId === caller.sub);
+  if (status) rows = rows.filter((b) => b.status === status);
+  if (from) rows = rows.filter((b) => b.checkIn >= from);
+  if (to) rows = rows.filter((b) => b.checkIn <= to);
+  rows = [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+
+  const start = ((page as number) - 1) * (pageSize as number);
+  const items = rows.slice(start, start + (pageSize as number)).map((b) => viewBooking(b, caller));
+  return HttpResponse.json({ items, page, pageSize, total: rows.length, hasNext: start + (pageSize as number) < rows.length });
+});
+
 const getBookingHandler = http.get(`${API}/bookings/:bookingId`, ({ request, params }) => {
   const id = String(params.bookingId);
   if (!UUID.test(id)) return problem(404, 'NOT_FOUND');
@@ -464,6 +501,7 @@ export const handlers = [
   myPropertiesHandler,
   createBookingHandler,
   bookingHistoryHandler,
+  guestBookingsHandler,
   getBookingHandler,
   getPropertyHandler,
   createPropertyHandler,

@@ -18,6 +18,7 @@ export function HostHome() {
         <div className="flex flex-wrap gap-3">
           <Button variant="primary" size="lg" onClick={() => navigate(paths.hostNew)}>Publicar una propiedad</Button>
           <Button variant="outline" size="lg" onClick={() => navigate(paths.hostProperties)}>Ver mis propiedades</Button>
+          <Button variant="outline" size="lg" onClick={() => navigate(paths.hostBookings)}>Reservas recibidas</Button>
         </div>
       </main>
     </div>
