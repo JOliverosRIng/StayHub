@@ -26,3 +26,18 @@ export function isPublicRoute(reflector: Reflector, context: ExecutionContext): 
     true
   );
 }
+
+export const IS_OPTIONAL_AUTH_KEY = 'gateway:optional-auth';
+
+/**
+ * Lectura anónima permitida, pero si llega un bearer se valida e introspecciona igual que en una
+ * ruta protegida (bearer inválido o sesión inactiva → 401, nunca se degrada a anónimo).
+ */
+export const OptionalAuth = (): CustomDecorator<string> => SetMetadata(IS_OPTIONAL_AUTH_KEY, true);
+
+export function isOptionalAuthRoute(reflector: Reflector, context: ExecutionContext): boolean {
+  return (
+    reflector.getAllAndOverride<boolean>(IS_OPTIONAL_AUTH_KEY, [context.getHandler(), context.getClass()]) ===
+    true
+  );
+}

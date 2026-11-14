@@ -1,0 +1,61 @@
+# Dependencias de desarrollo de `npm run dev:backend` (scripts/dev-backend.mjs).
+#
+# PostgreSQL (PostGIS) con una base por servicio, RabbitMQ compartido por Bookings, Payments y
+# Search, y Redis de Search. Solo se publican en loopback, con puertos distintos de los de
+# `dev:swagger` (55433/55434/56380) y `dev:gateway` (56381). Los volúmenes conservan los datos.
+name: stayhub-services-dev
+
+services:
+  services-db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: stayhub_dev
+      POSTGRES_PASSWORD: ${DEV_SERVICES_DB_PASSWORD:?required}
+    ports:
+      - "127.0.0.1:${DEV_SERVICES_DB_PORT:-55450}:5432"
+    volumes:
+      - services-dev-db-data:/var/lib/postgresql/data
+      - ./services-init.sql:/docker-entrypoint-initdb.d/10-services.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stayhub_dev -d postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    restart: "no"
+
+  services-rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    hostname: services-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: stayhub_dev
+      RABBITMQ_DEFAULT_PASS: ${DEV_SERVICES_RABBITMQ_PASSWORD:?required}
+    ports:
+      - "127.0.0.1:${DEV_SERVICES_RABBITMQ_PORT:-55673}:5672"
+      - "127.0.0.1:${DEV_SERVICES_RABBITMQ_UI_PORT:-15673}:15672"
+    volumes:
+      - services-dev-rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: "no"
+
+  search-redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${DEV_SERVICES_REDIS_PASSWORD:?required}"]
+    environment:
+      REDISCLI_AUTH: ${DEV_SERVICES_REDIS_PASSWORD:?required}
+    ports:
+      - "127.0.0.1:${DEV_SERVICES_REDIS_PORT:-56382}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    restart: "no"
+
+volumes:
+  services-dev-db-data:
+  services-dev-rabbitmq-data:

@@ -11,11 +11,14 @@ npm ci
 npm run env:auth:dev
 ```
 
-## Arranque (tres terminales)
+## Arranque (cuatro terminales)
 
 1. npm run dev:swagger -- --build — Auth y Users reales, migraciones y dependencias persistentes.
-2. npm run dev:gateway — Redis de borde aislado en 56381, compilación y Gateway HTTP en 8080.
-3. npm run dev:web — abrir http://localhost:5173.
+2. npm run dev:backend — Accommodations, Search, Bookings, Payments, Reviews y Notifications nativos (ver [dev-local-completo.md](dev-local-completo.md)).
+3. npm run dev:gateway — Redis de borde aislado en 56381, compilación y Gateway HTTP en 8080.
+4. npm run dev:web — abrir http://localhost:5173.
+
+Comprobación sin navegador: `npm run smoke:local`.
 
 Swagger del Gateway queda disponible en http://127.0.0.1:8080/docs durante development.
 

@@ -105,13 +105,15 @@ export class HealthController {
   }
 
   private hasEssentialConfig(): boolean {
-    const { tls, authBaseUrl, usersBaseUrl, reviewsBaseUrl, bookingsBaseUrl, redis } = this.config;
+    const { tls, authBaseUrl, usersBaseUrl, reviewsBaseUrl, bookingsBaseUrl, accommodationsBaseUrl, searchBaseUrl, redis } = this.config;
     return (
       (!tls || (nonEmpty(tls.certFile) && nonEmpty(tls.keyFile))) &&
       nonEmpty(authBaseUrl) &&
       nonEmpty(usersBaseUrl) &&
       nonEmpty(reviewsBaseUrl) &&
       nonEmpty(bookingsBaseUrl) &&
+      nonEmpty(accommodationsBaseUrl) &&
+      nonEmpty(searchBaseUrl) &&
       nonEmpty(redis.url)
     );
   }
@@ -122,6 +124,8 @@ export class HealthController {
       hostOf(this.config.usersBaseUrl),
       hostOf(this.config.reviewsBaseUrl),
       hostOf(this.config.bookingsBaseUrl),
+      hostOf(this.config.accommodationsBaseUrl),
+      hostOf(this.config.searchBaseUrl),
     ];
     if (hosts.some((host) => host === undefined)) return false;
     const resolved = await Promise.all(

@@ -18,7 +18,7 @@ import type { AuthoritativeSession } from '@gateway/infrastructure/http/auth-ses
 import { traceIdFromRequest } from '@gateway/interfaces/http/trace-id';
 
 import { extractBearerToken, type AuthenticatedPrincipal } from './jwt.strategy';
-import { isPublicRoute } from './public.decorator';
+import { isOptionalAuthRoute, isPublicRoute } from './public.decorator';
 import type { ValidatedPrincipal } from './session-introspection.service';
 
 /**
@@ -73,6 +73,9 @@ export class AccessGuard implements CanActivate {
     if (isPublicRoute(this.reflector, context)) return true;
 
     const request = context.switchToHttp().getRequest<Request>();
+    if (isOptionalAuthRoute(this.reflector, context) && request.header('authorization') === undefined) {
+      return true;
+    }
     const claims = await this.authenticate(request);
     const session = await this.authoritativeSession(claims, request);
     this.assertRoleCoherence(claims, session);

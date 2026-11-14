@@ -34,6 +34,8 @@
     "test:gateway:bookings:e2e": "npm run test:e2e --workspace @stayhub/bookings-service -- test/e2e/gateway-bookings.e2e-spec.ts",
     "openapi:check:gateway": "node scripts/check-public-openapi-syntax.mjs && node scripts/validate-public-openapi.mjs",
     "dev:gateway": "node scripts/dev-gateway.mjs",
+    "dev:backend": "node scripts/dev-backend.mjs",
+    "smoke:local": "node scripts/dev-smoke.mjs",
     "build:auth": "npm run build --workspace @stayhub/auth-service",
     "lint:auth": "npm run lint --workspace @stayhub/auth-service",
     "typecheck:auth": "npm run typecheck --workspace @stayhub/auth-service",
